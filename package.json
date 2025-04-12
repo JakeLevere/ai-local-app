@@ -1,0 +1,24 @@
+{
+  "name": "ai-local-app",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^35.1.2"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.91.0",
+    "sharp": "^0.33.5",
+    "sqlite3": "^5.1.7"
+  }
+}

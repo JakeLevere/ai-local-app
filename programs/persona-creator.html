@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Persona Creator</title>
+    <style>
+        html {
+            height: 100%;
+            box-sizing: border-box;
+            background-color: #18181b;
+            color: #efeff1;
+            font-family: Arial, sans-serif;
+        }
+        *, *:before, *:after {
+             box-sizing: inherit;
+        }
+
+        body {
+            height: 100%; /* Ensure body takes full viewport height */
+            margin: 0;
+            padding: 10px; /* Small padding around container */
+            display: flex; /* Use flex to center container */
+            justify-content: center;
+            align-items: flex-start; /* Align container to top */
+            overflow: hidden; /* CRITICAL: Prevent body from scrolling */
+        }
+
+        .container {
+            background-color: #1f1f23;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            margin: 0 auto;
+            display: flex; /* Make container a flex column */
+            flex-direction: column;
+            /* CRITICAL: Limit container height based on viewport, accounting for body padding */
+            max-height: calc(100vh - 20px);
+            overflow: hidden; /* Hide potential overflow within container itself */
+        }
+
+        h1 {
+            font-size: 1.3em; /* Further reduced */
+            margin-top: 0;
+            margin-bottom: 10px; /* Further reduced */
+            text-align: center;
+            color: var(--baby-blue, #87CEFA);
+            flex-shrink: 0; /* Prevent title from shrinking */
+        }
+
+        /* Make form fill remaining space and allow textarea to grow/shrink */
+        form#persona-form {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Allow form to take up space */
+            min-height: 0; /* Allow form to shrink if needed */
+            overflow: hidden; /* Hide overflow within form if absolutely necessary */
+        }
+
+        label {
+            display: block;
+            margin-bottom: 3px; /* Further reduced */
+            font-weight: bold;
+            font-size: 0.8em; /* Further reduced */
+            flex-shrink: 0;
+        }
+
+        input[type="text"] { /* Inputs don't grow/shrink */
+            width: 100%;
+            padding: 6px; /* Further reduced */
+            margin-bottom: 8px; /* Further reduced */
+            background-color: #3a3a3d;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #efeff1;
+            font-size: 0.85em; /* Further reduced */
+            flex-shrink: 0;
+        }
+
+        input[type="file"] { /* File input doesn't grow/shrink */
+             display: block;
+             width: 100%;
+             padding: 6px; /* Further reduced */
+             margin-bottom: 8px; /* Further reduced */
+             background-color: #3a3a3d;
+             border: 1px dashed #555;
+             border-radius: 4px;
+             color: #adadb8;
+             font-size: 0.75em; /* Further reduced */
+             cursor: pointer;
+             flex-shrink: 0;
+        }
+        input[type="file"]::file-selector-button {
+             background-color: #555;
+             color: #efeff1;
+             border: none;
+             padding: 3px 6px; /* Further reduced */
+             border-radius: 3px;
+             cursor: pointer;
+             margin-right: 8px;
+             transition: background-color 0.2s ease;
+        }
+         input[type="file"]::file-selector-button:hover {
+              background-color: #666;
+         }
+
+        textarea#pre-prompt { /* Target the textarea specifically */
+            width: 100%;
+            padding: 6px; /* Further reduced */
+            margin-bottom: 8px; /* Further reduced */
+            background-color: #3a3a3d;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #efeff1;
+            font-size: 0.85em; /* Further reduced */
+            resize: vertical; /* Allow user resize */
+            /* CRITICAL: Allow textarea to take remaining space and shrink */
+            flex-grow: 1;
+            min-height: 40px; /* Set a very small minimum */
+        }
+
+        button { /* Button doesn't grow/shrink */
+            width: 100%;
+            padding: 8px; /* Further reduced */
+            background-color: #87CEFA;
+            color: #111;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em; /* Slightly smaller */
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+            margin-top: 8px;
+            flex-shrink: 0;
+        }
+        button:hover {
+            background-color: #6495ED;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create New Persona</h1>
+        <form id="persona-form">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="description">Description:</label>
+            <input type="text" id="description" name="description" required>
+
+            <label for="pre-prompt">Pre-Prompt:</label>
+            <textarea id="pre-prompt" name="pre-prompt" required></textarea>
+
+            <label for="icon">Icon Image (PNG Recommended):</label>
+            <input type="file" id="icon" name="icon" accept="image/png, image/jpeg" required>
+
+            <button type="submit">Create Persona</button>
+        </form>
+    </div>
+
+    <script>
+        // Script remains the same
+        document.getElementById('persona-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const prePrompt = document.getElementById('pre-prompt').value.trim();
+            const iconFile = document.getElementById('icon').files[0];
+
+            if (!name || !description || !prePrompt || !iconFile) {
+                alert('All fields are required!'); return;
+            }
+            if (!['image/png', 'image/jpeg'].includes(iconFile.type)) {
+                 alert('Please select a PNG or JPEG image file.'); return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (reader.error) { console.error("FileReader error:", reader.error); alert('Error reading file.'); return; }
+                const personaData = { name, description, prePrompt, icon: { name: iconFile.name, data: reader.result } };
+                console.log('Attempting to postMessage with persona data...');
+                 try {
+                     window.postMessage({ type: 'save-persona', payload: personaData }, '*');
+                     console.log('Message posted.');
+                     alert('Persona data sent for saving! (Note: Saving mechanism needs review)');
+                 } catch (error) {
+                      console.error("Error using postMessage:", error);
+                      alert("Error: Could not communicate back to the main application to save.");
+                 }
+            };
+            reader.onerror = (error) => { console.error("FileReader onerror:", error); alert('Error reading file.'); };
+            reader.readAsDataURL(iconFile);
+        });
+    </script>
+</body>
+</html>

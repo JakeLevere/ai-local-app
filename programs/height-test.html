@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Height Test</title>
+    <style>
+        html {
+            height: 100%; /* Critical: Allow html to use full height */
+            box-sizing: border-box;
+        }
+        *, *:before, *:after {
+             box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%; /* Critical: Make body fill html */
+            border: 10px dashed limegreen; /* VISIBLE BORDER around the body */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Push top/bottom apart */
+            background-color: #333; /* Dark background for contrast */
+            color: white;
+            font-family: sans-serif;
+            font-size: 1.5em; /* Make text larger */
+        }
+        .location-div {
+            padding: 20px;
+            background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red */
+            text-align: center;
+            font-weight: bold;
+        }
+        .middle-filler {
+             flex-grow: 1; /* Take up space between top and bottom */
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             border: 5px dotted cyan;
+             padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="location-div">TOP</div>
+    <div class="middle-filler">(This area should fill the space)</div>
+    <div class="location-div">BOTTOM</div>
+</body>
+</html>
