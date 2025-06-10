@@ -3,7 +3,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const { OpenAI } = require('openai');
 const sharp = require('sharp');
-const fetch = require('node-fetch'); // Ensure node-fetch v2 is installed (`npm install node-fetch@2`) or use native fetch in Node 18+
+// Use the native fetch available in modern Node versions
+const fetch = global.fetch;
 const { clipboard, nativeImage } = require('electron');
 
 // --- Configuration ---
@@ -297,7 +298,9 @@ async function downloadAndProcessImage(imageUrl, savePath) {
     try {
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-        const imageBuffer = await response.buffer(); // Use buffer() with node-fetch@2
+        // Use arrayBuffer() with the native fetch API
+        const arrayBuffer = await response.arrayBuffer();
+        const imageBuffer = Buffer.from(arrayBuffer);
 
         // Define target dimensions (16:9 within common display sizes)
         const targetWidth = 1920; // Full HD target, adjust as needed
