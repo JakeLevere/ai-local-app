@@ -16,9 +16,9 @@
                 <button id="create-persona">Create New Persona</button>
                 <h2>AI Personas</h2>
                 <ul class="persona-list">
-                    <li class="persona-item selected" data-ai-name="Engineer AI" data-img-base="images/Engineer" data-description="Solves technical problems.">
-                       <img src="./images/Engineer.png" onerror="this.src='./images/placeholder.png'" alt="Engineer AI Icon" class="persona-icon">
-                       <span class="persona-name">Engineer AI</span>
+                    <li class="persona-item selected" data-ai-name="Memo" data-img-base="images/Memo" data-description="Solves technical problems.">
+                       <img src="./images/Memo.png" onerror="this.src='./images/placeholder.png'" alt="Memo Icon" class="persona-icon">
+                       <span class="persona-name">Memo</span>
                      </li>
                      <li class="persona-item" data-ai-name="Mental Health AI" data-img-base="images/Mental" data-description="Provides emotional support.">
                        <img src="./images/Mental.png" onerror="this.src='./images/placeholder.png'" alt="Mental Health AI Icon" class="persona-icon">
@@ -65,9 +65,9 @@
             <div id="central-display">
                 <div id="persona-status-bar">
                      <div id="status-header">
-                       <img id="persona-image" src="./images/Engineer.png" alt="Current AI Persona">
+                       <img id="persona-image" src="./images/Memo.png" alt="Current AI Persona">
                        <div id="status-text-content">
-                           <div id="status-title">Engineer AI</div>
+                           <div id="status-title">Memo</div>
                            <div id="status-info">
                              <span id="conv-count">Conversations: 0</span>
                              <span id="last-interaction">Last Interaction: N/A</span>
@@ -109,7 +109,7 @@
                 </div>
             </div>
             <div id="info-panels">
-                <div id="config-header">Engineer AI Configuration</div>
+                <div id="config-header">Memo Configuration</div>
                 <div id="config-content">
                     <div class="dropdown">
                         <div class="dropdown-header" id="pre-prompt-header">Pre Prompt</div>
