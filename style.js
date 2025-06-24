@@ -16,7 +16,7 @@ const decksPath = path.join(app.getPath('userData'), 'Decks');
 fs.mkdir(decksPath, { recursive: true }).catch(err => console.error('Error creating decks directory:', err));
 
 let mainWindow;
-let selectedAI = 'Engineer AI';
+let selectedAI = 'Memo';
 let decks = {};
 
 const imageBasePath = path.join(__dirname, 'images').replace(/\\/g, '/');
@@ -414,9 +414,9 @@ ction: column;
           <button id="create-persona">Create New Persona</button>
           <h2>AI Personas</h2>
           <ul class="persona-list">
-            <li class="persona-item selected" data-ai-name="Engineer AI" data-img-base="images/Engineer" data-description="Solves technical problems.">
-              <img src="file://${imageBasePath}/Engineer.png" onerror="this.src='file://${imageBasePath}/placeholder.png'" alt="Engineer AI Icon" class="persona-icon">
-              <span class="persona-name">Engineer AI</span>
+            <li class="persona-item selected" data-ai-name="Memo" data-img-base="images/Memo" data-description="Solves technical problems.">
+              <img src="file://${imageBasePath}/Memo.png" onerror="this.src='file://${imageBasePath}/placeholder.png'" alt="Memo Icon" class="persona-icon">
+              <span class="persona-name">Memo</span>
             </li>
             <li class="persona-item" data-ai-name="Mental Health AI" data-img-base="images/Mental" data-description="Provides emotional support.">
               <img src="file://${imageBasePath}/Mental.png" onerror="this.src='file://${imageBasePath}/placeholder.png'" alt="Mental Health AI Icon" class="persona-icon">
@@ -463,9 +463,9 @@ ction: column;
         <div id="central-display">
           <div id="persona-status-bar">
              <div id="status-header">
-                <img id="persona-image" src="file://${imageBasePath}/Engineer.png" alt="Current AI Persona">
+                <img id="persona-image" src="file://${imageBasePath}/Memo.png" alt="Current AI Persona">
                 <div id="status-text-content">
-                  <div id="status-title">Engineer AI</div>
+                  <div id="status-title">Memo</div>
                   <div id="status-info">
                     <span id="conv-count">Conversations: 0</span>
                     <span id="last-interaction">Last Interaction: N/A</span>
@@ -507,7 +507,7 @@ ction: column;
           </div>
         </div>
         <div id="info-panels">
-          <div id="config-header">Engineer AI Configuration</div>
+          <div id="config-header">Memo Configuration</div>
           <div id="config-content">
             <div class="dropdown">
               <div class="dropdown-header" id="pre-prompt-header">Pre Prompt</div>
@@ -570,7 +570,7 @@ ction: column;
       const { ipcRenderer, Menu } = require('electron');
       const path = require('path');
 
-      let selectedAI = 'Engineer AI';
+      let selectedAI = 'Memo';
       let latestAIMessage = null;
 
       document.addEventListener('DOMContentLoaded', () => {
@@ -1196,7 +1196,7 @@ ipcMain.on('add-entry', async (event, userContent) => {
       const displayNum = displayMatch[1];
       const url = displayMatch[2];
       sendToRenderer('load-display', { displayId: `display${displayNum}`, url });
-      chatResponse = `${selectedAI === 'Engineer AI' ? 'Deployed' : 'Here’s'} your web content in Display ${displayNum}!`;
+      chatResponse = `${selectedAI === 'Memo' ? 'Deployed' : 'Here’s'} your web content in Display ${displayNum}!`;
     } else if (imageMatch) {
       const displayNum = imageMatch[1];
       const imagePrompt = imageMatch[2];
@@ -1227,7 +1227,7 @@ ipcMain.on('add-entry', async (event, userContent) => {
 
       sendToRenderer('load-image', { displayId: `display${displayNum}`, imagePath });
       sendToRenderer('stop-loading', { displayId: `display${displayNum}` });
-      chatResponse = `${selectedAI === 'Engineer AI' ? 'Engineered' : 'Generated'} your image in Display ${displayNum}!`;
+      chatResponse = `${selectedAI === 'Memo' ? 'Engineered' : 'Generated'} your image in Display ${displayNum}!`;
     } else if (programMatch) {
       const displayNum = programMatch[1];
       const programType = programMatch[2];
