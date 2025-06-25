@@ -73,8 +73,10 @@ async function discoverPersonas(vaultPath, baseDir) {
             }
             personas.push(primaryPersona);
         }
-        }
-    } catch (error) { console.error("[Persona Service - Discovery] Error:", error); return []; }
+    } catch (error) {
+        console.error("[Persona Service - Discovery] Error:", error);
+        return [];
+    }
     console.log("[Persona Service - Discovery] Finished successfully.");
     return personas; // No need for Array.isArray check here
 }
