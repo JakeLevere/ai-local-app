@@ -91,7 +91,19 @@ function sendMessage() {
     console.log('Renderer: Send message triggered');
     if (!domElements.userInput || !domElements.chatLog || !selectedIdentifier) { appendMessageToChatLog({ content: 'Please select a Persona or Sub-Persona first.' }, true); return; }
     const content = domElements.userInput.value.trim();
-    if (content) { window.electronAPI.send('add-entry', { userContent: content, personaIdentifier: selectedIdentifier }); domElements.userInput.value = ''; }
+    if (!content) return;
+    const lower = content.toLowerCase();
+    const tbMatch = lower.match(/open\s+time\s*block(?:.*?(?:slide|display)\s*(\d+))?/);
+    if (tbMatch) {
+        const displayNum = tbMatch[1] || '2';
+        const url = `http://localhost:3000/programs/Time%20Block.html`;
+        window.electronAPI.send('load-display', { displayId: `display${displayNum}`, url });
+        appendMessageToChatLog({ content: `Opening Time Block in slide ${displayNum}.` }, true);
+        domElements.userInput.value = '';
+        return;
+    }
+    window.electronAPI.send('add-entry', { userContent: content, personaIdentifier: selectedIdentifier });
+    domElements.userInput.value = '';
 }
 
 function loadInitialContent(identifier) {

@@ -117,6 +117,10 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.on('load-display', (event, { displayId, url }) => {
+        sendToRenderer('load-display', { displayId, url });
+    });
+
     sendToRenderer('backend-ready');
 }
 
