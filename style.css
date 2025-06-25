@@ -107,11 +107,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 }
 
 
-/* Slide List (Unchanged) */
-.slide-list { list-style: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; }
-.slide-item { display: flex; align-items: center; padding: 7px 8px; margin-bottom: 3px; cursor: pointer; border-radius: 5px; transition: background-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
-.slide-item:hover { background-color: var(--sidebar-item-hover); }
-.slide-item.selected { background-color: var(--sidebar-item-selected); border-left: 3px solid var(--sidebar-item-selected-border); }
+/* Deck List */
+.deck-list { list-style: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; }
+.deck-item { display: flex; align-items: center; padding: 7px 8px; margin-bottom: 3px; cursor: pointer; border-radius: 5px; transition: background-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
+.deck-item:hover { background-color: var(--sidebar-item-hover); }
+.deck-item.selected { background-color: var(--sidebar-item-selected); border-left: 3px solid var(--sidebar-item-selected-border); }
 .slide-icon { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; margin-right: 10px; border: 1px solid var(--border-color); flex-shrink: 0; background-color: #444; }
 .slide-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; color: var(--text-off-white); line-height: 1.4; }
 
@@ -134,7 +134,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 #left-sidebar.collapsed #persona-section { padding-bottom: 5px; border-bottom: 1px solid var(--separator-color); margin-bottom: 5px; }
 #left-sidebar.collapsed #slide-section { padding-top: 0; border-bottom: none; }
 #left-sidebar.collapsed .persona-item, /* Applies only to primary when collapsed */
-#left-sidebar.collapsed .slide-item { padding: 6px 0px; margin-bottom: 4px; margin-right: 0; justify-content: center; border-left: none; width: 100%; }
+#left-sidebar.collapsed .deck-item { padding: 6px 0px; margin-bottom: 4px; margin-right: 0; justify-content: center; border-left: none; width: 100%; }
 #left-sidebar.collapsed .persona-item.sub-persona { display: none; }
 #left-sidebar.collapsed .persona-item.primary-persona.selected { background-color: var(--sidebar-item-selected); }
 #left-sidebar.collapsed .persona-icon, /* Primary icon size when collapsed */
@@ -169,6 +169,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .clear-button { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background-color: rgba(255, 0, 0, 0.6); color: white; text-align: center; line-height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.8em; font-weight: bold; z-index: 10; border: 1px solid rgba(255, 255, 255, 0.3); transition: background-color 0.2s ease; }
 .clear-button:hover { background-color: rgba(200, 0, 0, 0.8); }
 .scroll-spacer { height: 60vh; width: 100%; flex-shrink: 0; }
+
+/* Slide Tabs */
+#slide-tabs { display: flex; align-items: flex-end; gap: 2px; margin-top: 5px; overflow-x: auto; }
+.slide-tab { display: flex; align-items: center; padding: 5px 8px; cursor: pointer; border: 1px solid var(--border-color); border-bottom: none; border-radius: 4px 4px 0 0; background-color: var(--bg-dark-grey); transition: background-color 0.15s ease; }
+.slide-tab:hover { background-color: var(--sidebar-item-hover); }
+.slide-tab.selected { background-color: var(--sidebar-item-selected); border-color: var(--sidebar-item-selected-border); }
 
 /* --- Right Chat Panel --- (Unchanged) */
 #right-chat { background-color: var(--bg-dark-grey); padding: 0; height: 100vh; border-left: 1px solid var(--border-color); transition: width 0.3s ease-in-out; width: 340px; position: relative; display: flex; flex-direction: column; overflow: hidden; }
