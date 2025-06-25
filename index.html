@@ -31,25 +31,11 @@
             <div id="slide-section">
                 <div id="deck-controls">
                     <button id="create-deck">Create New Deck</button>
-                    <select id="deck-dropdown">
-                        <option value="">Select a Deck</option>
-                    </select>
                 </div>
                 <hr>
-                <h2>Slides</h2>
+                <h2>Decks</h2>
                 <button id="create-slide">Create New Slide</button>
-                 <ul class="slide-list">
-                     <li class="slide-item" data-display-id="display1"> <img src="./images/placeholder.png" alt="Slide 1" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display2"> <img src="./images/placeholder.png" alt="Slide 2" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display3"> <img src="./images/placeholder.png" alt="Slide 3" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display4"> <img src="./images/placeholder.png" alt="Slide 4" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display5"> <img src="./images/placeholder.png" alt="Slide 5" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display6"> <img src="./images/placeholder.png" alt="Slide 6" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display7"> <img src="./images/placeholder.png" alt="Slide 7" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display8"> <img src="./images/placeholder.png" alt="Slide 8" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display9"> <img src="./images/placeholder.png" alt="Slide 9" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                     <li class="slide-item" data-display-id="display10"> <img src="./images/placeholder.png" alt="Slide 10" class="slide-icon"> <span class="slide-name">Empty</span> </li>
-                 </ul>
+                 <ul id="deck-list" class="deck-list"></ul>
             </div>
         </aside>
 
@@ -66,10 +52,22 @@
                              </div>
                          </div>
                      </div>
-                     <svg id="status-collapse-arrow" viewBox="0 0 24 24">
-                         <path d="M6 15L12 9L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                     </svg>
-                 </div>
+                    <svg id="status-collapse-arrow" viewBox="0 0 24 24">
+                        <path d="M6 15L12 9L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <ul id="slide-tabs" class="slide-tabs">
+                        <li class="slide-tab" data-display-id="display1"><img src="./images/placeholder.png" alt="Slide 1" class="slide-icon"><span class="slide-name">1</span></li>
+                        <li class="slide-tab" data-display-id="display2"><img src="./images/placeholder.png" alt="Slide 2" class="slide-icon"><span class="slide-name">2</span></li>
+                        <li class="slide-tab" data-display-id="display3"><img src="./images/placeholder.png" alt="Slide 3" class="slide-icon"><span class="slide-name">3</span></li>
+                        <li class="slide-tab" data-display-id="display4"><img src="./images/placeholder.png" alt="Slide 4" class="slide-icon"><span class="slide-name">4</span></li>
+                        <li class="slide-tab" data-display-id="display5"><img src="./images/placeholder.png" alt="Slide 5" class="slide-icon"><span class="slide-name">5</span></li>
+                        <li class="slide-tab" data-display-id="display6"><img src="./images/placeholder.png" alt="Slide 6" class="slide-icon"><span class="slide-name">6</span></li>
+                        <li class="slide-tab" data-display-id="display7"><img src="./images/placeholder.png" alt="Slide 7" class="slide-icon"><span class="slide-name">7</span></li>
+                        <li class="slide-tab" data-display-id="display8"><img src="./images/placeholder.png" alt="Slide 8" class="slide-icon"><span class="slide-name">8</span></li>
+                        <li class="slide-tab" data-display-id="display9"><img src="./images/placeholder.png" alt="Slide 9" class="slide-icon"><span class="slide-name">9</span></li>
+                        <li class="slide-tab" data-display-id="display10"><img src="./images/placeholder.png" alt="Slide 10" class="slide-icon"><span class="slide-name">10</span></li>
+                    </ul>
+                </div>
                  <div id="displays-container">
                      <div class="display-wrapper"> <div class="display" id="display1"> <span class="display-number">1</span> <span class="clear-button" data-display-id="display1">X</span> <iframe id="iframe1" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe> <img id="image1" alt="Generated Image"> <div class="loading"></div> </div> </div>
                      <div class="display-wrapper"> <div class="display" id="display2"> <span class="display-number">2</span> <span class="clear-button" data-display-id="display2">X</span> <iframe id="iframe2" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe> <img id="image2" alt="Generated Image"> <div class="loading"></div> </div> </div>
