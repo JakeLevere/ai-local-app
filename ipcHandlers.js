@@ -121,6 +121,52 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
+    ipcMain.on('create-deck', async (event, deckInfo) => {
+        try {
+            await personaService.saveDeck(deckInfo.name, deckInfo, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to create deck: ${err.message}`);
+        }
+    });
+
+    ipcMain.on('load-deck', async (event, deckName) => {
+        const deck = await personaService.loadDeck(deckName, appPaths.decksPath);
+        if (deck) sendToRenderer('load-deck-displays', deck.slides || {});
+        else sendToRenderer('main-process-error', `Deck "${deckName}" not found.`);
+    });
+
+    ipcMain.on('rename-deck', async (event, { oldName, newName }) => {
+        try {
+            await personaService.renameDeck(oldName, newName, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to rename deck: ${err.message}`);
+        }
+    });
+
+    ipcMain.on('delete-deck', async (event, deckName) => {
+        try {
+            await personaService.deleteDeck(deckName, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to delete deck: ${err.message}`);
+        }
+    });
+
+    ipcMain.on('duplicate-deck', async (event, { originalName, newName }) => {
+        try {
+            await personaService.duplicateDeck(originalName, newName, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to duplicate deck: ${err.message}`);
+        }
+    });
+
     sendToRenderer('backend-ready');
 }
 

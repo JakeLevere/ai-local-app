@@ -96,8 +96,52 @@ async function getPersonaStatus(identifier, vaultPath) {
 
 async function loadDecks(decksPath) {
      console.log("[Persona Service - Decks] Loading decks...");
-     let decks = {}; try { const files = await fs.readdir(decksPath); const deckFiles = files.filter(f => f.endsWith('.json')); for (const file of deckFiles) { const deckName = file.replace('.json', ''); try { const content = await fs.readFile(path.join(decksPath, file), 'utf-8'); decks[deckName] = JSON.parse(content); } catch (parseError) { console.error(`Error parsing deck file ${file}:`, parseError); } } } catch (err) { if (err.code !== 'ENOENT') { console.error('[Decks] Error loading decks:', err); } } return decks;
- }
+}
+
+async function loadDeck(deckName, decksPath) {
+    const filePath = path.join(decksPath, `${sanitizeFolderName(deckName)}.json`);
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        return JSON.parse(content);
+    } catch (err) {
+        console.error(`[Decks] Error loading deck ${deckName}:`, err);
+        return null;
+    }
+}
+
+async function saveDeck(deckName, deckData, decksPath) {
+    const filePath = path.join(decksPath, `${sanitizeFolderName(deckName)}.json`);
+    const data = { label: deckData.label || deckName, icon: deckData.icon || '', slides: deckData.slides || {} };
+    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return data;
+}
+
+async function renameDeck(oldName, newName, decksPath) {
+    const oldPath = path.join(decksPath, `${sanitizeFolderName(oldName)}.json`);
+    const newPath = path.join(decksPath, `${sanitizeFolderName(newName)}.json`);
+    await fs.rename(oldPath, newPath);
+    try {
+        const deck = await loadDeck(newName, decksPath);
+        if (deck) {
+            deck.label = newName;
+            await fs.writeFile(newPath, JSON.stringify(deck, null, 2), 'utf-8');
+        }
+    } catch (err) {
+        console.error('[Decks] Error updating renamed deck:', err);
+    }
+}
+
+async function deleteDeck(deckName, decksPath) {
+    const filePath = path.join(decksPath, `${sanitizeFolderName(deckName)}.json`);
+    await fs.unlink(filePath).catch(() => {});
+}
+
+async function duplicateDeck(originalName, newName, decksPath) {
+    const original = await loadDeck(originalName, decksPath);
+    if (!original) throw new Error('Original deck not found');
+    const copy = { ...original, label: newName };
+    await saveDeck(newName, copy, decksPath);
+}
 
  async function savePersonaFileContent(identifier, fileName, content, vaultPath) {
      const parts = identifier.split('/'); const isPrimary = parts.length === 1;
@@ -112,6 +156,11 @@ module.exports = {
     loadPersonaEntries,
     getPersonaStatus,
     loadDecks,
+    loadDeck,
+    saveDeck,
+    renameDeck,
+    deleteDeck,
+    duplicateDeck,
     savePersonaFileContent, // Keep basic save here
     // Still excluded: getSubPersonasFor, appendToConversation, AI functions...
 };
