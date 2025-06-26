@@ -9,6 +9,8 @@ let latestAIMessageElement = null;
 let eventListenersAttached = false;
 let ipcListenersAttached = false;
 
+const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
+
 let domElements = {};
 function cacheDomElements() {
     console.log("--- Caching DOM Elements ---");
@@ -45,6 +47,8 @@ function cacheDomElements() {
         deckList: document.getElementById('deck-list'),
         createSlideBtn: document.getElementById('create-slide'),
         slideTabs: document.getElementById('slide-tabs'),
+        deckContainer: document.getElementById('deck-container'),
+        deckIconsContainer: document.getElementById('deck-icons'),
         displays: {
              'display1': { iframe: document.getElementById('iframe1'), image: document.getElementById('image1'), element: document.getElementById('display1') },
              'display2': { iframe: document.getElementById('iframe2'), image: document.getElementById('image2'), element: document.getElementById('display2') },
@@ -85,6 +89,74 @@ function findAvailableDisplayId() {
     if (!domElements.displays) return 'display1';
     for (const id in domElements.displays) { const d = domElements.displays[id]; if (d?.image && d.iframe && !d.image.classList.contains('active') && !d.iframe.classList.contains('active')) { return id; } }
     return 'display1';
+}
+
+function getCurrentSlides() {
+    const slides = {};
+    if (!domElements.displays) return slides;
+    Object.keys(domElements.displays).forEach(id => {
+        const d = domElements.displays[id];
+        if (!d) return;
+        if (d.image.classList.contains('active') && d.image.dataset.path) {
+            slides[id] = { type: 'image', src: d.image.dataset.path };
+        } else if (d.iframe.classList.contains('active') && d.iframe.src && d.iframe.src !== 'about:blank') {
+            slides[id] = { type: 'iframe', src: d.iframe.src };
+        }
+    });
+    return slides;
+}
+
+function createInitialDeckIcons() {
+    if (!domElements.deckIconsContainer) return;
+    for (let i = 1; i <= 5; i++) {
+        const icon = document.createElement('div');
+        icon.className = 'deck-icon deck-option';
+        icon.dataset.deck = i;
+        icon.textContent = i;
+        icon.style.backgroundColor = deckColors[(i - 1) % deckColors.length];
+        icon.addEventListener('click', handleDeckOptionClick);
+        domElements.deckIconsContainer.appendChild(icon);
+    }
+    const addBtn = document.createElement('div');
+    addBtn.id = 'add-deck-icon';
+    addBtn.className = 'deck-icon add-deck';
+    addBtn.textContent = '+';
+    addBtn.addEventListener('click', handleAddDeck);
+    domElements.deckIconsContainer.appendChild(addBtn);
+}
+
+function handleDeckMainClick() {
+    if (domElements.deckContainer)
+        domElements.deckContainer.classList.toggle('expanded');
+}
+
+function handleDeckOptionClick(event) {
+    const deckNum = event.currentTarget.dataset.deck;
+    if (!deckNum) return;
+    const deckName = `Deck ${deckNum}`;
+    if (event.shiftKey) {
+        const slides = getCurrentSlides();
+        window.electronAPI.send('save-deck-slides', { deckName, slides });
+    } else {
+        window.electronAPI.send('load-deck', deckName);
+    }
+    if (domElements.deckContainer)
+        domElements.deckContainer.classList.remove('expanded');
+}
+
+function handleAddDeck() {
+    const count = domElements.deckIconsContainer.querySelectorAll('.deck-option').length + 1;
+    const deckName = `Deck ${count}`;
+    const slides = getCurrentSlides();
+    window.electronAPI.send('create-deck', { name: deckName, slides });
+    const icon = document.createElement('div');
+    icon.className = 'deck-icon deck-option';
+    icon.dataset.deck = count;
+    icon.textContent = count;
+    icon.style.backgroundColor = deckColors[(count - 1) % deckColors.length];
+    icon.addEventListener('click', handleDeckOptionClick);
+    const addBtn = domElements.deckIconsContainer.querySelector('#add-deck-icon');
+    domElements.deckIconsContainer.insertBefore(icon, addBtn);
 }
 
 function sendMessage() {
@@ -221,6 +293,9 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
 document.addEventListener('DOMContentLoaded', () => {
     console.log("--- Renderer: DOMContentLoaded event fired ---");
     cacheDomElements();
+    createInitialDeckIcons();
+    const mainIcon = document.getElementById('deck-main');
+    if (mainIcon) mainIcon.addEventListener('click', handleDeckMainClick);
     if (!eventListenersAttached) setupEventListeners();
     if (!ipcListenersAttached) setupIpcListeners();
     selectedIdentifier = null;
