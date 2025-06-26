@@ -145,7 +145,15 @@ function handleDeckOptionClick(event) {
 }
 
 function handleAddDeck() {
-    const count = domElements.deckIconsContainer.querySelectorAll('.deck-option').length + 1;
+    const existingCount = domElements.deckIconsContainer.querySelectorAll('.deck-option').length;
+    if (existingCount >= 10) {
+        const addBtn = domElements.deckIconsContainer.querySelector('#add-deck-icon');
+        if (addBtn) addBtn.style.display = 'none';
+        console.warn('Renderer: Maximum deck limit reached (10).');
+        appendMessageToChatLog({ content: 'Maximum of 10 decks reached.' }, true);
+        return;
+    }
+    const count = existingCount + 1;
     const deckName = `Deck ${count}`;
     const slides = getCurrentSlides();
     window.electronAPI.send('create-deck', { name: deckName, slides });
@@ -157,6 +165,7 @@ function handleAddDeck() {
     icon.addEventListener('click', handleDeckOptionClick);
     const addBtn = domElements.deckIconsContainer.querySelector('#add-deck-icon');
     domElements.deckIconsContainer.insertBefore(icon, addBtn);
+    if (count >= 10 && addBtn) addBtn.style.display = 'none';
 }
 
 function sendMessage() {
