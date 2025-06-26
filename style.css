@@ -282,8 +282,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 #deck-container {
     position: absolute;
     left: 105px;
-    top: 50%;
-    transform: translateY(-50%);
+    /* MODIFIED: Vertically aligned with the slide tabs for better visual grouping. */
+    top: 50px;
     z-index: 13;
 }
 #persona-status-bar.collapsed #deck-container {
