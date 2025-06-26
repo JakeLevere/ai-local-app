@@ -150,7 +150,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     transition: height 0.3s ease-in-out, padding 0.3s ease-in-out;
     height: 100px;
     padding: 10px;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
 }
 
@@ -281,7 +281,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 /* Deck icon container and icons */
 #deck-container {
     position: absolute;
-    left: 95px;
+    left: 105px;
     top: 50%;
     transform: translateY(-50%);
     z-index: 13;
