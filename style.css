@@ -314,6 +314,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     left: 0;
     flex-direction: column;
     gap: 4px;
+    max-height: 220px; /* approx. 220px to show several deck icons */
+    overflow-y: auto;
 }
 
 #deck-container.expanded #deck-icons {
