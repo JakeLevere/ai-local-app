@@ -295,7 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
     cacheDomElements();
     createInitialDeckIcons();
     const mainIcon = document.getElementById('deck-main');
-    if (mainIcon) mainIcon.addEventListener('click', handleDeckMainClick);
+    if (mainIcon) {
+        mainIcon.style.backgroundColor = deckColors[0];
+        mainIcon.addEventListener('click', handleDeckMainClick);
+    }
     if (!eventListenersAttached) setupEventListeners();
     if (!ipcListenersAttached) setupIpcListeners();
     selectedIdentifier = null;
