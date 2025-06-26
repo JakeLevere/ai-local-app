@@ -121,6 +121,14 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
+    ipcMain.on('load-image-path', (event, { displayId, imagePath }) => {
+        sendToRenderer('load-image', { displayId, imagePath });
+    });
+
+    ipcMain.on('load-display-url', (event, { displayId, url }) => {
+        sendToRenderer('load-display', { displayId, url });
+    });
+
     ipcMain.on('create-deck', async (event, deckInfo) => {
         try {
             await personaService.saveDeck(deckInfo.name, deckInfo, appPaths.decksPath);
