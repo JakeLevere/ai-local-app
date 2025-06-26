@@ -167,6 +167,18 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.on('save-deck-slides', async (event, { deckName, slides }) => {
+        try {
+            const existing = await personaService.loadDeck(deckName, appPaths.decksPath) || {};
+            const deckData = { ...existing, slides };
+            await personaService.saveDeck(deckName, deckData, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save deck: ${err.message}`);
+        }
+    });
+
     sendToRenderer('backend-ready');
 }
 
