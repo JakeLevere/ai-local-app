@@ -162,7 +162,27 @@ async function getPersonaStatus(identifier, vaultPath) {
 
 
 async function loadDecks(decksPath) {
-     console.log("[Persona Service - Decks] Loading decks...");
+    const decks = {};
+    try {
+        const files = await fs.readdir(decksPath, { withFileTypes: true });
+        for (const entry of files) {
+            if (entry.isFile() && entry.name.endsWith('.json')) {
+                const name = path.basename(entry.name, '.json');
+                try {
+                    const content = await fs.readFile(
+                        path.join(decksPath, entry.name),
+                        'utf-8'
+                    );
+                    decks[name] = JSON.parse(content);
+                } catch (err) {
+                    console.error(`[Decks] Failed to parse deck ${entry.name}:`, err);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Decks] Error reading decks directory:', err);
+    }
+    return decks;
 }
 
 async function loadDeck(deckName, decksPath) {

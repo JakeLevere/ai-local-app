@@ -121,6 +121,14 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
+    ipcMain.on('load-image-path', (event, { displayId, imagePath }) => {
+        sendToRenderer('load-image', { displayId, imagePath });
+    });
+
+    ipcMain.on('load-display-url', (event, { displayId, url }) => {
+        sendToRenderer('load-display', { displayId, url });
+    });
+
     ipcMain.on('create-deck', async (event, deckInfo) => {
         try {
             await personaService.saveDeck(deckInfo.name, deckInfo, appPaths.decksPath);
@@ -164,6 +172,18 @@ function initialize(windowInstance, paths) {
             sendToRenderer('decks-updated', decks);
         } catch (err) {
             sendToRenderer('main-process-error', `Failed to duplicate deck: ${err.message}`);
+        }
+    });
+
+    ipcMain.on('save-deck-slides', async (event, { deckName, slides }) => {
+        try {
+            const existing = await personaService.loadDeck(deckName, appPaths.decksPath) || {};
+            const deckData = { ...existing, slides };
+            await personaService.saveDeck(deckName, deckData, appPaths.decksPath);
+            const decks = await personaService.loadDecks(appPaths.decksPath);
+            sendToRenderer('decks-updated', decks);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save deck: ${err.message}`);
         }
     });
 
