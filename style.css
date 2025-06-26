@@ -110,6 +110,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .deck-item.selected { background-color: var(--sidebar-item-selected); border-left: 3px solid var(--sidebar-item-selected-border); }
 .slide-icon { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; margin-right: 10px; border: 1px solid var(--border-color); flex-shrink: 0; background-color: #444; }
 .slide-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; color: var(--text-off-white); line-height: 1.4; }
+button.deck-save-btn { margin-left: 5px; background: none; border: none; color: var(--text-off-white); cursor: pointer; }
 
 /* Sidebar Collapse Arrow */
 #collapse-arrow { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; padding: 2px; cursor: pointer; fill: var(--text-grey); transition: transform 0.3s ease-in-out, right 0.3s ease-in-out, fill 0.2s ease; border-radius: 4px; }
