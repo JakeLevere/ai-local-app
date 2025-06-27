@@ -82,18 +82,22 @@ async function loadPersonaEntries(identifier, vaultPath) {
     const filePath = path.join(getPersonaFolderPath(identifier, vaultPath), PRIMARY_CONVO_FILE);
     try {
         const content = await readFileSafe(filePath, '');
-        const lines = content.split('\n');
+        const pairs = content.trim().split(/\n\s*\n/).filter(b => b.trim());
+        const recentPairs = pairs.slice(-10);
         const result = [];
         const target = identifier;
-        for (const raw of lines) {
-            const line = raw.trim();
-            if (
-                line.startsWith('- You:') ||
-                line.startsWith('- [') ||
-                line.startsWith(`- ${target}:`) ||
-                line.startsWith('- Error:')
-            ) {
-                result.push({ content: line.substring(2).trim() });
+        for (const pair of recentPairs) {
+            const lines = pair.split('\n');
+            for (const raw of lines) {
+                const line = raw.trim();
+                if (
+                    line.startsWith('- You:') ||
+                    line.startsWith('- [') ||
+                    line.startsWith(`- ${target}:`) ||
+                    line.startsWith('- Error:')
+                ) {
+                    result.push({ content: line.substring(2).trim() });
+                }
             }
         }
         return result;
