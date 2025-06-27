@@ -7,6 +7,20 @@ const PRE_PROMPT_FILE = 'Pre-Prompt.md';
 const MEMORY_PROMPT_FILE = 'Memory-Prompt.md';
 const MEMORY_FILE = 'Memory.md';
 
+const MAX_CONVO_PAIRS = 10;
+
+function parseConversationPairs(content) {
+    if (!content) return [];
+    return content
+        .trim()
+        .split(/\n\s*\n/)
+        .filter(block => block.trim());
+}
+
+function buildConversationContent(pairs) {
+    return pairs.map(p => p.trim()).join('\n\n') + '\n';
+}
+
 function sanitizeFolderName(name) {
     return name?.toLowerCase().replace(/[^a-z0-9_-]/gi, '_') ?? '';
 }
@@ -77,13 +91,15 @@ async function appendToConversation(identifier, userContent, aiContent, vaultPat
 
     await fs.mkdir(folder, { recursive: true });
 
-    const lines = [
-        `- You: ${userContent}`,
-        `- ${identifier}${isError ? ' (Error)' : ''}: ${aiContent}`,
-        ''
-    ].join('\n');
+    const newPair = `- You: ${userContent}\n- ${identifier}${isError ? ' (Error)' : ''}: ${aiContent}`;
 
-    await fs.appendFile(filePath, lines, 'utf-8');
+    const existingContent = await readFileSafe(filePath, '');
+    const pairs = parseConversationPairs(existingContent);
+    pairs.push(newPair);
+    const recentPairs = pairs.slice(-MAX_CONVO_PAIRS);
+    const finalContent = buildConversationContent(recentPairs);
+
+    await fs.writeFile(filePath, finalContent, 'utf-8');
     console.log(`[AI Service] Appended conversation to ${filePath}`);
 }
 
