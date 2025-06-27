@@ -89,7 +89,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     });
 
     // Initialize IPC handlers, passing necessary context (Unchanged)
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath });
+    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath });
 
     // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {
