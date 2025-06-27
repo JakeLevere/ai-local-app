@@ -1,6 +1,7 @@
 const { ipcMain, shell } = require('electron');
 const path = require('path');
 const personaService = require('./personaService.js');
+const sharedDataService = require('./sharedDataService.js');
 let aiService = null;
 let isAIServiceInitialized = false;
 let mainWindow = null;
@@ -32,6 +33,9 @@ function initialize(windowInstance, paths) {
     mainWindow = windowInstance;
     appPaths = paths;
     baseDir = __dirname;
+    if (paths.userDataPath) {
+        sharedDataService.init(paths.userDataPath);
+    }
 
     ipcMain.on('discover-personas', async () => {
         try {
@@ -183,6 +187,30 @@ function initialize(windowInstance, paths) {
             sendToRenderer('decks-updated', decks);
         } catch (err) {
             sendToRenderer('main-process-error', `Failed to save deck: ${err.message}`);
+        }
+    });
+
+    ipcMain.handle('get-calendar-events', async () => {
+        return personaService.getCalendarEvents();
+    });
+
+    ipcMain.on('save-calendar-events', async (event, events) => {
+        try {
+            await personaService.saveCalendarEvents(events);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save calendar events: ${err.message}`);
+        }
+    });
+
+    ipcMain.handle('get-health-metrics', async () => {
+        return personaService.getHealthMetrics();
+    });
+
+    ipcMain.on('save-health-metrics', async (event, metrics) => {
+        try {
+            await personaService.saveHealthMetrics(metrics);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save health metrics: ${err.message}`);
         }
     });
 

@@ -1,6 +1,7 @@
 // personaService.js (Corrected: Discovery + Data Loading, NO AI)
 const fs = require('fs').promises;
 const path = require('path'); // Ensure path is required
+const sharedDataService = require('./sharedDataService.js');
 
 // --- Constants ---
 const PRIMARY_CONVO_FILE = 'Stored_Conversations_Aggregated.md';
@@ -203,6 +204,23 @@ async function savePersonaFileContent(identifier, fileName, content, vaultPath) 
     console.log(`[Persona Service] Saved ${fileName} for ${identifier}`);
 }
 
+// --- Shared Data Access ---
+async function getCalendarEvents() {
+    return sharedDataService.getCalendarEvents();
+}
+
+async function saveCalendarEvents(events) {
+    await sharedDataService.setCalendarEvents(events);
+}
+
+async function getHealthMetrics() {
+    return sharedDataService.getHealthMetrics();
+}
+
+async function saveHealthMetrics(metrics) {
+    await sharedDataService.setHealthMetrics(metrics);
+}
+
 // --- Exports ---
 module.exports = {
     discoverPersonas,
@@ -216,5 +234,9 @@ module.exports = {
     deleteDeck,
     duplicateDeck,
     savePersonaFileContent, // Keep basic save here
+    getCalendarEvents,
+    saveCalendarEvents,
+    getHealthMetrics,
+    saveHealthMetrics,
     // Still excluded: getSubPersonasFor, appendToConversation, AI functions...
 };
