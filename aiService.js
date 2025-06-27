@@ -2,9 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { OpenAI } = require('openai');
 
-const SUBPERSONAS_DIR = 'subpersonas';
 const PRIMARY_CONVO_FILE = 'Stored_Conversations_Aggregated.md';
-const SUB_CONVO_FILE = 'Stored_Conversations.md';
 const PRE_PROMPT_FILE = 'Pre-Prompt.md';
 const MEMORY_PROMPT_FILE = 'Memory-Prompt.md';
 const MEMORY_FILE = 'Memory.md';
@@ -14,14 +12,10 @@ function sanitizeFolderName(name) {
 }
 
 function getPersonaFolderPath(identifier, vaultPath) {
-    const parts = identifier.split('/');
-    if (parts.length === 1) {
-        return path.join(vaultPath, sanitizeFolderName(parts[0]));
-    } else if (parts.length === 2) {
-        return path.join(vaultPath, sanitizeFolderName(parts[0]), SUBPERSONAS_DIR, sanitizeFolderName(parts[1]));
-    } else {
-        throw new Error(`Invalid persona identifier format: ${identifier}`);
+    if (!identifier || !vaultPath) {
+        throw new Error('Persona identifier and vaultPath cannot be empty.');
     }
+    return path.join(vaultPath, sanitizeFolderName(identifier));
 }
 
 function getPrimaryPersonaFolderPath(primaryName, vaultPath) {
@@ -47,38 +41,10 @@ async function initializeOpenAI() {
     openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-async function getRoutedChatResponse(initialIdentifier, userContent, vaultPath, getSubPersonasFunc) {
+async function getRoutedChatResponse(initialIdentifier, userContent, vaultPath) {
     await initializeOpenAI();
 
-    let routedIdentifier = initialIdentifier;
-    const isPrimary = !initialIdentifier.includes('/');
-    const primaryId = initialIdentifier.split('/')[0];
-
-    if (isPrimary && typeof getSubPersonasFunc === 'function') {
-        try {
-            const subPersonas = await getSubPersonasFunc(primaryId, vaultPath);
-            if (Array.isArray(subPersonas) && subPersonas.length > 0) {
-                const subList = subPersonas.map(sub => `- ${sub.id}`).join('\n');
-                const routingPrompt = `You are a router. Given the input, decide which of the following sub-personas or the primary should respond. Respond ONLY with one ID.\n\n${subList}\n\nUser: ${userContent}`;
-                const result = await openai.chat.completions.create({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        { role: 'system', content: 'Route this request.' },
-                        { role: 'user', content: routingPrompt }
-                    ],
-                    max_tokens: 10,
-                    temperature: 0
-                });
-                const choice = result.choices?.[0]?.message?.content?.trim();
-                const validIds = [primaryId, ...subPersonas.map(s => s.id)];
-                if (validIds.includes(choice)) {
-                    routedIdentifier = choice;
-                }
-            }
-        } catch (e) {
-            console.warn('[Routing Error]:', e.message);
-        }
-    }
+    const routedIdentifier = initialIdentifier;
 
     const contextPrompt = await readFileSafe(
         path.join(getPersonaFolderPath(routedIdentifier, vaultPath), PRE_PROMPT_FILE),
@@ -107,8 +73,7 @@ async function getRoutedChatResponse(initialIdentifier, userContent, vaultPath, 
 
 async function appendToConversation(identifier, userContent, aiContent, vaultPath, isError = false) {
     const folder = getPersonaFolderPath(identifier, vaultPath);
-    const fileName = identifier.includes('/') ? SUB_CONVO_FILE : PRIMARY_CONVO_FILE;
-    const filePath = path.join(folder, fileName);
+    const filePath = path.join(folder, PRIMARY_CONVO_FILE);
 
     await fs.mkdir(folder, { recursive: true });
 
