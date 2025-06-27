@@ -45,6 +45,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 #left-sidebar.collapsed { width: 50px; padding: 0; }
 #persona-section, #slide-section { padding: 10px 10px 0 10px; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
 #persona-section { flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
+#persona-preview { text-align: center; padding-top: 10px; }
+#persona-preview-img { height: 200px; max-width: 100%; width: auto; object-fit: contain; }
 #slide-section { flex-grow: 1; padding-top: 5px; padding-bottom: 10px; }
 #left-sidebar h2 { font-size: 0.75em; font-weight: 600; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 0 5px 5px; margin: 10px 0 5px 0; border: none; flex-shrink: 0; }
 #create-deck, #create-slide { width: 100%; padding: 6px 12px; margin-bottom: 10px; background-color: var(--button-primary-bg); color: var(--button-text-dark); border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: 600; text-align: center; transition: background-color 0.2s ease, opacity 0.2s ease; flex-shrink: 0; }
