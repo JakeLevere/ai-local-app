@@ -78,8 +78,7 @@ function initialize(windowInstance, paths) {
 
         try {
             const currentAIService = await ensureAIService();
-            const getSubPersonasFunc = (pName, vPath) => personaService.getSubPersonasFor(pName, vPath);
-            const aiResult = await currentAIService.getRoutedChatResponse(personaIdentifier, userContent, appPaths.vaultPath, getSubPersonasFunc);
+            const aiResult = await currentAIService.getRoutedChatResponse(personaIdentifier, userContent, appPaths.vaultPath);
 
             if (!aiResult || typeof aiResult !== 'object') throw new Error('AI routing returned invalid result.');
             finalIdentifier = aiResult.identifier;
