@@ -110,13 +110,28 @@ function getCurrentSlides() {
 function createInitialDeckIcons() {
     if (!domElements.deckIconsContainer) return;
     for (let i = 1; i <= 5; i++) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'deck-icon-wrapper';
+
         const icon = document.createElement('div');
         icon.className = 'deck-icon deck-option';
         icon.dataset.deck = i;
         icon.textContent = i;
         icon.style.backgroundColor = deckColors[(i - 1) % deckColors.length];
         icon.addEventListener('click', handleDeckOptionClick);
-        domElements.deckIconsContainer.appendChild(icon);
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'deck-save-hover';
+        saveBtn.innerHTML = '<img src="./images/save-icon.png" alt="save">';
+        saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const deckName = `Deck ${icon.dataset.deck}`;
+            const slides = getCurrentSlides();
+            window.electronAPI.send('save-deck-slides', { deckName, slides });
+        });
+
+        wrapper.appendChild(icon);
+        wrapper.appendChild(saveBtn);
+        domElements.deckIconsContainer.appendChild(wrapper);
     }
     const addBtn = document.createElement('div');
     addBtn.id = 'add-deck-icon';
@@ -158,14 +173,30 @@ function handleAddDeck() {
     const deckName = `Deck ${count}`;
     const slides = getCurrentSlides();
     window.electronAPI.send('create-deck', { name: deckName, slides });
+    const wrapper = document.createElement('div');
+    wrapper.className = 'deck-icon-wrapper';
+
     const icon = document.createElement('div');
     icon.className = 'deck-icon deck-option';
     icon.dataset.deck = count;
     icon.textContent = count;
     icon.style.backgroundColor = deckColors[(count - 1) % deckColors.length];
     icon.addEventListener('click', handleDeckOptionClick);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'deck-save-hover';
+    saveBtn.innerHTML = '<img src="./images/save-icon.png" alt="save">';
+    saveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const deckName = `Deck ${icon.dataset.deck}`;
+        const slides = getCurrentSlides();
+        window.electronAPI.send('save-deck-slides', { deckName, slides });
+    });
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(saveBtn);
     const addBtn = domElements.deckIconsContainer.querySelector('#add-deck-icon');
-    domElements.deckIconsContainer.insertBefore(icon, addBtn);
+    domElements.deckIconsContainer.insertBefore(wrapper, addBtn);
     if (count >= 10 && addBtn) addBtn.style.display = 'none';
 }
 
