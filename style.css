@@ -25,10 +25,6 @@
     --primary-icon-size: 38px;
     --primary-item-padding: 8px 10px;
     --primary-font-size: 0.95em;
-    --sub-icon-size: 28px;
-    --sub-item-padding: 5px 8px;
-    --sub-indent: 30px; /* Indentation */
-    --sub-font-size: 0.88em;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -76,33 +72,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     font-weight: 600;
     font-size: var(--primary-font-size);
 }
-.persona-item.primary-persona::before { content: '\\25B8'; display: inline-block; margin-right: 8px; font-size: 0.8em; transition: transform 0.2s ease-in-out; opacity: 0.7; flex-shrink: 0; }
-.persona-item.primary-persona.expanded::before { transform: rotate(90deg); }
 .persona-item.primary-persona.selected { background-color: var(--sidebar-item-selected); border-left-color: var(--sidebar-item-selected-border); }
 
-/* Sub Persona List */
-.sub-persona-list { list-style: none; padding: 0; margin: 0; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out; margin-left: 10px; border-left: 1px solid var(--separator-color); }
-.persona-item.primary-persona.expanded + .sub-persona-list { max-height: 500px; margin-top: 5px; margin-bottom: 5px; }
-
-/* Sub Persona Item Styling */
-.persona-item.sub-persona {
-    padding: var(--sub-item-padding);
-    padding-left: var(--sub-indent);
-    opacity: 0.9;
-    border-left-color: transparent !important;
-}
-.persona-item.sub-persona .persona-icon {
-    width: var(--sub-icon-size);
-    height: var(--sub-icon-size);
-    margin-right: 8px;
-}
-.persona-item.sub-persona .persona-name {
-    font-size: var(--sub-font-size);
-}
-.persona-item.sub-persona.selected {
-    background-color: var(--sidebar-item-selected);
-    font-weight: 500;
-}
 
 
 /* Deck List */
@@ -126,15 +97,12 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #left-sidebar.collapsed #create-slide,
 #left-sidebar.collapsed .slide-name,
 #left-sidebar.collapsed #slide-section hr,
-#left-sidebar.collapsed #create-deck,
-#left-sidebar.collapsed .sub-persona-list,
-#left-sidebar.collapsed .persona-item.primary-persona::before { display: none; }
+#left-sidebar.collapsed #create-deck { display: none; }
 #left-sidebar.collapsed #persona-section, #left-sidebar.collapsed #slide-section { padding: 5px; align-items: center; overflow-y: hidden; }
 #left-sidebar.collapsed #persona-section { padding-bottom: 5px; border-bottom: 1px solid var(--separator-color); margin-bottom: 5px; }
 #left-sidebar.collapsed #slide-section { padding-top: 0; border-bottom: none; }
 #left-sidebar.collapsed .persona-item,
 #left-sidebar.collapsed .deck-item { padding: 6px 0px; margin-bottom: 4px; margin-right: 0; justify-content: center; border-left: none; width: 100%; }
-#left-sidebar.collapsed .persona-item.sub-persona { display: none; }
 #left-sidebar.collapsed .persona-item.primary-persona.selected { background-color: var(--sidebar-item-selected); }
 #left-sidebar.collapsed .persona-icon,
 #left-sidebar.collapsed .slide-icon { margin-right: 0; width: 30px; height: 30px; }
@@ -407,8 +375,6 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 .dropdown-buttons { margin-top: 10px; display: flex; justify-content: flex-end; }
 .dropdown-buttons button { padding: 8px 15px; border: none; background-color: var(--baby-blue); color: #111; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 0.9em; font-weight: 600; transition: background-color 0.2s ease; }
 .dropdown-buttons button:hover { background-color: var(--baby-blue-darker); }
-.config-sub-only { display: none; }
-#info-panels.sub-selected .config-sub-only { display: block; }
 #info-panels.primary-selected #auto-pre-prompt, #info-panels.primary-selected #update-memory { display: none; }
 #info-panels.primary-selected #memory-prompt-header, #info-panels.primary-selected #memory-prompt-content, #info-panels.primary-selected #memory-header, #info-panels.primary-selected #memory-content { display: none; }
 

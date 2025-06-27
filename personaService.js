@@ -3,9 +3,7 @@ const fs = require('fs').promises;
 const path = require('path'); // Ensure path is required
 
 // --- Constants ---
-const SUBPERSONAS_DIR = 'subpersonas';
 const PRIMARY_CONVO_FILE = 'Stored_Conversations_Aggregated.md';
-const SUB_CONVO_FILE = 'Stored_Conversations.md';
 const PRE_PROMPT_FILE = 'Pre-Prompt.md';
 const MEMORY_PROMPT_FILE = 'Memory-Prompt.md';
 const MEMORY_FILE = 'Memory.md';
@@ -13,8 +11,17 @@ const ICON_DIR_RELATIVE = 'images';
 
 // --- Helper Functions ---
 function sanitizeFolderName(name) { return name?.toLowerCase().replace(/[^a-z0-9_-]/gi, '_') ?? ''; } // Added nullish check
-function getPersonaFolderPath(identifier, vaultPath) { if (!identifier || !vaultPath) throw new Error("Persona identifier and vaultPath cannot be empty."); const parts = identifier.split('/'); if (parts.length === 1) { return path.join(vaultPath, sanitizeFolderName(parts[0])); } else if (parts.length === 2) { return path.join(vaultPath, sanitizeFolderName(parts[0]), SUBPERSONAS_DIR, sanitizeFolderName(parts[1])); } else { throw new Error(`Invalid persona identifier format: ${identifier}`); } }
-function getPrimaryPersonaFolderPath(primaryName, vaultPath) { if (!primaryName || ! vaultPath) throw new Error("Primary name and vaultPath cannot be empty."); return path.join(vaultPath, sanitizeFolderName(primaryName)); }
+function getPersonaFolderPath(identifier, vaultPath) {
+    if (!identifier || !vaultPath) {
+        throw new Error('Persona identifier and vaultPath cannot be empty.');
+    }
+    return path.join(vaultPath, sanitizeFolderName(identifier));
+}
+
+function getPrimaryPersonaFolderPath(primaryName, vaultPath) {
+    if (!primaryName || !vaultPath) throw new Error('Primary name and vaultPath cannot be empty.');
+    return path.join(vaultPath, sanitizeFolderName(primaryName));
+}
 async function ensureDirectoryExists(dirPath) { try { await fs.mkdir(dirPath, { recursive: true }); } catch (error) { console.error(`Error ensuring directory exists at ${dirPath}:`, error); throw error; } }
 async function readFileSafe(filePath, defaultContent = '') { try { return await fs.readFile(filePath, 'utf-8'); } catch (error) { if (error.code === 'ENOENT') { return defaultContent; } console.error(`Error reading file ${filePath}:`, error); throw error; } }
 
@@ -31,7 +38,6 @@ async function discoverPersonas(vaultPath, baseDir) {
             const primarySanitizedId = sanitizeFolderName(primaryName);
             if (!primarySanitizedId) continue; // Skip if name leads to empty ID
 
-            const primaryFolderPath = path.join(vaultPath, primaryName);
             const primaryIconPath = path.join(baseDir, ICON_DIR_RELATIVE, `${primarySanitizedId}.png`);
             const primaryIconExists = await fs.access(primaryIconPath).then(() => true).catch(() => false);
 
@@ -39,39 +45,9 @@ async function discoverPersonas(vaultPath, baseDir) {
                 id: primarySanitizedId,
                 name: primaryName,
                 type: 'primary',
-                icon: primaryIconExists ? `${ICON_DIR_RELATIVE}/${primarySanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`,
-                subPersonas: []
+                icon: primaryIconExists ? `${ICON_DIR_RELATIVE}/${primarySanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`
             };
-
-            const subPersonasPath = path.join(primaryFolderPath, SUBPERSONAS_DIR);
-            try {
-                const subEntries = await fs.readdir(subPersonasPath, { withFileTypes: true });
-                const subPromises = subEntries
-                    .filter(e => e.isDirectory())
-                    .map(async subEntry => {
-                        const subName = subEntry.name;
-                        const subSanitizedId = sanitizeFolderName(subName);
-                        if (!subSanitizedId) return null;
-
-                        const fullSubId = `${primarySanitizedId}/${subSanitizedId}`;
-                        const subIconPath = path.join(baseDir, ICON_DIR_RELATIVE, `${subSanitizedId}.png`);
-                        const subIconExists = await fs.access(subIconPath).then(() => true).catch(() => false);
-                        return {
-                            id: fullSubId,
-                            name: subName,
-                            type: 'sub',
-                            parentId: primaryPersona.id,
-                            icon: subIconExists ? `${ICON_DIR_RELATIVE}/${subSanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`
-                        };
-                    });
-                const resolvedSubs = (await Promise.all(subPromises)).filter(Boolean);
-                primaryPersona.subPersonas.push(...resolvedSubs);
-            } catch (subError) {
-                if (subError.code !== 'ENOENT') {
-                    console.warn(`Could not read subpersonas for ${primaryName}: ${subError.message}`);
-                }
-            }
-            personas.push(primaryPersona);
+           personas.push(primaryPersona);
         }
     } catch (error) {
         console.error("[Persona Service - Discovery] Error:", error);
@@ -84,32 +60,30 @@ async function discoverPersonas(vaultPath, baseDir) {
 // --- Basic Data Loading ---
 async function loadPersonaContent(identifier, vaultPath) {
     console.log(`[Persona Service] Loading content for: ${identifier}`);
-    const parts = identifier.split('/'); const isPrimary = parts.length === 1;
     const personaFolderPath = getPersonaFolderPath(identifier, vaultPath);
-    const primaryFolderPath = getPrimaryPersonaFolderPath(parts[0], vaultPath);
     let content = { prePrompt: '', memoryPrompt: null, memory: null, conversations: '' };
     try {
-        content.prePrompt = await readFileSafe(path.join(personaFolderPath, PRE_PROMPT_FILE), 'Respond as appropriate.');
-        if (isPrimary) { content.conversations = await readFileSafe(path.join(primaryFolderPath, PRIMARY_CONVO_FILE), ''); }
-        else { content.memoryPrompt = await readFileSafe(path.join(personaFolderPath, MEMORY_PROMPT_FILE), ''); content.memory = await readFileSafe(path.join(personaFolderPath, MEMORY_FILE), ''); content.conversations = await readFileSafe(path.join(personaFolderPath, SUB_CONVO_FILE), ''); }
-    } catch (err) { console.error(`Error loading content files for ${identifier}:`, err); }
+        content.prePrompt = await readFileSafe(
+            path.join(personaFolderPath, PRE_PROMPT_FILE),
+            'Respond as appropriate.'
+        );
+        content.memoryPrompt = await readFileSafe(path.join(personaFolderPath, MEMORY_PROMPT_FILE), '');
+        content.memory = await readFileSafe(path.join(personaFolderPath, MEMORY_FILE), '');
+        content.conversations = await readFileSafe(path.join(personaFolderPath, PRIMARY_CONVO_FILE), '');
+    } catch (err) {
+        console.error(`Error loading content files for ${identifier}:`, err);
+    }
     return content;
 }
 
 async function loadPersonaEntries(identifier, vaultPath) {
     console.log(`[Persona Service] Loading entries for: ${identifier}`);
-    const parts = identifier.split('/');
-    const isPrimary = parts.length === 1;
-    let filePath = '';
+    const filePath = path.join(getPersonaFolderPath(identifier, vaultPath), PRIMARY_CONVO_FILE);
     try {
-        filePath = isPrimary
-            ? path.join(getPrimaryPersonaFolderPath(parts[0], vaultPath), PRIMARY_CONVO_FILE)
-            : path.join(getPersonaFolderPath(identifier, vaultPath), SUB_CONVO_FILE);
-
         const content = await readFileSafe(filePath, '');
         const lines = content.split('\n');
         const result = [];
-        const target = parts.at(-1);
+        const target = identifier;
         for (const raw of lines) {
             const line = raw.trim();
             if (
@@ -130,18 +104,9 @@ async function loadPersonaEntries(identifier, vaultPath) {
 
 async function getPersonaStatus(identifier, vaultPath) {
     console.log(`[Persona Service - Status] Getting status for: ${identifier}`);
-    const parts = identifier.split("/");
-    const isPrimary = parts.length === 1;
-    let filePath = "";
-    let personaMarkerForLog = "";
+    const filePath = path.join(getPersonaFolderPath(identifier, vaultPath), PRIMARY_CONVO_FILE);
+    let personaMarkerForLog = `[${identifier}]:`;
     try {
-        if (isPrimary) {
-            filePath = path.join(getPrimaryPersonaFolderPath(parts[0], vaultPath), PRIMARY_CONVO_FILE);
-            personaMarkerForLog = `\[Primary: ${parts[0]}\]:`;
-        } else {
-            filePath = path.join(getPersonaFolderPath(identifier, vaultPath), SUB_CONVO_FILE);
-            personaMarkerForLog = `${parts[1]}:`;
-        }
         const [fileStats, content] = await Promise.all([
             fs.stat(filePath),
             readFileSafe(filePath, "")
@@ -230,11 +195,13 @@ async function duplicateDeck(originalName, newName, decksPath) {
     await saveDeck(newName, copy, decksPath);
 }
 
- async function savePersonaFileContent(identifier, fileName, content, vaultPath) {
-     const parts = identifier.split('/'); const isPrimary = parts.length === 1;
-     if (isPrimary && (fileName === MEMORY_FILE || fileName === MEMORY_PROMPT_FILE)) { throw new Error(`Primary personas cannot have '${fileName}'.`); }
-     const folder = getPersonaFolderPath(identifier, vaultPath); await ensureDirectoryExists(folder); const filePath = path.join(folder, fileName); await fs.writeFile(filePath, content, 'utf-8'); console.log(`[Persona Service] Saved ${fileName} for ${identifier}`);
- }
+async function savePersonaFileContent(identifier, fileName, content, vaultPath) {
+    const folder = getPersonaFolderPath(identifier, vaultPath);
+    await ensureDirectoryExists(folder);
+    const filePath = path.join(folder, fileName);
+    await fs.writeFile(filePath, content, 'utf-8');
+    console.log(`[Persona Service] Saved ${fileName} for ${identifier}`);
+}
 
 // --- Exports ---
 module.exports = {
