@@ -27,6 +27,7 @@ function cacheDomElements() {
         userInput: document.getElementById('user_input'),
         chatLog: document.getElementById('chat-log'),
         personaImage: document.getElementById('persona-image'),
+        personaPreviewImg: document.getElementById('persona-preview-img'),
         statusTitle: document.getElementById('status-title'),
         convCountSpan: document.getElementById('conv-count'),
         lastInteractionSpan: document.getElementById('last-interaction'),
@@ -235,6 +236,10 @@ function updateStatusBarUI(identifier, status) {
     console.log(`[Status Bar Update] Setting Image Src: ${iconToDisplay}`);
     domElements.personaImage.src = iconToDisplay;
     domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = './images/placeholder.png'; };
+    if (domElements.personaPreviewImg) {
+        domElements.personaPreviewImg.src = iconToDisplay;
+        domElements.personaPreviewImg.onerror = () => { if (domElements.personaPreviewImg) domElements.personaPreviewImg.src = './images/placeholder.png'; };
+    }
     domElements.configPanelHeader.textContent = configHeaderToDisplay;
     domElements.convCountSpan.textContent = `Conversations: ${convCountToDisplay}`;
     domElements.lastInteractionSpan.textContent = `Last Interaction: ${lastInteractionToDisplay}`;
