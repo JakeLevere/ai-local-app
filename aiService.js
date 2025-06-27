@@ -113,9 +113,46 @@ async function processAIResponseCommands(identifier, aiResponse, vaultPath, base
     };
 }
 
+async function updateMemorySummary(identifier, vaultPath, options = {}) {
+    await initializeOpenAI();
+
+    const { truncateLength = 2000, convoLength = 4000 } = options;
+    const folder = getPersonaFolderPath(identifier, vaultPath);
+    const convPath = path.join(folder, PRIMARY_CONVO_FILE);
+    const memoryPromptPath = path.join(folder, MEMORY_PROMPT_FILE);
+    const memoryPath = path.join(folder, MEMORY_FILE);
+
+    const convContent = await readFileSafe(convPath, '');
+    const memoryPrompt = await readFileSafe(
+        memoryPromptPath,
+        'Summarize the key points, open questions, and action items from the conversation history provided below. Format using Markdown headings and be concise.'
+    );
+
+    if (!convContent.trim()) {
+        const defaultMem = '# Memory\n\n## Key Insights\n- None yet\n\n## Open Questions\n- None yet\n\n## Action Items\n- None yet';
+        await fs.writeFile(memoryPath, defaultMem, 'utf-8');
+        return defaultMem;
+    }
+
+    const recentConvo = convContent.slice(-convoLength);
+    const prompt = `${memoryPrompt}\n\nCONVERSATION HISTORY (recent portion):\n${recentConvo}`;
+
+    const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+    });
+
+    let summary = response.choices?.[0]?.message?.content?.trim() ?? '';
+    if (truncateLength && summary.length > truncateLength) summary = summary.slice(0, truncateLength);
+    await fs.writeFile(memoryPath, summary, 'utf-8');
+    return summary;
+}
+
 module.exports = {
     initializeOpenAI,
     getRoutedChatResponse,
     appendToConversation,
-    processAIResponseCommands
+    processAIResponseCommands,
+    updateMemorySummary
 };
