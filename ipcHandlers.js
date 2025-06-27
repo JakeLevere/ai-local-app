@@ -178,6 +178,17 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.on('update-memory-summary', async (event, identifier) => {
+        if (!identifier) return;
+        try {
+            const currentAIService = await ensureAIService();
+            const summary = await currentAIService.updateMemorySummary(identifier, appPaths.vaultPath);
+            sendToRenderer('memory-summary-updated', { identifier, content: summary });
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to update memory: ${err.message}`);
+        }
+    });
+
     ipcMain.on('save-deck-slides', async (event, { deckName, slides }) => {
         try {
             const existing = await personaService.loadDeck(deckName, appPaths.decksPath) || {};
