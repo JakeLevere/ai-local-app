@@ -55,24 +55,22 @@ async function initializeOpenAI() {
     openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-async function getRoutedChatResponse(initialIdentifier, userContent, vaultPath) {
+async function getChatResponse(identifier, messages, vaultPath) {
     await initializeOpenAI();
 
-    const routedIdentifier = initialIdentifier;
-
-    const contextPrompt = await readFileSafe(
-        path.join(getPersonaFolderPath(routedIdentifier, vaultPath), PRE_PROMPT_FILE),
+    const prePrompt = await readFileSafe(
+        path.join(getPersonaFolderPath(identifier, vaultPath), PRE_PROMPT_FILE),
         'Respond appropriately.'
     );
 
-    const messages = [
-        { role: 'system', content: contextPrompt },
-        { role: 'user', content: userContent }
-    ];
+    const history = Array.isArray(messages)
+        ? messages
+        : [{ role: 'user', content: messages }];
+    const finalMessages = [{ role: 'system', content: prePrompt }, ...history];
 
     const response = await openai.chat.completions.create({
         model: 'gpt-4o',
-        messages,
+        messages: finalMessages,
         max_tokens: 500,
         temperature: 0.7
     });
@@ -82,7 +80,7 @@ async function getRoutedChatResponse(initialIdentifier, userContent, vaultPath) 
         text = text.slice(0, 497) + '...';
     }
 
-    return { identifier: routedIdentifier, text };
+    return { identifier, text };
 }
 
 async function appendToConversation(identifier, userContent, aiContent, vaultPath, isError = false) {
@@ -167,7 +165,7 @@ async function updateMemorySummary(identifier, vaultPath, options = {}) {
 
 module.exports = {
     initializeOpenAI,
-    getRoutedChatResponse,
+    getChatResponse,
     appendToConversation,
     processAIResponseCommands,
     updateMemorySummary
