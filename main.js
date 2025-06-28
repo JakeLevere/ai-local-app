@@ -11,7 +11,7 @@ const PORT = 3000; // Choose an available port
 
 // Define user data paths (accessible to other modules if needed, e.g., passed during init)
 const userDataPath = app.getPath('userData');
-const vaultPath = path.join(userDataPath, 'ObsidianVault');
+const vaultPath = path.join(app.getPath('documents'), 'ObsidianVault');
 const decksPath = path.join(userDataPath, 'Decks');
 
 // --- Express Local Server Setup ---

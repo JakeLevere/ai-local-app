@@ -9,7 +9,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'your-api-key-here' // Replace with your actual key or env var setup
 });
 
-const vaultPath = path.join(app.getPath('userData'), 'ObsidianVault');
+const vaultPath = path.join(app.getPath('documents'), 'ObsidianVault');
 fs.mkdir(vaultPath, { recursive: true }).catch(err => console.error('Error creating vault directory:', err));
 
 const decksPath = path.join(app.getPath('userData'), 'Decks');
