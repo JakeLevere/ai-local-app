@@ -227,23 +227,32 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    const timeblockFile = path.join(baseDir, 'programs', 'Time Block.md');
+    const calendarStateFile = path.join(baseDir, 'programs', 'calendar-data.json');
+    const calendarHistoryFile = path.join(baseDir, 'programs', 'calendar-history.md');
 
-    ipcMain.handle('load-timeblock-data', async () => {
+    ipcMain.handle('calendar-load-state', async () => {
         try {
-            const content = await fs.readFile(timeblockFile, 'utf-8');
+            const content = await fs.readFile(calendarStateFile, 'utf-8');
             return JSON.parse(content);
         } catch (err) {
-            if (err.code === 'ENOENT') return [];
+            if (err.code === 'ENOENT') return null;
             throw err;
         }
     });
 
-    ipcMain.handle('save-timeblock-data', async (event, events) => {
+    ipcMain.handle('calendar-save-state', async (event, state) => {
         try {
-            await fs.writeFile(timeblockFile, JSON.stringify(events, null, 2), 'utf-8');
+            await fs.writeFile(calendarStateFile, JSON.stringify(state, null, 2), 'utf-8');
         } catch (err) {
-            sendToRenderer('main-process-error', `Failed to save time block data: ${err.message}`);
+            sendToRenderer('main-process-error', `Failed to save calendar state: ${err.message}`);
+        }
+    });
+
+    ipcMain.handle('calendar-save-history', async (event, markdown) => {
+        try {
+            await fs.writeFile(calendarHistoryFile, markdown, 'utf-8');
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save calendar history: ${err.message}`);
         }
     });
 
