@@ -553,6 +553,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DATA PERSISTENCE (SAVE/LOAD) ---
 
+    function getElectronAPI() {
+        return window.electronAPI || (window.parent && window.parent.electronAPI);
+    }
+
     /**
      * Saves the current state (events and categories) and the human-readable history file.
      * This function is called whenever a change is made.
@@ -564,13 +568,14 @@ document.addEventListener('DOMContentLoaded', () => {
             categories: state.categories,
         };
 
-        if (window.electronAPI) {
+        const api = getElectronAPI();
+        if (api) {
             // Save the application state for reloading
-            window.electronAPI.saveState(appState);
-            
+            api.saveState(appState);
+
             // Generate and save the human-readable markdown file
             const markdownContent = generateHistoryMarkdown();
-            window.electronAPI.saveHistory(markdownContent);
+            api.saveHistory(markdownContent);
         } else {
             console.warn('Electron API not found. Data will not be saved.');
         }
@@ -580,8 +585,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * Loads the application state from 'calendar-data.json' on startup.
      */
     async function loadState() {
-        if (window.electronAPI) {
-            const loadedState = await window.electronAPI.loadState();
+        const api = getElectronAPI();
+        if (api) {
+            const loadedState = await api.loadState();
             if (loadedState) {
                 state.events = loadedState.events || [];
                 state.categories = loadedState.categories || [];
