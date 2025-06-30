@@ -1222,7 +1222,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventDate = new Date(startOfWeek);
         eventDate.setDate(eventDate.getDate() + dayOffset);
 
-        const minutesOffset = (parseInt(eventData.gridRowStart) - 2) * 15; // 15 mins per row
+        // Each grid row represents a 30 minute block (2 rows per hour)
+        // so convert the gridRowStart value to minutes using a 30 minute step
+        const minutesOffset = (parseInt(eventData.gridRowStart) - 2) * 30;
         const hours = Math.floor(minutesOffset / 60);
         const minutes = minutesOffset % 60;
 
