@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = {
         view: 'week', // 'week', 'month', 'year'
         displayDate: getCurrentTime(),
-        events: [], // Central data store for events
+        events: [], // Central data store for events (with absolute dates)
         categories: [] // Central data store for categories
     };
     
@@ -550,6 +550,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthsOfYear = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const monthsOfYearAbbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // --- DATE/GRID CONVERSION HELPERS ---
+    function getStartOfWeek(refDate) {
+        const start = new Date(refDate);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - start.getDay());
+        return start;
+    }
+
+    function gridToDate(row, col, refDate) {
+        const startOfWeek = getStartOfWeek(refDate);
+        const dayOffset = parseInt(col) - 2;
+        const eventDate = new Date(startOfWeek);
+        eventDate.setDate(eventDate.getDate() + dayOffset);
+        const minutesOffset = (parseInt(row) - 2) * 30;
+        eventDate.setMinutes(eventDate.getMinutes() + minutesOffset);
+        return eventDate;
+    }
+
+    function dateToGrid(date, refDate) {
+        const startOfWeek = getStartOfWeek(refDate);
+        const dayDiff = Math.floor((date - startOfWeek) / (24 * 60 * 60 * 1000));
+        const gridColumn = dayDiff + 2;
+        const minutesOfDay = date.getHours() * 60 + date.getMinutes();
+        const gridRowStart = Math.floor(minutesOfDay / 30) + 2;
+        return { gridRowStart, gridColumn };
+    }
 
     // --- DATA PERSISTENCE (SAVE/LOAD) ---
 
@@ -591,6 +618,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loadedState) {
                 state.events = loadedState.events || [];
                 state.categories = loadedState.categories || [];
+                // Backward compatibility: compute start time if missing
+                state.events.forEach(ev => {
+                    if (!ev.start && ev.gridRowStart && ev.gridColumn) {
+                        const dt = gridToDate(ev.gridRowStart, ev.gridColumn, state.displayDate);
+                        ev.start = dt.getTime();
+                    }
+                });
             }
         }
         
@@ -795,7 +829,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderWeekViewEvents() {
-        state.events.forEach(eventData => {
+        const weekStart = getStartOfWeek(state.displayDate);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+
+        state.events.filter(ev => {
+            const d = new Date(ev.start);
+            return d >= weekStart && d < weekEnd;
+        }).forEach(eventData => {
+            const pos = dateToGrid(new Date(eventData.start), state.displayDate);
+            eventData.gridRowStart = pos.gridRowStart;
+            eventData.gridColumn = pos.gridColumn;
             const eventEl = document.createElement('div');
             eventEl.id = eventData.id;
             eventEl.className = 'event';
@@ -984,12 +1028,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetCell = e.currentTarget;
         const targetGridRow = parseInt(targetCell.style.gridRow);
         const targetGridCol = parseInt(targetCell.style.gridColumn);
+        const newStart = gridToDate(targetGridRow, targetGridCol, state.displayDate).getTime();
 
         if (data.type === 'existingEvent') {
             const eventData = state.events.find(ev => ev.id === data.id);
             if (eventData) {
                 eventData.gridRowStart = targetGridRow;
                 eventData.gridColumn = targetGridCol;
+                eventData.start = newStart;
             }
         } else if (data.type === 'newTask') {
             const newEventData = {
@@ -998,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 color: data.color,
                 gridRowStart: targetGridRow,
                 gridColumn: targetGridCol,
+                start: newStart,
                 rowSpan: 2, // Default 1-hour duration (2 * 30min slots)
                 accomplishments: []
             };
@@ -1094,11 +1141,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const eventData = state.events.find(ev => ev.id === resizeState.eventEl.id);
         const style = window.getComputedStyle(resizeState.eventEl);
-        
+
         if (eventData) {
             eventData.gridRowStart = parseInt(style.gridRowStart);
             const rowEnd = style.gridRowEnd;
             eventData.rowSpan = rowEnd.includes('span') ? parseInt(rowEnd.split(' ')[1]) : 1;
+            eventData.start = gridToDate(eventData.gridRowStart, eventData.gridColumn, state.displayDate).getTime();
             saveStateAndHistory(); // SAVE
         }
 
@@ -1213,20 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- HISTORY FILE GENERATION ---
     function getEventStartDate(eventData) {
-        const startOfWeek = new Date(state.displayDate);
-        startOfWeek.setHours(0, 0, 0, 0);
-        startOfWeek.setDate(startOfWeek.getDate() - state.displayDate.getDay());
-
-        const dayOffset = parseInt(eventData.gridColumn) - 2;
-        const eventDate = new Date(startOfWeek);
-        eventDate.setDate(eventDate.getDate() + dayOffset);
-
-        const minutesOffset = (parseInt(eventData.gridRowStart) - 2) * 30;
-        const hours = Math.floor(minutesOffset / 60);
-        const minutes = minutesOffset % 60;
-
-        eventDate.setHours(hours, minutes);
-        return eventDate;
+        return new Date(eventData.start);
     }
 
     function getEventDateTimeString(eventData) {
