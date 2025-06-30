@@ -24,7 +24,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
          return () => ipcRenderer.removeListener(channel, subscription);
     },
     // Invoke an IPC handler and get a promise back
-    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+
+    // Calendar specific helpers
+    saveState: (state) => ipcRenderer.invoke('calendar-save-state', state),
+    loadState: () => ipcRenderer.invoke('calendar-load-state'),
+    saveHistory: (markdown) => ipcRenderer.invoke('calendar-save-history', markdown)
 });
 
 console.log('Preload script loaded.');
