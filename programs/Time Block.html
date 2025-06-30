@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weekly Calendar</title>
+  <title>Multi-View Calendar</title>
   <style>
     :root {
       --bg-dark: #202124;
       --sidebar-dark: #303134;
       --cell-border: #3c4043;
       --text-light: #e8eaed;
+      --text-muted: #9aa0a6;
       --event-bg: #5f6368;
       --highlight-border: #8ab4f8;
       --scroll-thumb: #5f6368;
@@ -17,6 +18,9 @@
       --header-bg: #26282b;
       --today-bg: rgba(138, 180, 248, 0.08);
       --input-bg: #202124;
+      --button-bg: #3c4043;
+      --danger-bg: #f28b82;
+      --danger-hover-bg: #e57373;
     }
 
     body {
@@ -29,19 +33,9 @@
       overflow: hidden;
     }
 
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--scroll-track);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background-color: var(--scroll-thumb);
-      border-radius: 10px;
-    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--scroll-track); }
+    ::-webkit-scrollbar-thumb { background-color: var(--scroll-thumb); border-radius: 10px; }
 
     .sidebar {
       width: 20%;
@@ -54,128 +48,117 @@
       position: relative;
     }
     
-    .sidebar-controls {
-        padding: 8px;
-        border-bottom: 1px solid var(--cell-border);
+    .sidebar-controls { padding: 8px; border-bottom: 1px solid var(--cell-border); }
+    .new-category-input { display: flex; gap: 5px; }
+    .new-category-input input { flex-grow: 1; padding: 4px 6px; background: var(--input-bg); border: 1px solid var(--cell-border); color: var(--text-light); border-radius: 4px; font-size: 12px; }
+    .new-category-input button { padding: 4px 8px; background: #5a78c9; border: none; color: white; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    .new-category-input button:hover { background: #6b88d9; }
+
+    .task-groups { flex: 1; overflow-y: auto; padding: 8px; }
+    .task-group { margin-bottom: 8px; }
+    .task-header { font-weight: 600; cursor: pointer; padding: 4px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85em; }
+    .task-header-title { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
+    .add-task-header-btn { background: none; border: none; color: #8ab4f8; cursor: pointer; font-size: 1.2em; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+    .add-task-header-btn:hover { color: #fff; }
+    .color-indicator { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .task-items { padding-left: 18px; display: none; }
+    .task-items.show { display: block; }
+    .new-task-input-in-group { display: none; gap: 4px; margin: 4px 0; }
+    .new-task-input-in-group.show { display: flex; }
+    .new-task-input-in-group input { flex-grow: 1; padding: 3px 5px; background: var(--input-bg); border: 1px solid var(--cell-border); color: var(--text-light); border-radius: 3px; font-size: 11px; }
+    .draggable { padding: 3px 5px; margin: 2px 0; cursor: grab; color: white; border-radius: 3px; font-size: 11px; border: 1px solid rgba(0,0,0,0.2); }
+    .draggable.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+    .grid-cell.drag-over {
+        background-color: rgba(138, 180, 248, 0.3) !important; /* Use important to override today-column bg */
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     
-    .new-category-input {
-      display: flex;
-      gap: 5px;
-    }
-
-    .new-category-input input {
-      flex-grow: 1;
-      padding: 4px 6px;
-      background: var(--input-bg);
-      border: 1px solid var(--cell-border);
-      color: var(--text-light);
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
-    .new-category-input button {
-      padding: 4px 8px;
-      background: #5a78c9;
-      border: none;
-      color: white;
-      font-weight: bold;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-     .new-category-input button:hover {
-        background: #6b88d9;
-     }
-
-    .task-groups {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-    }
-
-    .task-group {
-      margin-bottom: 8px;
-    }
-
-    .task-header {
-      font-weight: 600;
-      cursor: pointer;
-      padding: 4px 0;
+    .calendar-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 0.85em;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--cell-border);
+      flex-shrink: 0;
+      gap: 0.5rem;
     }
-
-    .task-header-title {
+    
+    .header-group-left, .header-group-right {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex-grow: 1; /* Allow title to take available space */
-    }
-    
-    .add-task-header-btn {
-        background: none;
-        border: none;
-        color: #8ab4f8;
-        cursor: pointer;
-        font-size: 1.2em;
-        line-height: 1;
-        padding: 0 4px;
+        gap: 0.5rem;
         flex-shrink: 0;
     }
 
-    .add-task-header-btn:hover {
-        color: #fff;
+    #todayBtn, .navigation-controls button, .view-switcher button {
+      background: var(--button-bg);
+      border: 1px solid var(--cell-border);
+      color: var(--text-light);
+      padding: 4px 8px;
+      cursor: pointer;
+      margin: 0;
+      transition: background-color 0.2s;
+      border-radius: 4px;
     }
     
-    .color-indicator {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex-shrink: 0;
+    #todayBtn:hover, .navigation-controls button:hover, .view-switcher button:hover {
+      background: #4a4d50;
     }
 
-    .task-items {
-      padding-left: 18px;
-      display: none; /* CHANGE: Hide by default */
-    }
-
-    .task-items.show {
-        display: block; /* CHANGE: Show when class is added */
-    }
-
-    .new-task-input-in-group {
-      display: none; 
-      gap: 4px;
-      margin: 4px 0;
-    }
-
-    .new-task-input-in-group.show {
-        display: flex;
+    .navigation-controls, .view-switcher {
+      display: flex;
     }
     
-    .new-task-input-in-group input {
-        flex-grow: 1;
-        padding: 3px 5px;
-        background: var(--input-bg);
-        border: 1px solid var(--cell-border);
-        color: var(--text-light);
-        border-radius: 3px;
-        font-size: 11px;
+    /* Button Group Styling */
+    .navigation-controls button:first-of-type {
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
     }
-    
-    .draggable {
-      padding: 3px 5px;
-      margin: 2px 0;
-      cursor: grab;
-      color: white;
-      border-radius: 3px;
-      font-size: 11px;
-      border: 1px solid rgba(0,0,0,0.2);
+    .navigation-controls button:last-of-type {
+        border-left: 0;
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+    .view-switcher button {
+        border-left: 0;
+    }
+    .view-switcher button:first-of-type {
+        border-left: 1px solid var(--cell-border);
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
+    }
+    .view-switcher button:last-of-type {
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
     }
 
+    .view-switcher button.active {
+      background: #8ab4f8;
+      color: var(--bg-dark);
+      border-color: #8ab4f8;
+    }
+     .view-switcher button.active:hover {
+        background: #a1c7f9;
+     }
+
+    .current-date-display {
+      flex-grow: 1;
+      text-align: center;
+      font-size: 1em;
+      font-weight: 500;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .calendar-container {
       flex: 1;
@@ -184,95 +167,281 @@
     }
 
     .calendar {
-      display: grid;
-      grid-template-columns: 50px repeat(7, 1fr);
-      grid-auto-rows: 30px;
       position: relative;
       min-width: 700px;
-    }
-
-    .corner-cell, .day, .time {
-      position: sticky;
-      background-color: var(--header-bg);
-      text-align: center;
-      border-bottom: 1px solid var(--cell-border);
-      border-left: 1px solid var(--cell-border);
-      line-height: 1; 
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
+      height: 100%;
     }
     
-    .corner-cell div {
+    /* Week View Specific */
+    .calendar.week-view {
+      display: grid;
+      grid-template-columns: 50px repeat(7, 1fr);
+      grid-template-rows: auto;
+      grid-auto-rows: 15px; /* Base row size is now 15px for half-hour slots */
+    }
+    .week-view-header-container {
+        display: contents; /* Makes this a non-visual container for grid layout purposes */
+    }
+    .week-view .day-header { 
+        top: 0; 
+        z-index: 10; 
+        font-size: 12px; 
+        display: flex; 
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 0;
+        gap: 2px;
+        position: sticky;
+        background: var(--header-bg);
+    }
+    .week-view .day-number {
+        font-size: 1.1em;
+        font-weight: bold;
+    }
+    .week-view .day-number.today {
+        background-color: var(--highlight-border);
+        color: var(--bg-dark);
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+    .week-view .time-label { 
+        left: 0;
+        z-index: 10;
+        text-align: right;
+        padding-right: 5px;
+        font-size: 12px;
+        position: sticky;
+        background: var(--header-bg);
+        grid-row-end: span 2; /* Time labels still span 1 hour (2 rows) */
+    }
+    .week-view .grid-cell { 
+        border-right: 1px solid var(--cell-border); 
+        position: relative;
+        grid-row-end: span 1; /* Each cell is now one row high (15px) */
+    }
+    /* Add the bottom border to only the bottom-half cells to form a full hour line */
+    .week-view .grid-cell-bottom-half {
+        border-bottom: 1px solid var(--cell-border);
+    }
+    .week-view .grid-cell:not(:first-of-type) { border-left: 1px solid var(--cell-border); }
+    .week-view .grid-cell.today-column { background-color: var(--today-bg); }
+    
+    /* Events are now grid items themselves */
+    .week-view .event { 
+        background-color: var(--event-color, var(--event-bg));
+        color: #fff;
+        padding: 0 4px; /* Adjust padding */
+        border-radius: 4px;
+        border: 1px solid rgba(0,0,0,0.3);
         font-size: 11px;
+        box-sizing: border-box;
+        cursor: grab;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center; /* Center text */
+        z-index: 5;
+        position: relative; /* Needed for resizers */
     }
-
-    .corner-cell {
-      grid-column: 1;
-      grid-row: 1;
-      top: 0;
-      left: 0;
-      cursor: pointer;
-      z-index: 11;
+    .week-view .event.dragging { opacity: 0.7; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; }
+    .week-view .resizer { height: 5px; width: 100%; position: absolute; left: 0; background: rgba(255, 255, 255, 0.3); cursor: ns-resize; z-index: 6; }
+    .week-view .resizer.top { top: 0; }
+    .week-view .resizer.bottom { bottom: 0; }
+    .week-view .current-time-line { position: absolute; height: 2px; background: red; z-index: 7; pointer-events: none; }
+    
+    /* Month View Specific */
+    .calendar.month-view {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: auto repeat(6, 1fr);
+      height: 100%;
     }
-
-    .day { top: 0; z-index: 10; font-size: 12px; }
-    .time { left: 0; z-index: 10; text-align: right; padding-right: 5px; font-size: 12px;}
-
-    .cell {
+    .month-view .day-header {
+      text-align: center;
+      padding: 5px 0;
+      font-weight: 500;
+      font-size: 0.9em;
+      border-bottom: 1px solid var(--cell-border);
+    }
+    .month-view .grid-cell {
       border-right: 1px solid var(--cell-border);
       border-bottom: 1px solid var(--cell-border);
+      padding: 4px;
+      overflow-y: auto;
+    }
+    .month-view .grid-cell:nth-child(7n) { border-right: none; }
+    .month-view .day-number { font-size: 0.8em; }
+    .month-view .day-number.today { background-color: var(--highlight-border); color: var(--bg-dark); border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
+    .month-view .grid-cell.other-month .day-number { color: var(--text-muted); }
+    .month-view .event {
+        font-size: 11px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        background-color: var(--event-color, var(--event-bg));
+        color: white;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: grab;
+    }
+
+    /* Modal styling */
+    .modal {
+      display: none; 
+      position: fixed; 
+      z-index: 2000; 
+      left: 0;
+      top: 0;
+      width: 100%; 
+      height: 100%; 
+      overflow: auto; 
+      background-color: rgba(0,0,0,0.6); 
+    }
+
+    .modal-content {
+      background-color: var(--sidebar-dark);
+      margin: 15% auto; 
+      padding: 20px;
+      border: 1px solid var(--cell-border);
+      width: 80%;
+      max-width: 500px;
+      border-radius: 8px;
       position: relative;
     }
-    
-    .cell:not(:first-of-type) { border-left: 1px solid var(--cell-border); }
 
-    .cell.today {
-      border-left: 2px solid var(--highlight-border);
-      border-right: 2px solid var(--highlight-border);
-      background-color: var(--today-bg);
-    }
-
-    .event {
+    .close-btn {
+      color: var(--text-muted);
       position: absolute;
-      background: var(--event-bg);
-      background-color: var(--event-color, var(--event-bg));
-      color: #fff;
-      padding: 2px 4px;
-      border-radius: 4px;
-      border: 1px solid rgba(0,0,0,0.3);
-      font-size: 11px;
-      height: 30px; 
-      box-sizing: border-box;
-      cursor: grab;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      z-index: 5;
-      transition: top 0.1s ease, height 0.1s ease, left 0.1s ease, width 0.1s ease;
+      top: 10px;
+      right: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
     }
 
-    .event.dragging {
-        opacity: 0.7;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        z-index: 1000;
+    .close-btn:hover,
+    .close-btn:focus {
+      color: var(--text-light);
     }
 
-    .resizer {
-      height: 5px;
-      width: 100%;
-      position: absolute;
-      left: 0;
-      background: rgba(255, 255, 255, 0.3);
-      cursor: ns-resize;
-      z-index: 6;
+    #accomplishmentList {
+        list-style-type: none;
+        padding: 0;
+        margin: 15px 0;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    #accomplishmentList li {
+        padding: 8px;
+        border-bottom: 1px solid var(--cell-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    #accomplishmentList li:last-child {
+        border-bottom: none;
+    }
+    .delete-accomplishment-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1.2em;
+    }
+    .delete-accomplishment-btn:hover {
+        color: var(--danger-bg);
     }
 
-    .resizer.top { top: 0; }
-    .resizer.bottom { bottom: 0; }
-    .current-time-line { position: absolute; height: 2px; background: red; z-index: 100; pointer-events: none; }
+    .accomplishment-input {
+        display: flex;
+        gap: 10px;
+    }
+    .accomplishment-input input {
+        flex-grow: 1;
+        padding: 8px;
+        background: var(--input-bg);
+        border: 1px solid var(--cell-border);
+        color: var(--text-light);
+        border-radius: 4px;
+    }
+    .accomplishment-input button {
+        padding: 8px 15px;
+        background: #5a78c9;
+        border: none;
+        color: white;
+        font-weight: bold;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .accomplishment-input button:hover {
+        background: #6b88d9;
+    }
+
+    .modal-footer {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+    }
+    #deleteTaskBtn {
+        background-color: var(--danger-bg);
+        color: var(--bg-dark);
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+     #deleteTaskBtn:hover {
+        background-color: var(--danger-hover-bg);
+     }
+    #confirmDeleteYesBtn {
+        background-color: var(--danger-bg);
+        color: var(--bg-dark);
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    #confirmDeleteYesBtn:hover {
+        background-color: var(--danger-hover-bg);
+    }
+    #confirmDeleteNoBtn {
+        background-color: var(--button-bg);
+        color: var(--text-light);
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+
+    /* Star Badge */
+    .accomplishment-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background-color: rgba(0,0,0,0.5);
+        border-radius: 5px;
+        padding: 1px 4px;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .accomplishment-badge .star {
+        color: gold;
+    }
   </style>
 </head>
 <body>
@@ -284,478 +453,863 @@
           <button id="addCategoryBtn">+</button>
       </div>
   </div>
-  <div class="task-groups" id="task-groups-container">
-    <!-- Categories will be dynamically inserted here -->
+  <div class="task-groups" id="task-groups-container"></div>
+</div>
+
+<div class="main-content">
+  <div class="calendar-header">
+      <div class="header-group-left">
+        <button id="todayBtn">Today</button>
+        <div class="navigation-controls">
+            <button id="prevBtn" title="Previous">&lt;</button>
+            <button id="nextBtn" title="Next">&gt;</button>
+        </div>
+      </div>
+      <h2 id="currentDateDisplay" class="current-date-display"></h2>
+      <div class="header-group-right">
+        <div class="view-switcher">
+            <button id="weekViewBtn" class="active">Week</button>
+            <button id="monthViewBtn">Month</button>
+            <button id="yearViewBtn">Year</button>
+        </div>
+        </div>
+  </div>
+  <div class="calendar-container" id="calendar-container">
+    <div class="calendar" id="calendar"></div>
+    <div class="current-time-line" id="time-line" style="display:none;"></div>
   </div>
 </div>
 
-<div class="calendar-container" id="calendar-container">
-  <div class="calendar" id="calendar">
-    <div class="corner-cell" id="corner-box" onclick="scrollToNow()">
-      <div id="corner-day">Day</div>
-      <div id="corner-time">00:00 AM</div>
+<div id="accomplishmentModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn">&times;</span>
+    <h3 id="modalTaskName">Task Accomplishments</h3>
+    <ul id="accomplishmentList"></ul>
+    <div class="accomplishment-input">
+      <input type="text" id="newAccomplishmentInput" placeholder="Add accomplishment...">
+      <button id="addAccomplishmentBtn">Add</button>
+    </div>
+    <div class="modal-footer">
+        <div id="confirmDeleteContainer" style="display: none;">
+            <span>Are you sure?</span>
+            <button id="confirmDeleteYesBtn">Yes, Delete</button>
+            <button id="confirmDeleteNoBtn">No</button>
+        </div>
+        <button id="deleteTaskBtn">Delete Task</button>
     </div>
   </div>
-  <div class="current-time-line" id="time-line"></div>
 </div>
 
-<script src="calendarBridge.js"></script>
 <script>
-  // DOM Elements
-  const calendar = document.getElementById('calendar');
-  const container = document.getElementById('calendar-container');
-  const timeLine = document.getElementById('time-line');
-  const taskGroupsContainer = document.getElementById('task-groups-container');
-  
-  // State
-  let dragOriginDay = null;
-  const categoryColors = ['#d946ef', '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6'];
-  let nextColorIndex = 0;
-  
-  // Constants
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const todayIndex = new Date().getDay();
-  const rowHeight = 30;
-  const halfHourHeight = rowHeight / 2;
+document.addEventListener('DOMContentLoaded', () => {
+    // --- STATE MANAGEMENT ---
+    function getCurrentTime() {
+        const now = new Date();
+        // This logic can be simplified if you don't need a fixed timezone.
+        // For simplicity, we'll use the user's local time.
+        return now;
+    }
 
-  // --- Persistence Helpers ---
-  function serializeEvents() {
-    const events = [];
-    document.querySelectorAll('.cell .event').forEach(ev => {
-      const cell = ev.parentElement;
-      const baseHour = parseInt(cell.dataset.hour, 10);
-      const day = parseInt(cell.dataset.day, 10);
-      const startMinutes = Math.round(ev.offsetTop / halfHourHeight) * 30;
-      const start = baseHour * 60 + startMinutes;
-      const duration = Math.round(ev.offsetHeight / halfHourHeight) * 30;
-      events.push({
-        id: ev.id,
-        text: ev.textContent,
-        color: ev.style.getPropertyValue('--event-color'),
-        day,
-        start,
-        duration
-      });
-    });
-    return events;
-  }
-
-  function loadEventsFromArray(events) {
-    events.forEach(data => {
-      const hour = Math.floor(data.start / 60);
-      const minute = data.start % 60;
-      const cell = document.querySelector(`.cell[data-day="${data.day}"][data-hour="${hour}"]`);
-      if (!cell) return;
-      const event = document.createElement('div');
-      event.className = 'event';
-      event.id = data.id || `event-${Date.now()}`;
-      event.textContent = data.text;
-      event.style.setProperty('--event-color', data.color);
-      const topSteps = Math.round(minute / 30);
-      event.style.top = `${topSteps * halfHourHeight}px`;
-      event.style.height = `${Math.round(data.duration / 30) * halfHourHeight}px`;
-      event.appendChild(document.createElement('div')).className = 'resizer top';
-      event.appendChild(document.createElement('div')).className = 'resizer bottom';
-      makeEventInteractive(event);
-      cell.appendChild(event);
-    });
-    days.forEach((_, i) => refreshLayoutForDay(i));
-  }
-
-  async function saveCalendar() {
-    const events = serializeEvents();
-    await window.calendarBridge.save(events);
-  }
-
-  async function loadCalendar() {
-    const events = await window.calendarBridge.load();
-    if (Array.isArray(events)) loadEventsFromArray(events);
-  }
-
-  // --- Calendar Grid Generation ---
-  function initializeCalendar() {
-    days.forEach((day, i) => {
-      const div = document.createElement('div');
-      div.className = 'day';
-      div.textContent = day;
-      div.style.gridColumn = i + 2;
-      div.style.gridRow = 1;
-      calendar.appendChild(div);
-    });
-
-    hours.forEach((hour, rowIndex) => {
-      const timeDiv = document.createElement('div');
-      timeDiv.className = 'time';
-      timeDiv.style.gridRow = rowIndex + 2;
-      timeDiv.style.gridColumn = 1;
-      timeDiv.textContent = formatHour(hour);
-      calendar.appendChild(timeDiv);
-
-      for (let col = 0; col < 7; col++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        if (col === todayIndex) cell.classList.add('today');
-        cell.dataset.day = col;
-        cell.dataset.hour = hour;
-        cell.style.gridRow = rowIndex + 2;
-        cell.style.gridColumn = col + 2;
-        
-        cell.ondragover = e => e.preventDefault();
-        cell.ondrop = e => handleDrop(e, cell);
-        calendar.appendChild(cell);
-      }
-    });
-  }
-  
-  function handleDrop(e, cell) {
-      e.preventDefault();
-      const eventData = JSON.parse(e.dataTransfer.getData('application/json'));
-      const existingEvent = document.getElementById(eventData.id);
-
-      if (existingEvent) {
-         cell.appendChild(existingEvent);
-         const rect = cell.getBoundingClientRect();
-         const yInCell = e.clientY - rect.top;
-         const steps = Math.round(yInCell / halfHourHeight);
-         existingEvent.style.top = `${steps * halfHourHeight}px`;
-         
-         if (dragOriginDay !== null) refreshLayoutForDay(dragOriginDay);
-         refreshLayoutForDay(cell.dataset.day);
-         dragOriginDay = null;
-         saveCalendar();
-      } else {
-        createEvent(cell, eventData, e.clientY);
-        refreshLayoutForDay(cell.dataset.day);
-        saveCalendar();
-      }
-  }
-
-  // --- Event Creation & Layout ---
-  function createEvent(cell, eventData, clientY) {
-    const event = document.createElement('div');
-    event.className = 'event';
-    event.id = `event-${Date.now()}`;
-    event.textContent = eventData.text;
-    event.style.setProperty('--event-color', eventData.color);
-    
-    const rect = cell.getBoundingClientRect();
-    const yInCell = clientY - rect.top;
-    const steps = Math.round(yInCell / halfHourHeight);
-    
-    event.style.top = `${steps * halfHourHeight}px`;
-    event.style.height = `${rowHeight}px`;
-
-    event.appendChild(document.createElement('div')).className = 'resizer top';
-    event.appendChild(document.createElement('div')).className = 'resizer bottom';
-
-    makeEventInteractive(event);
-    cell.appendChild(event);
-    saveCalendar();
-  }
-  
-  function refreshLayoutForDay(dayIndex) {
-      const allEventsOnDay = Array.from(document.querySelectorAll(`.cell[data-day='${dayIndex}'] .event`));
-      
-      const timeSlots = {};
-      
-      allEventsOnDay.forEach(event => {
-          const top = event.offsetTop + event.parentElement.offsetTop;
-          const height = event.offsetHeight;
-
-          for (let i = 0; i < allEventsOnDay.length; i++) {
-              const otherEvent = allEventsOnDay[i];
-              if(event === otherEvent) continue;
-              
-              const otherTop = otherEvent.offsetTop + otherEvent.parentElement.offsetTop;
-              const otherHeight = otherEvent.offsetHeight;
-              
-              if ((top < otherTop + otherHeight) && (top + height > otherTop)) {
-                  const key = Math.min(top, otherTop);
-                  if(!timeSlots[key]) timeSlots[key] = new Set();
-                  timeSlots[key].add(event);
-                  timeSlots[key].add(otherEvent);
-              }
-          }
-      });
-      
-      allEventsOnDay.forEach(e => {
-        e.style.width = `calc(100% - 2px)`;
-        e.style.left = `1px`;
-      });
-      
-      Object.values(timeSlots).forEach(group => {
-          const groupArray = Array.from(group);
-          const width = 100 / groupArray.length;
-          groupArray.forEach((ev, k) => {
-              ev.style.width = `calc(${width}% - 2px)`;
-              ev.style.left = `${k * width}%`;
-          });
-      });
-  }
-
-  // --- Helper Functions ---
-  function formatHour(hour) {
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-    return `${hour12} ${ampm}`;
-  }
-
-  function toggleGroup(header) {
-    const group = header.closest('.task-group');
-    const items = group.querySelector('.task-items');
-    items.classList.toggle('show');
-  }
-
-  // --- Time-based UI Updates ---
-  function scrollToNow() {
-      const now = new Date();
-      const hour = now.getHours();
-      const minutes = now.getMinutes();
-      const offsetY = ((hour + minutes / 60) * rowHeight) - container.clientHeight / 2 + rowHeight;
-      const columnWidth = (calendar.offsetWidth - 50) / 7;
-      const offsetX = (todayIndex * columnWidth) - container.clientWidth / 2 + 50;
-      container.scrollTo({ top: offsetY, left: offsetX, behavior: 'smooth' });
-  }
-  function updateCornerBox() {
-      const now = new Date();
-      const day = days[now.getDay()];
-      const hour = now.getHours();
-      const min = now.getMinutes().toString().padStart(2, '0');
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-      document.getElementById('corner-day').textContent = day;
-      document.getElementById('corner-time').textContent = `${hour12}:${min} ${ampm}`;
-  }
-  function updateTimeLine() {
-      const now = new Date();
-      const hour = now.getHours();
-      const minutes = now.getMinutes();
-      const day = now.getDay();
-      const topOffset = ((hour + minutes / 60) * rowHeight) + rowHeight;
-      const column = document.querySelector(`.cell[data-day="${day}"]`);
-      if (column) {
-        const rect = column.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const leftOffset = rect.left - containerRect.left + container.scrollLeft;
-        timeLine.style.top = `${topOffset}px`;
-        timeLine.style.left = `${leftOffset}px`;
-        timeLine.style.width = `${rect.width}px`;
-      }
-  }
-  
-  // --- Sidebar Category & Task Logic ---
-  function createCategory(name, color, startExpanded = false) {
-    const group = document.createElement('div');
-    group.className = 'task-group';
-
-    const header = document.createElement('div');
-    header.className = 'task-header';
-    
-    const headerTitle = document.createElement('div');
-    headerTitle.className = 'task-header-title';
-    headerTitle.onclick = () => toggleGroup(header); // Click title to collapse/expand
-
-    const indicator = document.createElement('div');
-    indicator.className = 'color-indicator';
-    indicator.style.backgroundColor = color;
-
-    const title = document.createElement('span');
-    title.textContent = name;
-    
-    headerTitle.append(indicator, title);
-    
-    const addTaskBtnHeader = document.createElement('button');
-    addTaskBtnHeader.className = 'add-task-header-btn';
-    addTaskBtnHeader.textContent = '+';
-    
-    header.append(headerTitle, addTaskBtnHeader);
-
-    const itemsContainer = document.createElement('div');
-    itemsContainer.className = 'task-items';
-    if(startExpanded) itemsContainer.classList.add('show'); // Logic to start expanded
-
-    const taskInputContainer = document.createElement('div');
-    taskInputContainer.className = 'new-task-input-in-group';
-
-    const taskInput = document.createElement('input');
-    taskInput.type = 'text';
-    taskInput.placeholder = 'Add task...';
-    
-    addTaskBtnHeader.onclick = (e) => {
-        e.stopPropagation();
-        // If the main items aren't shown, show them first
-        if (!itemsContainer.classList.contains('show')) {
-            itemsContainer.classList.add('show');
-        }
-        taskInputContainer.classList.add('show');
-        taskInput.focus();
+    const state = {
+        view: 'week', // 'week', 'month', 'year'
+        displayDate: getCurrentTime(),
+        events: [], // Central data store for events
+        categories: [] // Central data store for categories
     };
     
-    const addTaskAction = () => {
-        const taskText = taskInput.value.trim();
-        if (taskText) {
-            const taskEl = document.createElement('div');
-            taskEl.className = 'draggable';
-            taskEl.draggable = true;
-            taskEl.textContent = taskText;
-            taskEl.style.backgroundColor = color;
-            taskEl.ondragstart = e => {
-                e.stopPropagation();
-                const eventData = { text: taskText, color: color, id: null };
-                e.dataTransfer.setData('application/json', JSON.stringify(eventData));
-            };
-            itemsContainer.insertBefore(taskEl, taskInputContainer);
-            taskInput.value = '';
-        }
-        taskInputContainer.classList.remove('show');
-    };
+    // Global state for operations
+    let resizeState = {};
+    let activeEventId = null;
+
+    // --- DOM Elements ---
+    const calendar = document.getElementById('calendar');
+    const timeLine = document.getElementById('time-line');
+    const todayBtn = document.getElementById('todayBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const currentDateDisplay = document.getElementById('currentDateDisplay');
+    const weekViewBtn = document.getElementById('weekViewBtn');
+    const monthViewBtn = document.getElementById('monthViewBtn');
+    const yearViewBtn = document.getElementById('yearViewBtn');
+    const newCategoryName = document.getElementById('newCategoryName');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const taskGroupsContainer = document.getElementById('task-groups-container');
     
-    taskInput.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter') {
-            addTaskAction();
-        }
-        if (e.key === 'Escape') {
-            taskInput.value = '';
-            taskInputContainer.classList.remove('show');
-        }
-    });
-
-    taskInput.addEventListener('blur', () => {
-        // Hide input if it's empty when it loses focus
-        if(taskInput.value.trim() === '') {
-            taskInputContainer.classList.remove('show');
-        }
-    });
-
-    taskInputContainer.appendChild(taskInput);
-    itemsContainer.appendChild(taskInputContainer);
-    group.append(header, itemsContainer);
-    taskGroupsContainer.appendChild(group);
-  }
-  
-  function initializeSidebar() {
-      const newCategoryNameInput = document.getElementById('newCategoryName');
-      const addCategoryBtn = document.getElementById('addCategoryBtn');
-      
-      const addCategoryAction = () => {
-          const name = newCategoryNameInput.value.trim();
-          if (name) {
-              const color = categoryColors[nextColorIndex % categoryColors.length];
-              nextColorIndex++;
-              createCategory(name, color, true);
-              newCategoryNameInput.value = '';
-          }
-      };
-      
-      addCategoryBtn.onclick = addCategoryAction;
-      newCategoryNameInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-              addCategoryAction();
-          }
-      });
-      
-      createCategory('Work', categoryColors[0], true);
-      createCategory('Recreation', categoryColors[1]);
-      createCategory('Exercise', categoryColors[2]);
-      nextColorIndex = 3;
-  }
-
-  // --- Core Interactivity Logic ---
-  function makeEventInteractive(event) {
-    event.oncontextmenu = e => { e.preventDefault(); event.remove(); refreshLayoutForDay(event.parentElement.dataset.day); saveCalendar(); };
+    // Modal Elements
+    const accomplishmentModal = document.getElementById('accomplishmentModal');
+    const modalTaskName = document.getElementById('modalTaskName');
+    const accomplishmentList = document.getElementById('accomplishmentList');
+    const newAccomplishmentInput = document.getElementById('newAccomplishmentInput');
+    const addAccomplishmentBtn = document.getElementById('addAccomplishmentBtn');
+    const modalCloseBtn = document.querySelector('.close-btn');
+    const deleteTaskBtn = document.getElementById('deleteTaskBtn');
+    const confirmDeleteContainer = document.getElementById('confirmDeleteContainer');
+    const confirmDeleteYesBtn = document.getElementById('confirmDeleteYesBtn');
+    const confirmDeleteNoBtn = document.getElementById('confirmDeleteNoBtn');
     
-    const topResizer = event.querySelector('.resizer.top');
-    const bottomResizer = event.querySelector('.resizer.bottom');
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthsOfYear = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthsOfYearAbbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    const startResize = (e, isTop) => {
-        e.stopPropagation(); e.preventDefault();
-        event.classList.add('dragging');
-        
-        const startY = e.clientY;
-        const startHeight = event.offsetHeight;
-        const startTop = event.offsetTop;
-        const initialCell = event.parentElement;
-        const dayIndex = initialCell.dataset.day;
-        const initialHour = parseInt(initialCell.dataset.hour, 10);
+    // --- DATA PERSISTENCE (SAVE/LOAD) ---
 
-        const handleMove = (e) => {
-            if (isTop) {
-                const totalDeltaY = e.clientY - startY;
-                const steps = Math.round(totalDeltaY / halfHourHeight);
-                let snappedDeltaY = steps * halfHourHeight;
-                if ((startHeight - snappedDeltaY) < halfHourHeight) snappedDeltaY = startHeight - halfHourHeight;
-                const desiredHeight = startHeight - snappedDeltaY;
-                const desiredTop = startTop + snappedDeltaY;
-                const hourOffset = Math.floor(desiredTop / rowHeight);
-                const newHour = initialHour + hourOffset;
+    /**
+     * Saves the current state (events and categories) and the human-readable history file.
+     * This function is called whenever a change is made.
+     */
+    function saveStateAndHistory() {
+        // Prepare a clean state object for saving (omitting transient view properties)
+        const appState = {
+            events: state.events,
+            categories: state.categories,
+        };
 
-                if (newHour >= 0 && newHour < 24) {
-                    const newCell = document.querySelector(`.cell[data-day="${dayIndex}"][data-hour="${newHour}"]`);
-                    if (newCell) {
-                        if (event.parentElement !== newCell) newCell.appendChild(event);
-                        let topInNewCell = desiredTop % rowHeight;
-                        if (topInNewCell < 0) topInNewCell += rowHeight;
-                        event.style.top = `${topInNewCell}px`;
-                        event.style.height = `${desiredHeight}px`;
-                    }
-                }
-            } else { // Bottom resize
-                const delta = e.clientY - startY;
-                const newHeight = startHeight + delta;
-                const halfSteps = Math.round(newHeight / halfHourHeight);
-                event.style.height = `${Math.max(halfHourHeight, halfSteps * halfHourHeight)}px`;
+        if (window.electronAPI) {
+            // Save the application state for reloading
+            window.electronAPI.saveState(appState);
+            
+            // Generate and save the human-readable markdown file
+            const markdownContent = generateHistoryMarkdown();
+            window.electronAPI.saveHistory(markdownContent);
+        } else {
+            console.warn('Electron API not found. Data will not be saved.');
+        }
+    }
+
+    /**
+     * Loads the application state from 'calendar-data.json' on startup.
+     */
+    async function loadState() {
+        if (window.electronAPI) {
+            const loadedState = await window.electronAPI.loadState();
+            if (loadedState) {
+                state.events = loadedState.events || [];
+                state.categories = loadedState.categories || [];
             }
-        };
+        }
+        
+        // If there's no saved data or file doesn't exist, use defaults
+        if (state.categories.length === 0) {
+            addInitialCategories();
+        } else {
+            // Re-render categories from the loaded state
+            taskGroupsContainer.innerHTML = '';
+            state.categories.forEach(cat => createCategoryElement(cat.name, cat.color));
+        }
+    }
 
-        const stopResize = () => {
-            document.removeEventListener('mousemove', handleMove);
-            document.removeEventListener('mouseup', stopResize);
-            event.classList.remove('dragging');
-            refreshLayoutForDay(dayIndex);
-            saveCalendar();
-        };
+    // --- MAIN RENDER FUNCTION ---
+    function render() {
+        calendar.innerHTML = ''; // Clear previous view
+        timeLine.style.display = 'none'; // Hide by default
+        calendar.className = `calendar ${state.view}-view`;
 
-        document.addEventListener('mousemove', handleMove);
-        document.addEventListener('mouseup', stopResize);
-    };
-
-    topResizer.onmousedown = (e) => startResize(e, true);
-    bottomResizer.onmousedown = (e) => startResize(e, false);
-
-    event.draggable = true;
-    event.ondragstart = e => {
-      e.stopPropagation();
-      dragOriginDay = event.parentElement.dataset.day;
-      const eventData = {
-          text: event.textContent,
-          color: event.style.getPropertyValue('--event-color'),
-          id: event.id
-      };
-      e.dataTransfer.setData('application/json', JSON.stringify(eventData));
-      setTimeout(() => event.classList.add('dragging'), 0);
-    };
-    event.ondragend = () => event.classList.remove('dragging');
-  }
-
-  // --- App Initialization ---
-  document.addEventListener('DOMContentLoaded', () => {
-      initializeCalendar();
-      initializeSidebar();
-      loadCalendar();
-      updateTimeLine();
-      updateCornerBox();
-      scrollToNow();
-      
-      setInterval(() => {
+        updateHeader();
+        
+        switch (state.view) {
+            case 'week':
+                renderWeekView();
+                renderWeekViewEvents();
+                calendar.appendChild(timeLine);
+                break;
+            case 'month':
+                renderMonthView();
+                break;
+            case 'year':
+                renderYearView();
+                break;
+        }
         updateTimeLine();
-        updateCornerBox();
-      }, 60000);
-      
-      window.addEventListener('resize', updateTimeLine);
-  });
+    }
 
+    function updateHeader() {
+        [weekViewBtn, monthViewBtn, yearViewBtn].forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`${state.view}ViewBtn`).classList.add('active');
+
+        if (state.view === 'week') {
+            const startOfWeek = new Date(state.displayDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            
+            const startMonth = monthsOfYearAbbr[startOfWeek.getMonth()];
+            const endMonth = monthsOfYearAbbr[endOfWeek.getMonth()];
+
+            if (startOfWeek.getFullYear() !== endOfWeek.getFullYear()) {
+                currentDateDisplay.textContent = `${startMonth} ${startOfWeek.getDate()}, ${startOfWeek.getFullYear()} - ${endMonth} ${endOfWeek.getDate()}, ${endOfWeek.getFullYear()}`;
+            } else if (startMonth === endMonth) {
+                currentDateDisplay.textContent = `${startMonth} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}, ${endOfWeek.getFullYear()}`;
+            } else {
+                 currentDateDisplay.textContent = `${startMonth} ${startOfWeek.getDate()} - ${endMonth} ${endOfWeek.getDate()}, ${endOfWeek.getFullYear()}`;
+            }
+
+        } else if (state.view === 'month') {
+            currentDateDisplay.textContent = `${monthsOfYear[state.displayDate.getMonth()]} ${state.displayDate.getFullYear()}`;
+        } else if (state.view === 'year') {
+            currentDateDisplay.textContent = state.displayDate.getFullYear();
+        }
+    }
+
+    // --- VIEW-SPECIFIC RENDERERS ---
+
+    function renderYearView() {
+        calendar.innerHTML = `<div style="padding: 20px; text-align: center;">Year View Coming Soon!</div>`;
+    }
+
+    function renderMonthView() {
+        const year = state.displayDate.getFullYear();
+        const month = state.displayDate.getMonth();
+
+        daysOfWeek.forEach(day => {
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-header';
+            dayHeader.textContent = day;
+            calendar.appendChild(dayHeader);
+        });
+
+        const firstDayOfMonth = new Date(year, month, 1);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startDayIndex = firstDayOfMonth.getDay();
+
+        const prevMonthDays = new Date(year, month, 0).getDate();
+        for (let i = startDayIndex - 1; i >= 0; i--) {
+             const cell = createMonthCell(new Date(year, month - 1, prevMonthDays - i), true);
+             calendar.appendChild(cell);
+        }
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+             const cell = createMonthCell(new Date(year, month, day));
+             calendar.appendChild(cell);
+        }
+        
+        const totalCells = 42;
+        const filledCells = startDayIndex + daysInMonth;
+        for (let day = 1; day <= totalCells - filledCells; day++) {
+            const cell = createMonthCell(new Date(year, month + 1, day), true);
+            calendar.appendChild(cell);
+        }
+    }
+
+    function createMonthCell(date, isOtherMonth = false) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        if (isOtherMonth) cell.classList.add('other-month');
+
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = date.getDate();
+        
+        if (date.toDateString() === getCurrentTime().toDateString()) {
+             dayNumber.classList.add('today');
+        }
+
+        cell.appendChild(dayNumber);
+        cell.addEventListener('dragover', handleDragOver);
+        cell.addEventListener('dragleave', handleDragLeave);
+        cell.addEventListener('drop', handleDropOnCalendar);
+
+        return cell;
+    }
+
+    function renderWeekView() {
+        const startOfWeek = new Date(state.displayDate);
+        startOfWeek.setDate(startOfWeek.getDate() - state.displayDate.getDay());
+        
+        const headerContainer = document.createElement('div');
+        headerContainer.className = 'week-view-header-container';
+        
+        const cornerCell = document.createElement('div');
+        cornerCell.className = 'day-header';
+        cornerCell.style.gridRow = '1';
+        cornerCell.style.gridColumn = '1';
+        headerContainer.appendChild(cornerCell);
+
+        for(let i = 0; i < 7; i++) {
+          const currentDay = new Date(startOfWeek);
+          currentDay.setDate(startOfWeek.getDate() + i); 
+          
+          const div = document.createElement('div');
+          div.className = 'day-header';
+          
+          const dayNameSpan = document.createElement('span');
+          dayNameSpan.textContent = daysOfWeek[i];
+          
+          const dayNumberSpan = document.createElement('span');
+          dayNumberSpan.className = 'day-number';
+          dayNumberSpan.textContent = currentDay.getDate();
+          
+          if (currentDay.toDateString() === getCurrentTime().toDateString()) {
+                dayNumberSpan.classList.add('today');
+          }
+
+          div.appendChild(dayNameSpan);
+          div.appendChild(dayNumberSpan);
+
+          div.style.gridRow = '1';
+          div.style.gridColumn = i + 2;
+          headerContainer.appendChild(div);
+        }
+        calendar.appendChild(headerContainer);
+
+        for (let hour = 0; hour < 24; hour++) {
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'time-label';
+          timeDiv.style.gridRow = (hour * 2) + 2; 
+          timeDiv.style.gridColumn = 1;
+          timeDiv.textContent = `${hour % 12 === 0 ? 12 : hour % 12} ${hour < 12 ? 'AM' : 'PM'}`;
+          calendar.appendChild(timeDiv);
+
+          for (let col = 0; col < 7; col++) {
+            const topHalfCell = document.createElement('div');
+            topHalfCell.className = 'grid-cell';
+            const bottomHalfCell = document.createElement('div');
+            bottomHalfCell.className = 'grid-cell grid-cell-bottom-half';
+
+            [topHalfCell, bottomHalfCell].forEach((cell, index) => {
+                const cellDate = new Date(startOfWeek);
+                cellDate.setDate(cellDate.getDate() + col);
+                if(cellDate.toDateString() === getCurrentTime().toDateString()) {
+                     cell.classList.add('today-column');
+                }
+                
+                cell.dataset.day = col;
+                cell.dataset.hour = hour;
+                cell.dataset.minute = index * 30;
+                // Important: Set explicit grid positions for drop logic
+                cell.style.gridRow = (hour * 2) + 2 + index;
+                cell.style.gridColumn = col + 2;
+
+                cell.addEventListener('dragover', handleDragOver);
+                cell.addEventListener('dragleave', handleDragLeave);
+                cell.addEventListener('drop', handleDropOnCalendar);
+                calendar.appendChild(cell);
+            });
+          }
+        }
+    }
+    
+    function renderWeekViewEvents() {
+        state.events.forEach(eventData => {
+            const eventEl = document.createElement('div');
+            eventEl.id = eventData.id;
+            eventEl.className = 'event';
+            eventEl.textContent = eventData.text;
+            eventEl.style.backgroundColor = eventData.color;
+
+            eventEl.style.gridRowStart = eventData.gridRowStart;
+            eventEl.style.gridRowEnd = `span ${eventData.rowSpan}`;
+            eventEl.style.gridColumn = eventData.gridColumn;
+
+            makeEventInteractive(eventEl);
+            updateAccomplishmentStar(eventEl);
+            calendar.appendChild(eventEl);
+        });
+    }
+    
+    function updateTimeLine() {
+        if (state.view !== 'week') {
+            timeLine.style.display = 'none';
+            return;
+        }
+        
+        const now = getCurrentTime();
+
+        const startOfWeek = new Date(state.displayDate);
+        startOfWeek.setHours(0,0,0,0);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+        if (now < startOfWeek || now >= endOfWeek) {
+            timeLine.style.display = 'none';
+            return;
+        }
+
+        const hour = now.getHours();
+        const minutes = now.getMinutes();
+        const day = now.getDay();
+        const rowHeight = 15; // Corresponds to grid-auto-rows: 15px
+
+        const headerEl = calendar.querySelector('.day-header');
+        if (!headerEl) { return; }
+        const headerHeight = headerEl.offsetHeight;
+        
+        // Calculate position based on half-hour rows
+        const topPosition = headerHeight + ((hour * 2) + (minutes / 30)) * rowHeight;
+        
+        // Find the correct column to position the line
+        const column = calendar.querySelector(`.grid-cell[data-day='${day}']`);
+        if (column) {
+            timeLine.style.top = `${topPosition}px`;
+            timeLine.style.left = `${column.offsetLeft}px`;
+            timeLine.style.width = `${column.offsetWidth}px`;
+            timeLine.style.display = 'block';
+        } else {
+            timeLine.style.display = 'none';
+        }
+    }
+
+    // --- SIDEBAR & TASKS ---
+
+    function getRandomColor() {
+      const colors = ['#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8', '#e6c9a8'];
+      // Avoid returning a color that's too light for white
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function createCategoryElement(name, color) {
+        const taskGroup = document.createElement('div');
+        taskGroup.className = 'task-group';
+        const taskHeader = document.createElement('div');
+        taskHeader.className = 'task-header';
+        const taskHeaderTitle = document.createElement('div');
+        taskHeaderTitle.className = 'task-header-title';
+        const colorIndicator = document.createElement('div');
+        colorIndicator.className = 'color-indicator';
+        colorIndicator.style.backgroundColor = color;
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = name;
+        taskHeaderTitle.appendChild(colorIndicator);
+        taskHeaderTitle.appendChild(titleSpan);
+        const addTaskHeaderBtn = document.createElement('button');
+        addTaskHeaderBtn.className = 'add-task-header-btn';
+        addTaskHeaderBtn.innerHTML = '+';
+        addTaskHeaderBtn.title = 'Add new task';
+        taskHeader.appendChild(taskHeaderTitle);
+        taskHeader.appendChild(addTaskHeaderBtn);
+        const taskItems = document.createElement('div');
+        taskItems.className = 'task-items';
+        const newTaskInputDiv = document.createElement('div');
+        newTaskInputDiv.className = 'new-task-input-in-group';
+        const newTaskInput = document.createElement('input');
+        newTaskInput.type = 'text';
+        newTaskInput.placeholder = 'New Task...';
+        const newTaskButton = document.createElement('button');
+        newTaskButton.textContent = '+';
+        newTaskInputDiv.appendChild(newTaskInput);
+        newTaskInputDiv.appendChild(newTaskButton);
+        taskGroup.appendChild(taskHeader);
+        taskGroup.appendChild(taskItems);
+        taskGroup.appendChild(newTaskInputDiv);
+        
+        taskHeader.addEventListener('click', () => taskItems.classList.toggle('show'));
+        addTaskHeaderBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            taskItems.classList.add('show');
+            newTaskInputDiv.classList.toggle('show');
+            newTaskInput.focus();
+        });
+        
+        newTaskButton.addEventListener('click', () => {
+            const taskName = newTaskInput.value.trim();
+            if (taskName) {
+                const taskEl = document.createElement('div');
+                const taskId = `task-${crypto.randomUUID()}`;
+                taskEl.id = taskId;
+                taskEl.className = 'draggable';
+                taskEl.textContent = taskName;
+                taskEl.style.backgroundColor = color;
+                taskEl.draggable = true;
+                
+                taskEl.addEventListener('dragstart', (e) => {
+                    const taskData = { type: 'newTask', id: taskId, text: taskName, color: color };
+                    e.dataTransfer.setData('application/json', JSON.stringify(taskData));
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => taskEl.classList.add('dragging'), 0);
+                });
+
+                taskEl.addEventListener('dragend', () => taskEl.classList.remove('dragging'));
+                taskItems.appendChild(taskEl);
+                newTaskInput.value = '';
+            }
+        });
+
+        newTaskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') newTaskButton.click();
+        });
+
+        taskGroupsContainer.appendChild(taskGroup);
+    }
+
+    function handleAddCategory() {
+        const name = newCategoryName.value.trim();
+        if (name && !state.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+            const newCategory = { name: name, color: getRandomColor() };
+            state.categories.push(newCategory);
+            createCategoryElement(newCategory.name, newCategory.color);
+            newCategoryName.value = '';
+            saveStateAndHistory(); // SAVE
+        }
+    }
+
+    function addInitialCategories() {
+        const initial = [
+            { name: 'Work', color: '#aecbfa' },
+            { name: 'Personal', color: '#f28b82' }
+        ];
+        initial.forEach(cat => {
+            if (!state.categories.some(c => c.name === cat.name)) {
+                state.categories.push(cat);
+                createCategoryElement(cat.name, cat.color);
+            }
+        });
+        saveStateAndHistory(); // Initial save
+    }
+
+    // --- DRAG & DROP & RESIZE HANDLERS ---
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-over');
+    }
+
+    function handleDragLeave() {
+        this.classList.remove('drag-over');
+    }
+
+    function handleDropOnCalendar(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+
+        const dataString = e.dataTransfer.getData('application/json');
+        if (!dataString) return;
+
+        const data = JSON.parse(dataString);
+        const targetCell = e.currentTarget;
+        const targetGridRow = parseInt(targetCell.style.gridRow);
+        const targetGridCol = parseInt(targetCell.style.gridColumn);
+
+        if (data.type === 'existingEvent') {
+            const eventData = state.events.find(ev => ev.id === data.id);
+            if (eventData) {
+                eventData.gridRowStart = targetGridRow;
+                eventData.gridColumn = targetGridCol;
+            }
+        } else if (data.type === 'newTask') {
+            const newEventData = {
+                id: `event-${crypto.randomUUID()}`,
+                text: data.text,
+                color: data.color,
+                gridRowStart: targetGridRow,
+                gridColumn: targetGridCol,
+                rowSpan: 2, // Default 1-hour duration (2 * 30min slots)
+                accomplishments: []
+            };
+            state.events.push(newEventData);
+            
+            const originalTask = document.getElementById(data.id);
+            if (originalTask) originalTask.remove();
+        }
+        
+        saveStateAndHistory(); // SAVE
+        render(); // Re-render the whole view to correctly place the event
+    }
+    
+    function makeEventInteractive(eventEl) {
+        eventEl.draggable = true;
+        
+        eventEl.addEventListener('dragstart', (e) => {
+            e.stopPropagation();
+            const eventData = { type: 'existingEvent', id: eventEl.id };
+            e.dataTransfer.setData('application/json', JSON.stringify(eventData));
+            setTimeout(() => eventEl.classList.add('dragging'), 0);
+        });
+        
+        eventEl.addEventListener('dragend', (e) => eventEl.classList.remove('dragging'));
+        eventEl.addEventListener('dblclick', openAccomplishmentModal);
+
+        addResizersToEvent(eventEl);
+    }
+    
+    function addResizersToEvent(eventEl) {
+        const topResizer = document.createElement('div');
+        topResizer.className = 'resizer top';
+        const bottomResizer = document.createElement('div');
+        bottomResizer.className = 'resizer bottom';
+        
+        eventEl.appendChild(topResizer);
+        eventEl.appendChild(bottomResizer);
+        
+        topResizer.addEventListener('mousedown', initResize);
+        bottomResizer.addEventListener('mousedown', initResize);
+    }
+    
+    function initResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        resizeState.eventEl = e.target.parentElement;
+        const style = window.getComputedStyle(resizeState.eventEl);
+        resizeState.isTopResizer = e.target.classList.contains('top');
+        resizeState.startY = e.clientY;
+        resizeState.initialRowStart = parseInt(style.gridRowStart);
+        const rowEnd = style.gridRowEnd;
+        resizeState.initialRowSpan = rowEnd.includes('span') ? parseInt(rowEnd.split(' ')[1]) : 1;
+        
+        document.addEventListener('mousemove', resizeEvent);
+        document.addEventListener('mouseup', stopResize);
+    }
+
+    function resizeEvent(e) {
+        if (!resizeState.eventEl) return;
+
+        const deltaY = e.clientY - resizeState.startY;
+        const snapGridSize = 15; // Corresponds to grid-auto-rows
+        const deltaRows = Math.round(deltaY / snapGridSize);
+
+        if (resizeState.isTopResizer) {
+            let newRowStart = resizeState.initialRowStart + deltaRows;
+            let newRowSpan = resizeState.initialRowSpan - deltaRows;
+            
+            if (newRowStart < 2) { // Cannot go above the header
+                newRowSpan += newRowStart - 2;
+                newRowStart = 2;
+            }
+            if (newRowSpan < 1) newRowSpan = 1; // Minimum height of one slot
+            
+            resizeState.eventEl.style.gridRowStart = newRowStart;
+            resizeState.eventEl.style.gridRowEnd = `span ${newRowSpan}`;
+
+        } else { // Bottom resizer
+            let newRowSpan = resizeState.initialRowSpan + deltaRows;
+            
+            // Grid has 24 hours * 2 slots/hr + 1 header row = 49 rows total.
+            if (resizeState.initialRowStart + newRowSpan > 50) {
+                newRowSpan = 50 - resizeState.initialRowStart;
+            }
+             if (newRowSpan < 1) newRowSpan = 1;
+
+            resizeState.eventEl.style.gridRowEnd = `span ${newRowSpan}`;
+        }
+    }
+    
+    function stopResize() {
+        if (!resizeState.eventEl) return;
+
+        const eventData = state.events.find(ev => ev.id === resizeState.eventEl.id);
+        const style = window.getComputedStyle(resizeState.eventEl);
+        
+        if (eventData) {
+            eventData.gridRowStart = parseInt(style.gridRowStart);
+            const rowEnd = style.gridRowEnd;
+            eventData.rowSpan = rowEnd.includes('span') ? parseInt(rowEnd.split(' ')[1]) : 1;
+            saveStateAndHistory(); // SAVE
+        }
+
+        document.removeEventListener('mousemove', resizeEvent);
+        document.removeEventListener('mouseup', stopResize);
+        resizeState = {};
+    }
+
+    // --- ACCOMPLISHMENT MODAL ---
+    function openAccomplishmentModal(e) {
+        e.stopPropagation();
+        const eventEl = e.currentTarget;
+        activeEventId = eventEl.id;
+
+        const eventData = state.events.find(ev => ev.id === activeEventId);
+        if (!eventData) return;
+
+        modalTaskName.textContent = eventData.text;
+        renderAccomplishmentList(eventData.accomplishments);
+        accomplishmentModal.style.display = 'block';
+    }
+    
+    function closeAccomplishmentModal() {
+        accomplishmentModal.style.display = 'none';
+        activeEventId = null;
+        cancelDeleteConfirmation();
+    }
+    
+    function renderAccomplishmentList(accomplishments) {
+        accomplishmentList.innerHTML = '';
+        accomplishments.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-accomplishment-btn';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.onclick = () => handleDeleteAccomplishment(index);
+            
+            li.appendChild(deleteBtn);
+            accomplishmentList.appendChild(li);
+        });
+    }
+
+    function handleAddAccomplishment() {
+        const text = newAccomplishmentInput.value.trim();
+        if (text && activeEventId) {
+            const eventData = state.events.find(ev => ev.id === activeEventId);
+            if (eventData) {
+                eventData.accomplishments.push(text);
+                renderAccomplishmentList(eventData.accomplishments);
+                updateAccomplishmentStar(document.getElementById(activeEventId));
+                newAccomplishmentInput.value = '';
+                saveStateAndHistory(); // SAVE
+            }
+        }
+    }
+
+    function handleDeleteAccomplishment(index) {
+        if (activeEventId) {
+            const eventData = state.events.find(ev => ev.id === activeEventId);
+            if (eventData) {
+                eventData.accomplishments.splice(index, 1);
+                renderAccomplishmentList(eventData.accomplishments);
+                updateAccomplishmentStar(document.getElementById(activeEventId));
+                saveStateAndHistory(); // SAVE
+            }
+        }
+    }
+    
+    function showDeleteConfirmation() {
+        deleteTaskBtn.style.display = 'none';
+        confirmDeleteContainer.style.display = 'inline-block';
+    }
+
+    function cancelDeleteConfirmation() {
+        deleteTaskBtn.style.display = 'inline-block';
+        confirmDeleteContainer.style.display = 'none';
+    }
+
+    function executeDeleteTask() {
+        if (!activeEventId) return;
+        
+        // Remove from state
+        state.events = state.events.filter(ev => ev.id !== activeEventId);
+        
+        // Remove from DOM
+        const eventEl = document.getElementById(activeEventId);
+        if (eventEl) eventEl.remove();
+
+        saveStateAndHistory(); // SAVE
+        closeAccomplishmentModal();
+    }
+    
+    function updateAccomplishmentStar(eventEl) {
+        if (!eventEl) return;
+        
+        const eventData = state.events.find(ev => ev.id === eventEl.id);
+        let badge = eventEl.querySelector('.accomplishment-badge');
+        
+        if (eventData && eventData.accomplishments.length > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'accomplishment-badge';
+                eventEl.appendChild(badge);
+            }
+            badge.innerHTML = `<span class="star">⭐</span> ${eventData.accomplishments.length}`;
+        } else {
+            if (badge) badge.remove();
+        }
+    }
+
+    // --- HISTORY FILE GENERATION ---
+    function getEventDateTimeString(eventData) {
+        // This function determines the date of an event based on its grid position
+        const startOfWeek = new Date(state.displayDate);
+        startOfWeek.setHours(0, 0, 0, 0);
+        startOfWeek.setDate(startOfWeek.getDate() - state.displayDate.getDay());
+
+        const dayOffset = parseInt(eventData.gridColumn) - 2;
+        const eventDate = new Date(startOfWeek);
+        eventDate.setDate(eventDate.getDate() + dayOffset);
+
+        const minutesOffset = (parseInt(eventData.gridRowStart) - 2) * 15; // 15 mins per row
+        const hours = Math.floor(minutesOffset / 60);
+        const minutes = minutesOffset % 60;
+
+        eventDate.setHours(hours, minutes);
+
+        return eventDate.toLocaleString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true
+        });
+    }
+
+    function generateHistoryMarkdown() {
+        if (state.events.length === 0) {
+            return "No events on the calendar yet.";
+        }
+
+        let markdownString = "# Calendar History\n\n";
+        markdownString += "| Date/Time | Task Label | Accomplishments | Details |\n";
+        markdownString += "| :--- | :--- | :--- | :--- |\n";
+
+        // Sort events by date before generating the table
+        const sortedEvents = [...state.events].sort((a, b) => {
+            const dateA = new Date(getEventDateTimeString(a));
+            const dateB = new Date(getEventDateTimeString(b));
+            return dateA - dateB;
+        });
+
+        sortedEvents.forEach(event => {
+            const dateTime = getEventDateTimeString(event);
+            const taskLabel = event.text.replace(/\|/g, '\\|'); // Escape pipe characters
+            const accomplishmentCount = event.accomplishments.length;
+            const accomplishmentDetails = event.accomplishments.length > 0 
+                ? event.accomplishments.map(acc => `- ${acc.replace(/\|/g, '\\|').replace(/\n/g, ' ')}`).join('<br>')
+                : 'N/A';
+            
+            markdownString += `| ${dateTime} | ${taskLabel} | ${accomplishmentCount} | ${accomplishmentDetails} |\n`;
+        });
+        
+        return markdownString;
+    }
+
+    // --- EVENT HANDLERS ---
+    function setupEventListeners() {
+        todayBtn.addEventListener('click', () => { state.displayDate = getCurrentTime(); render(); });
+        prevBtn.addEventListener('click', () => navigate(-1));
+        nextBtn.addEventListener('click', () => navigate(1));
+        weekViewBtn.addEventListener('click', () => switchView('week'));
+        monthViewBtn.addEventListener('click', () => switchView('month'));
+        yearViewBtn.addEventListener('click', () => switchView('year'));
+        addCategoryBtn.addEventListener('click', handleAddCategory);
+        newCategoryName.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddCategory(); });
+        window.addEventListener('resize', updateTimeLine);
+        
+        // Modal listeners
+        modalCloseBtn.addEventListener('click', closeAccomplishmentModal);
+        addAccomplishmentBtn.addEventListener('click', handleAddAccomplishment);
+        newAccomplishmentInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddAccomplishment(); });
+        deleteTaskBtn.addEventListener('click', showDeleteConfirmation);
+        confirmDeleteYesBtn.addEventListener('click', executeDeleteTask);
+        confirmDeleteNoBtn.addEventListener('click', cancelDeleteConfirmation);
+    }
+
+    function navigate(direction) {
+        if (state.view === 'week') {
+            state.displayDate.setDate(state.displayDate.getDate() + (7 * direction));
+        } else if (state.view === 'month') {
+            state.displayDate.setMonth(state.displayDate.getMonth() + direction);
+        } else if (state.view === 'year') {
+            state.displayDate.setFullYear(state.displayDate.getFullYear() + direction);
+        }
+        render();
+    }
+
+    function switchView(viewName) {
+        if (state.view !== viewName) {
+            state.view = viewName;
+            render();
+        }
+    }
+
+    // --- INITIALIZATION ---
+    async function init() {
+        // Asynchronously load saved data first
+        await loadState();
+        
+        // Then set up the application
+        setupEventListeners();
+        render(); // Initial render with potentially loaded data
+        setInterval(updateTimeLine, 60000); 
+    }
+
+    init();
+});
 </script>
-
 </body>
 </html>
