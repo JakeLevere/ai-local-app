@@ -22,7 +22,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
          ipcRenderer.once(channel, subscription);
          // Optional: Return cleanup, though 'once' usually doesn't need it
          return () => ipcRenderer.removeListener(channel, subscription);
-    }
+    },
+    // Invoke an IPC handler and get a promise back
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
 });
 
 console.log('Preload script loaded.');
