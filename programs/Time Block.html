@@ -299,6 +299,7 @@
   <div class="current-time-line" id="time-line"></div>
 </div>
 
+<script src="calendarBridge.js"></script>
 <script>
   // DOM Elements
   const calendar = document.getElementById('calendar');
@@ -317,6 +318,60 @@
   const todayIndex = new Date().getDay();
   const rowHeight = 30;
   const halfHourHeight = rowHeight / 2;
+
+  // --- Persistence Helpers ---
+  function serializeEvents() {
+    const events = [];
+    document.querySelectorAll('.cell .event').forEach(ev => {
+      const cell = ev.parentElement;
+      const baseHour = parseInt(cell.dataset.hour, 10);
+      const day = parseInt(cell.dataset.day, 10);
+      const startMinutes = Math.round(ev.offsetTop / halfHourHeight) * 30;
+      const start = baseHour * 60 + startMinutes;
+      const duration = Math.round(ev.offsetHeight / halfHourHeight) * 30;
+      events.push({
+        id: ev.id,
+        text: ev.textContent,
+        color: ev.style.getPropertyValue('--event-color'),
+        day,
+        start,
+        duration
+      });
+    });
+    return events;
+  }
+
+  function loadEventsFromArray(events) {
+    events.forEach(data => {
+      const hour = Math.floor(data.start / 60);
+      const minute = data.start % 60;
+      const cell = document.querySelector(`.cell[data-day="${data.day}"][data-hour="${hour}"]`);
+      if (!cell) return;
+      const event = document.createElement('div');
+      event.className = 'event';
+      event.id = data.id || `event-${Date.now()}`;
+      event.textContent = data.text;
+      event.style.setProperty('--event-color', data.color);
+      const topSteps = Math.round(minute / 30);
+      event.style.top = `${topSteps * halfHourHeight}px`;
+      event.style.height = `${Math.round(data.duration / 30) * halfHourHeight}px`;
+      event.appendChild(document.createElement('div')).className = 'resizer top';
+      event.appendChild(document.createElement('div')).className = 'resizer bottom';
+      makeEventInteractive(event);
+      cell.appendChild(event);
+    });
+    days.forEach((_, i) => refreshLayoutForDay(i));
+  }
+
+  async function saveCalendar() {
+    const events = serializeEvents();
+    await window.calendarBridge.save(events);
+  }
+
+  async function loadCalendar() {
+    const events = await window.calendarBridge.load();
+    if (Array.isArray(events)) loadEventsFromArray(events);
+  }
 
   // --- Calendar Grid Generation ---
   function initializeCalendar() {
@@ -368,9 +423,11 @@
          if (dragOriginDay !== null) refreshLayoutForDay(dragOriginDay);
          refreshLayoutForDay(cell.dataset.day);
          dragOriginDay = null;
+         saveCalendar();
       } else {
         createEvent(cell, eventData, e.clientY);
         refreshLayoutForDay(cell.dataset.day);
+        saveCalendar();
       }
   }
 
@@ -394,6 +451,7 @@
 
     makeEventInteractive(event);
     cell.appendChild(event);
+    saveCalendar();
   }
   
   function refreshLayoutForDay(dayIndex) {
@@ -605,7 +663,7 @@
 
   // --- Core Interactivity Logic ---
   function makeEventInteractive(event) {
-    event.oncontextmenu = e => { e.preventDefault(); event.remove(); refreshLayoutForDay(event.parentElement.dataset.day);};
+    event.oncontextmenu = e => { e.preventDefault(); event.remove(); refreshLayoutForDay(event.parentElement.dataset.day); saveCalendar(); };
     
     const topResizer = event.querySelector('.resizer.top');
     const bottomResizer = event.querySelector('.resizer.bottom');
@@ -655,6 +713,7 @@
             document.removeEventListener('mouseup', stopResize);
             event.classList.remove('dragging');
             refreshLayoutForDay(dayIndex);
+            saveCalendar();
         };
 
         document.addEventListener('mousemove', handleMove);
@@ -683,6 +742,7 @@
   document.addEventListener('DOMContentLoaded', () => {
       initializeCalendar();
       initializeSidebar();
+      loadCalendar();
       updateTimeLine();
       updateCornerBox();
       scrollToNow();

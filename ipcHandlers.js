@@ -1,5 +1,6 @@
 const { ipcMain, shell } = require('electron');
 const path = require('path');
+const fs = require('fs').promises;
 const personaService = require('./personaService.js');
 const sharedDataService = require('./sharedDataService.js');
 let aiService = null;
@@ -217,11 +218,32 @@ function initialize(windowInstance, paths) {
         return personaService.getHealthMetrics();
     });
 
+
     ipcMain.on('save-health-metrics', async (event, metrics) => {
         try {
             await personaService.saveHealthMetrics(metrics);
         } catch (err) {
             sendToRenderer('main-process-error', `Failed to save health metrics: ${err.message}`);
+        }
+    });
+
+    const timeblockFile = path.join(baseDir, 'programs', 'Time Block.md');
+
+    ipcMain.handle('load-timeblock-data', async () => {
+        try {
+            const content = await fs.readFile(timeblockFile, 'utf-8');
+            return JSON.parse(content);
+        } catch (err) {
+            if (err.code === 'ENOENT') return [];
+            throw err;
+        }
+    });
+
+    ipcMain.handle('save-timeblock-data', async (event, events) => {
+        try {
+            await fs.writeFile(timeblockFile, JSON.stringify(events, null, 2), 'utf-8');
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to save time block data: ${err.message}`);
         }
     });
 
