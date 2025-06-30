@@ -1212,8 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- HISTORY FILE GENERATION ---
-    function getEventDateTimeString(eventData) {
-        // This function determines the date of an event based on its grid position
+    function getEventStartDate(eventData) {
         const startOfWeek = new Date(state.displayDate);
         startOfWeek.setHours(0, 0, 0, 0);
         startOfWeek.setDate(startOfWeek.getDate() - state.displayDate.getDay());
@@ -1222,18 +1221,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventDate = new Date(startOfWeek);
         eventDate.setDate(eventDate.getDate() + dayOffset);
 
-        // Each grid row represents a 30 minute block (2 rows per hour)
-        // so convert the gridRowStart value to minutes using a 30 minute step
         const minutesOffset = (parseInt(eventData.gridRowStart) - 2) * 30;
         const hours = Math.floor(minutesOffset / 60);
         const minutes = minutesOffset % 60;
 
         eventDate.setHours(hours, minutes);
+        return eventDate;
+    }
 
-        return eventDate.toLocaleString('en-US', {
+    function getEventDateTimeString(eventData) {
+        const startDate = getEventStartDate(eventData);
+        return startDate.toLocaleString('en-US', {
             year: 'numeric', month: 'short', day: 'numeric',
             hour: 'numeric', minute: '2-digit', hour12: true
         });
+    }
+
+    function getEventDateTimeRangeString(eventData) {
+        const startDate = getEventStartDate(eventData);
+        const durationMinutes = (parseInt(eventData.rowSpan) || 1) * 30;
+        const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+        const startStr = startDate.toLocaleString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true
+        });
+
+        const endStr = startDate.toDateString() === endDate.toDateString()
+            ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            : endDate.toLocaleString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+            });
+
+        return `${startStr} - ${endStr}`;
     }
 
     function generateHistoryMarkdown() {
@@ -1247,13 +1268,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Sort events by date before generating the table
         const sortedEvents = [...state.events].sort((a, b) => {
-            const dateA = new Date(getEventDateTimeString(a));
-            const dateB = new Date(getEventDateTimeString(b));
+            const dateA = getEventStartDate(a);
+            const dateB = getEventStartDate(b);
             return dateA - dateB;
         });
 
         sortedEvents.forEach(event => {
-            const dateTime = getEventDateTimeString(event);
+            const dateTime = getEventDateTimeRangeString(event);
             const taskLabel = event.text.replace(/\|/g, '\\|'); // Escape pipe characters
             const accomplishmentCount = event.accomplishments.length;
             const accomplishmentDetails = event.accomplishments.length > 0 
