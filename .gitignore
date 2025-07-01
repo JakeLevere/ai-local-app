@@ -1,1 +1,24 @@
+# Dependencies
 node_modules/
+
+# Build files (if you use a builder like electron-builder/forge)
+dist/
+out/
+build/
+release/
+
+# Log files
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment variables (if you store secrets in a .env file - better not to!)
+.env
+
+# User data (like your vault and decks - usually not committed)
+# Check if you want to commit default personas/icons in 'images'
+# Or if vaultPath/decksPath are inside the project dir - KEEP THEM OUT!
+# If vaultPath/decksPath are outside (like in AppData), they won't be committed anyway.
