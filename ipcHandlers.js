@@ -34,8 +34,9 @@ function initialize(windowInstance, paths) {
     mainWindow = windowInstance;
     appPaths = paths;
     baseDir = __dirname;
-    if (paths.userDataPath) {
-        sharedDataService.init(paths.userDataPath);
+    const sharedBase = paths.dataDir || paths.userDataPath;
+    if (sharedBase) {
+        sharedDataService.init(sharedBase);
     }
 
     ipcMain.on('discover-personas', async () => {
