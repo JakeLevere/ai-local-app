@@ -1,6 +1,5 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { OpenAI } = require('openai');
 
 const PRIMARY_CONVO_FILE = 'Stored_Conversations_Aggregated.md';
 const PRE_PROMPT_FILE = 'Pre-Prompt.md';
@@ -45,13 +44,14 @@ async function readFileSafe(filePath, defaultContent = '') {
     }
 }
 
-let openai = null;
+let openai;
 
 async function initializeOpenAI() {
     if (openai) return;
     if (!process.env.OPENAI_API_KEY) {
-        throw new Error("OpenAI API key is not set in environment variables.");
+        throw new Error('OpenAI API key is not set');
     }
+    const { OpenAI } = await import('openai');
     openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
