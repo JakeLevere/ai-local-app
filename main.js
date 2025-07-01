@@ -62,9 +62,13 @@ async function createUserDataDirectories() {
     }
     try {
         await fs.mkdir(imagesPath, { recursive: true });
-        // copy bundled images on first run
         const srcImages = path.join(__dirname, 'images');
-        await fs.cp(srcImages, imagesPath, { recursive: true, errorOnExist: false });
+        try {
+            await fs.access(srcImages);
+            await fs.cp(srcImages, imagesPath, { recursive: true, errorOnExist: false });
+        } catch (copyErr) {
+            console.log('No bundled images found at', srcImages);
+        }
         console.log('Images directory ensured:', imagesPath);
     } catch (err) {
         console.error('Error preparing images directory:', err);
