@@ -227,8 +227,8 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    const calendarStateFile = path.join(baseDir, 'programs', 'calendar-data.json');
-    const calendarHistoryFile = path.join(baseDir, 'programs', 'calendar-history.md');
+    const calendarStateFile = path.join(appPaths.dataDir || baseDir, 'calendar-data.json');
+    const calendarHistoryFile = path.join(appPaths.dataDir || baseDir, 'calendar-history.md');
 
     ipcMain.handle('calendar-load-state', async () => {
         try {
