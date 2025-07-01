@@ -1,1 +1,158 @@
-{}
+{
+  "events": [
+    {
+      "id": "event-6b768dd6-1ffb-4dcf-a4e4-8cfe49654721",
+      "text": "sdfsdf",
+      "color": "#aecbfa",
+      "gridRowStart": 10,
+      "gridColumn": 4,
+      "start": 1752566400000,
+      "rowSpan": 2,
+      "accomplishments": []
+    },
+    {
+      "id": "event-e1cd44f6-e11b-4cfd-8ba0-93932aece3c7",
+      "text": "sdfsdf",
+      "color": "#f28b82",
+      "gridRowStart": 14,
+      "gridColumn": 3,
+      "start": 1752487200000,
+      "rowSpan": 2,
+      "accomplishments": []
+    },
+    {
+      "id": "event-80e0bba8-051c-4f13-8a23-7d28a19fc96d",
+      "text": "Sleep",
+      "color": "#f28b82",
+      "gridRowStart": 10,
+      "gridColumn": 2,
+      "start": 1751184000000,
+      "rowSpan": 18,
+      "accomplishments": []
+    },
+    {
+      "id": "event-3e2a87ac-7790-4b48-8f82-a80c6d561dce",
+      "text": "Chill",
+      "color": "#f28b82",
+      "gridRowStart": 28,
+      "gridColumn": 2,
+      "start": 1751216400000,
+      "rowSpan": 3,
+      "accomplishments": []
+    },
+    {
+      "id": "event-a12e1369-5ff8-459f-a923-853019a9ebda",
+      "text": "Schedule Programming",
+      "color": "#aecbfa",
+      "gridRowStart": 31,
+      "gridColumn": 2,
+      "start": 1751221800000,
+      "rowSpan": 7,
+      "accomplishments": []
+    },
+    {
+      "id": "event-1de20c60-934c-47e0-b43f-cf4670fce595",
+      "text": "Exercise",
+      "color": "#aecbfa",
+      "gridRowStart": 38,
+      "gridColumn": 2,
+      "start": 1751234400000,
+      "rowSpan": 1,
+      "accomplishments": [
+        "70 Jumping Jacks",
+        "20 Pushups",
+        "Leg Stretches",
+        "15 Minute Walk"
+      ]
+    },
+    {
+      "id": "event-04dd1947-2a69-422d-b59e-e90dfe7459e7",
+      "text": "Sleep",
+      "color": "#f28b82",
+      "gridRowStart": 12,
+      "gridColumn": 3,
+      "start": 1751274000000,
+      "rowSpan": 13,
+      "accomplishments": []
+    },
+    {
+      "id": "event-a4c4c4e0-2caa-4d8a-b20b-73726a5c989d",
+      "text": "Eating and Chilling",
+      "color": "#f28b82",
+      "gridRowStart": 26,
+      "gridColumn": 3,
+      "start": 1751299200000,
+      "rowSpan": 5,
+      "accomplishments": []
+    },
+    {
+      "id": "event-3c9d4fc8-6bf9-4fed-8d1b-10a5053b925b",
+      "text": "Schedule Programming",
+      "color": "#aecbfa",
+      "gridRowStart": 31,
+      "gridColumn": 3,
+      "start": 1751308200000,
+      "rowSpan": 5,
+      "accomplishments": [
+        "Setup Local History Storage"
+      ]
+    },
+    {
+      "id": "event-74e1cd44-72bd-4f3e-9445-e532b1484ad0",
+      "text": "Exercise",
+      "color": "#aecbfa",
+      "gridRowStart": 36,
+      "gridColumn": 3,
+      "start": 1751317200000,
+      "rowSpan": 1,
+      "accomplishments": [
+        "20 Pushups",
+        "70 Jumping Jacks",
+        "Leg Stretching",
+        "Arm Stretching",
+        "15 Minute Walk",
+        "15 Squats"
+      ]
+    },
+    {
+      "id": "event-34083ffd-a00a-452c-bc1c-6ced96f44c27",
+      "text": "Sleep",
+      "color": "#f28b82",
+      "gridRowStart": 12,
+      "gridColumn": 4,
+      "start": 1751360400000,
+      "rowSpan": 13,
+      "accomplishments": []
+    },
+    {
+      "id": "event-a62cec6b-bb3b-4078-8e8b-0e8dcf292c62",
+      "text": "Drove to TacoBell",
+      "color": "#f28b82",
+      "gridRowStart": 25,
+      "gridColumn": 4,
+      "start": 1751383800000,
+      "rowSpan": 2,
+      "accomplishments": []
+    },
+    {
+      "id": "event-7710b1de-83f2-4621-a881-ce56e559da68",
+      "text": "Eat and Anime",
+      "color": "#f28b82",
+      "gridRowStart": 27,
+      "gridColumn": 4,
+      "start": 1751387400000,
+      "rowSpan": 2,
+      "accomplishments": []
+    }
+  ],
+  "categories": [
+    {
+      "name": "Work",
+      "color": "#aecbfa"
+    },
+    {
+      "name": "Personal",
+      "color": "#f28b82"
+    }
+  ]
+}
