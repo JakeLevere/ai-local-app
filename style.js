@@ -1,13 +1,19 @@
 const { app, BrowserWindow, ipcMain, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
-const { OpenAI } = require('openai');
 const sharp = require('sharp');
 const fetch = require('node-fetch');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'your-api-key-here' // Replace with your actual key or env var setup
-});
+let openai;
+
+async function initializeOpenAI() {
+  if (openai) return;
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not set');
+  }
+  const { OpenAI } = await import('openai');
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 const vaultPath = path.join(app.getPath('documents'), 'ai-local-data', 'ObsidianVault');
 fs.mkdir(vaultPath, { recursive: true }).catch(err => console.error('Error creating vault directory:', err));
@@ -1153,6 +1159,7 @@ ipcMain.on('add-entry', async (event, userContent) => {
   sendToRenderer('append-user-entry', userContent);
 
   try {
+    await initializeOpenAI();
     await fs.mkdir(folder, { recursive: true });
 
     let existingConversations = await fs.readFile(conversationsFilePath, 'utf-8').catch(() => '');
@@ -1173,6 +1180,7 @@ ipcMain.on('add-entry', async (event, userContent) => {
 
     sendToRenderer('start-thinking');
 
+    await initializeOpenAI();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -1435,6 +1443,7 @@ ipcMain.on('auto-pre-prompt', async (event) => {
   const convPath = path.join(folder, 'Stored Conversations.md');
   const prePromptPath = path.join(folder, 'Pre-Prompt.md');
   try {
+    await initializeOpenAI();
     const convContent = await fs.readFile(convPath, 'utf-8').catch(() => '');
     if (!convContent.trim()) {
       appendChatLog(`No conversations found for ${selectedAI} to generate pre-prompt.`);
@@ -1468,6 +1477,7 @@ ipcMain.on('update-memory', async (event) => {
   const memoryPromptPath = path.join(folder, 'Memory-Prompt.md');
   const memoryPath = path.join(folder, 'Memory.md');
   try {
+    await initializeOpenAI();
     const convContent = await fs.readFile(convPath, 'utf-8').catch(() => '');
     const memoryPrompt = await fs.readFile(memoryPromptPath, 'utf-8').catch(() => 'Summarize the key points, open questions, and action items from the conversation history provided below. Format using Markdown headings (e.g., ## Key Insights, ## Open Questions, ## Action Items). Be concise.');
 
