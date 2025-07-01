@@ -11,8 +11,10 @@ const PORT = 3000; // Choose an available port
 
 // Define user data paths (accessible to other modules if needed, e.g., passed during init)
 const userDataPath = app.getPath('userData');
-const vaultPath = path.join(app.getPath('documents'), 'ObsidianVault');
-const decksPath = path.join(userDataPath, 'Decks');
+const dataDir = path.join(app.getPath('documents'), 'ai-local-data');
+const vaultPath = path.join(dataDir, 'ObsidianVault');
+const decksPath = path.join(dataDir, 'Decks');
+const imagesPath = path.join(dataDir, 'Images');
 
 // --- Express Local Server Setup ---
 let server;
@@ -40,7 +42,12 @@ function startLocalServer() {
 
 // Function to create initial directories (Unchanged)
 async function createUserDataDirectories() {
-    // ... (keep existing code)
+    try {
+        await fs.mkdir(dataDir, { recursive: true });
+    } catch (err) {
+        console.error('Error creating data directory:', err);
+    }
+
     try {
         await fs.mkdir(vaultPath, { recursive: true });
         console.log('ObsidianVault directory ensured:', vaultPath);
@@ -52,6 +59,15 @@ async function createUserDataDirectories() {
         console.log('Decks directory ensured:', decksPath);
     } catch (err) {
         console.error('Error creating decks directory:', err);
+    }
+    try {
+        await fs.mkdir(imagesPath, { recursive: true });
+        // copy bundled images on first run
+        const srcImages = path.join(__dirname, 'images');
+        await fs.cp(srcImages, imagesPath, { recursive: true, errorOnExist: false });
+        console.log('Images directory ensured:', imagesPath);
+    } catch (err) {
+        console.error('Error preparing images directory:', err);
     }
 }
 
@@ -89,7 +105,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     });
 
     // Initialize IPC handlers, passing necessary context (Unchanged)
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath });
+    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath });
 
     // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {

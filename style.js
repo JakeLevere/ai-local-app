@@ -9,17 +9,17 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'your-api-key-here' // Replace with your actual key or env var setup
 });
 
-const vaultPath = path.join(app.getPath('documents'), 'ObsidianVault');
+const vaultPath = path.join(app.getPath('documents'), 'ai-local-data', 'ObsidianVault');
 fs.mkdir(vaultPath, { recursive: true }).catch(err => console.error('Error creating vault directory:', err));
 
-const decksPath = path.join(app.getPath('userData'), 'Decks');
+const decksPath = path.join(app.getPath('documents'), 'ai-local-data', 'Decks');
 fs.mkdir(decksPath, { recursive: true }).catch(err => console.error('Error creating decks directory:', err));
 
 let mainWindow;
 let selectedAI = 'Memo';
 let decks = {};
 
-const imageBasePath = path.join(__dirname, 'images').replace(/\\/g, '/');
+const imageBasePath = path.join(app.getPath('documents'), 'ai-local-data', 'Images').replace(/\\/g, '/');
 
 const htmlContent = `
 <!DOCTYPE html>
