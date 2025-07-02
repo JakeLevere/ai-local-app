@@ -20,8 +20,10 @@ const imagesPath = path.join(dataDir, 'Images');
 let server;
 function startLocalServer() {
     const expressApp = express();
-    // Serve static files (HTML, CSS, JS, images) from the app's directory
-    expressApp.use(express.static(path.join(__dirname))); // Serve files from the same directory as main.js
+    // Serve static files from the project directory
+    expressApp.use(express.static(path.join(__dirname)));
+    // Serve user images from the persistent data directory
+    expressApp.use('/images', express.static(imagesPath));
 
     // Optional: Add specific routes if needed, but static should cover it
 
