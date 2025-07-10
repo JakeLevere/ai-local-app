@@ -20,11 +20,16 @@ This Electron-based application uses the OpenAI API for certain features. Set th
 
 `index.html` is the main renderer page loaded by Electron. A previous version of the interface has been kept for reference in `index-legacy.html`.
 
+
 ## User Data and Images
 
 All persistent application data is stored under `ai-local-data` inside your system's **Documents** folder. Within this directory you will find:
 - `ObsidianVault` – persona data and logs.
 - `Decks` – flashcard decks.
 - `Images` – persona icons and other assets.
+
+
+## Local Images
+
 
 These directories are created automatically on first run. Images stored under `ai-local-data/Images` will be served by the app at runtime.
