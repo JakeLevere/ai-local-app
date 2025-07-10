@@ -11,3 +11,14 @@ This Electron-based application uses the OpenAI API for certain features. Set th
 The application looks for persona icons and other assets under `ai-local-data/Images`
 inside your documents folder. You can store your own images in that directory and
 they will be served at runtime. No images are required in the repository itself.
+
+## Packaging
+
+Package the application using [electron-builder](https://www.electron.build/).
+After installing dependencies, run:
+
+```bash
+npm run build
+```
+
+The build output will be placed in the `dist` directory.

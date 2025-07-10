@@ -3,14 +3,27 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
+  "build": {
+    "appId": "com.example.ai-local-app",
+    "productName": "AI Local App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**/*"
+    ]
+  },
   "devDependencies": {
-    "electron": "^35.1.2"
+    "electron": "^35.1.2",
+    "electron-builder": "^24.11.0"
   },
   "dependencies": {
     "@electron/remote": "^2.1.2",
