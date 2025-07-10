@@ -32,4 +32,10 @@ All persistent application data is stored under `ai-local-data` inside your syst
 ## Local Images
 
 
-These directories are created automatically on first run. Images stored under `ai-local-data/Images` will be served by the app at runtime.
+The application looks for persona icons and other assets under `ai-local-data/Images`
+inside your documents folder. You can store your own images in that directory and
+they will be served at runtime. No images are required in the repository itself.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
