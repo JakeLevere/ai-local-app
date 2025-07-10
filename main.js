@@ -7,7 +7,8 @@ const express = require('express'); // <--- Add this
 const http = require('http'); // <--- Add this
 
 let mainWindow;
-const PORT = 3000; // Choose an available port
+const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
+let port = DEFAULT_PORT; // Choose an available port
 
 // Define user data paths (accessible to other modules if needed, e.g., passed during init)
 const userDataPath = app.getPath('userData');
@@ -18,6 +19,8 @@ const imagesPath = path.join(dataDir, 'Images');
 
 // --- Express Local Server Setup ---
 let server;
+const MAX_PORT_RETRIES = 10;
+
 function startLocalServer() {
     const expressApp = express();
     // Serve static files from the project directory
@@ -28,15 +31,29 @@ function startLocalServer() {
     // Optional: Add specific routes if needed, but static should cover it
 
     return new Promise((resolve, reject) => {
-        server = http.createServer(expressApp);
-        server.listen(PORT, 'localhost', () => {
-            console.log(`>>> Local server listening on http://localhost:${PORT}`);
-            resolve(`http://localhost:${PORT}`);
-        });
-        server.on('error', (err) => {
-            console.error('!!! Failed to start local server:', err);
-            reject(err);
-        });
+        const attempt = (retries) => {
+            server = http.createServer(expressApp);
+
+            server.once('error', (err) => {
+                if (err.code === 'EADDRINUSE' && retries < MAX_PORT_RETRIES) {
+                    console.error(`Port ${port} in use, trying ${port + 1}...`);
+                    port += 1;
+                    attempt(retries + 1);
+                } else {
+                    console.error('!!! Failed to start local server:', err);
+                    reject(err);
+                }
+            });
+
+            server.once('listening', () => {
+                console.log(`>>> Local server listening on http://localhost:${port}`);
+                resolve(`http://localhost:${port}`);
+            });
+
+            server.listen(port, 'localhost');
+        };
+
+        attempt(0);
     });
 }
 // --- End Express Setup ---
@@ -100,7 +117,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
         show: false, // Don't show until ready
     });
 
-    // Load the URL from the local server (e.g., http://localhost:3000/index.html)
+    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
     await mainWindow.loadURL(`${serverUrl}/index.html`); // <--- CHANGE: Load URL
 
     // Maximize and show when ready (Unchanged)
@@ -142,7 +159,7 @@ app.whenReady().then(async () => {
              // Need to ensure server is running or restart if needed on activate
              // For simplicity, assume server is still running; might need more robust handling
             if (server && server.listening) {
-                 await createWindow(`http://localhost:${PORT}`);
+                 await createWindow(`http://localhost:${port}`);
             } else {
                  console.error("Cannot reactivate window: Server not running.");
                  // Optionally try restarting server:

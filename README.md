@@ -2,6 +2,9 @@
 
 This Electron-based application uses the OpenAI API for certain features. Set the `OPENAI_API_KEY` environment variable with your API key before running the app. Without it, OpenAI features will fail to initialize.
 
+
+The built-in web server reads the `PORT` environment variable to determine which port to listen on. If `PORT` is not set, the server defaults to `3000`.
+
 ## Prerequisites
 
 - **Node.js** v18 or newer with npm installed.
