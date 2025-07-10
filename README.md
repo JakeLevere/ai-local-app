@@ -11,3 +11,7 @@ This Electron-based application uses the OpenAI API for certain features. Set th
 The application looks for persona icons and other assets under `ai-local-data/Images`
 inside your documents folder. You can store your own images in that directory and
 they will be served at runtime. No images are required in the repository itself.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
