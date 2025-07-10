@@ -6,6 +6,9 @@ This Electron-based application uses the OpenAI API for certain features. Set th
 
 `index.html` is the main renderer page loaded by Electron. A previous version of the interface has been kept for reference in `index-legacy.html`.
 
+The old `style.js` script has been removed. Its functionality now lives across
+`main.js`, `ipcHandlers.js`, and `renderer.js`.
+
 ## Local Images
 
 The application looks for persona icons and other assets under `ai-local-data/Images`
