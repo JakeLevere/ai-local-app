@@ -168,5 +168,10 @@ module.exports = {
     getChatResponse,
     appendToConversation,
     processAIResponseCommands,
-    updateMemorySummary
+    updateMemorySummary,
+    // Exported for testing utilities
+    sanitizeFolderName,
+    getPersonaFolderPath,
+    getPrimaryPersonaFolderPath,
+    parseConversationPairs
 };

@@ -242,5 +242,9 @@ module.exports = {
     saveCalendarEvents,
     getHealthMetrics,
     saveHealthMetrics,
+    // Exported for testing utilities
+    sanitizeFolderName,
+    getPersonaFolderPath,
+    getPrimaryPersonaFolderPath,
     // Still excluded: getSubPersonasFor, appendToConversation, AI functions...
 };
