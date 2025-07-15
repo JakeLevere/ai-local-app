@@ -129,7 +129,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
             nodeIntegration: false, // Keep Node.js out of renderer
             contextIsolation: true, // Protect main/renderer contexts
             // --- Preload Script ---
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, '..', '..', 'preload.js'),
             // --- Other Settings ---
             webviewTag: true, // Allow <webview> tag
             webSecurity: true, // Keep web security enabled (more secure)
