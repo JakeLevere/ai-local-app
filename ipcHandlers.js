@@ -134,16 +134,6 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
-    ipcMain.on('open-external', (event, url) => {
-        if (url) {
-            try {
-                shell.openExternal(url);
-            } catch (err) {
-                console.error('Failed to open external URL', url, err);
-            }
-        }
-    });
-
     ipcMain.on('create-deck', async (event, deckInfo) => {
         try {
             await personaService.saveDeck(deckInfo.name, deckInfo, appPaths.decksPath);

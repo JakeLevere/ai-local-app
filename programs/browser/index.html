@@ -73,18 +73,6 @@
         });
         viewer.addEventListener('did-fail-load', (e) => {
             console.error('[Browser Troubleshooting] failed to load', viewer.src, e.errorDescription);
-            // If the site blocks being embedded (common with X-Frame-Options)
-            // attempt to open it in the user's external browser instead.
-            if (e.errorDescription && e.errorDescription.includes('ERR_BLOCKED')) {
-                const target = viewer.src;
-                if (window.electronAPI && typeof window.electronAPI.send === 'function') {
-                    window.electronAPI.send('open-external', target);
-                } else {
-                    window.open(target, '_blank');
-                }
-                // Reset to a blank page so the stuck content isn't shown
-                viewer.src = 'about:blank';
-            }
         });
 
         document.getElementById('go').addEventListener('click', navigate);
