@@ -52,18 +52,6 @@
     <webview id="viewer" src="https://example.com" allowpopups></webview>
 
     <script>
-        const viewer = document.getElementById('viewer');
-
-        viewer.addEventListener('did-start-loading', () => {
-            console.log('[Browser] started loading', viewer.src);
-        });
-        viewer.addEventListener('did-finish-load', () => {
-            console.log('[Browser] finished loading', viewer.src);
-        });
-        viewer.addEventListener('did-fail-load', (e) => {
-            console.error('[Browser] load failed', e.errorDescription, viewer.src);
-        });
-
         const navigate = () => {
             const url = document.getElementById('url').value.trim();
             if (url) {
@@ -71,7 +59,7 @@
                     url.startsWith('http://') || url.startsWith('https://')
                         ? url
                         : `https://${url}`;
-                viewer.src = prefixed;
+                document.getElementById('viewer').src = prefixed;
             }
         };
 
