@@ -73,8 +73,9 @@ function cacheDomElements() {
 }
 
 function sanitizeFolderName(name) {
-     return name.toLowerCase().replace(/[^a-z0-9_-]/gi, '_');
- }
+    if (!name) return '';
+    return String(name).toLowerCase().replace(/[^a-z0-9_-]/gi, '_');
+}
 
 function clearDisplayUI(displayId) {
     console.log(`--- Clearing Display UI for ${displayId} ---`);
