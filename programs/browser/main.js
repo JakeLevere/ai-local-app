@@ -2,7 +2,9 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
-const initializeIpcHandlers = require('./ipcHandlers');
+// ipcHandlers.js lives in the project root one directory above "programs".
+// Use a relative path that points back to that location.
+const initializeIpcHandlers = require('../../ipcHandlers');
 const express = require('express'); // <--- Add this
 const http = require('http'); // <--- Add this
 
