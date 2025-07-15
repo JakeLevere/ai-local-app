@@ -23,6 +23,10 @@ The built-in web server reads the `PORT` environment variable to determine which
 
 `index.html` is the main renderer page loaded by Electron. A previous version of the interface has been kept for reference in `index-legacy.html`.
 
+### Built-in Browser
+
+The `browser` program embeds websites using an Electron `webview`. Many popular sites, such as Google, prevent being displayed in an embedded frame. If a page refuses to load, the application will automatically open the link in your default browser.
+
 
 ## User Data and Images
 
