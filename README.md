@@ -21,7 +21,7 @@ The built-in web server reads the `PORT` environment variable to determine which
 
 ## Project Files
 
-`index.html` is the main renderer page loaded by Electron. A previous version of the interface has been kept for reference in `index-legacy.html`.
+`index.html` is the main renderer page loaded by Electron. A previous version of the interface has been kept for reference in `programs/browser/index-legacy.html`.
 
 
 ## User Data and Images
