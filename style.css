@@ -41,6 +41,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 #left-sidebar.collapsed { width: 50px; padding: 0; }
 #persona-section, #slide-section { padding: 10px 10px 0 10px; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
 #persona-section { flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
+#persona-select { width: 100%; margin-bottom: 5px; padding: 4px; background-color: var(--bg-dark-grey); color: var(--text-off-white); border: 1px solid var(--border-color); border-radius: 4px; }
 #persona-preview { text-align: center; padding-top: 10px; }
 #persona-preview-video {
     width: 100%;
