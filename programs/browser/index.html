@@ -67,8 +67,10 @@
             </div>
         </div>
 
-        <!-- Content area is now managed by BrowserView, so this is just a placeholder background -->
-        <div class="flex-grow bg-gray-600"></div>
+        <!-- Content area. When embedded, a <webview> or <iframe> element will be
+             inserted here at runtime. When running as a full Electron app, this
+             area will be replaced by a BrowserView. -->
+        <div id="webview-container" class="flex-grow bg-gray-600"></div>
     </div>
     
     <!-- The logic is now in an external file -->

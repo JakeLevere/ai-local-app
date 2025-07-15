@@ -7,6 +7,29 @@ const addressBar = document.getElementById('address-bar');
 const backBtn = document.getElementById('back-btn');
 const forwardBtn = document.getElementById('forward-btn');
 const reloadBtn = document.getElementById('reload-btn');
+const webviewContainer = document.getElementById('webview-container');
+let webview = document.getElementById('webview');
+
+// Determine environment
+const hasElectronAPI = !!window.electronAPI;
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+const isEmbedded = !hasElectronAPI;
+
+// Create viewer element when embedded
+if (isEmbedded && webviewContainer) {
+    if (isElectron) {
+        webview = document.createElement('webview');
+        webview.setAttribute('class', 'w-full h-full');
+        webview.setAttribute('id', 'webview');
+    } else {
+        webview = document.createElement('iframe');
+        webview.setAttribute('class', 'w-full h-full');
+        webview.setAttribute('id', 'webview');
+        webview.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+        webview.style.border = '0';
+    }
+    webviewContainer.appendChild(webview);
+}
 
 // --- STATE MANAGEMENT ---
 let tabs = {}; // Store tab data, mapping tabId to its info
@@ -91,41 +114,99 @@ function closeTab(tabId) {
 }
 
 function navigate() {
-    if (!activeTabId) return;
-    let url = addressBar.value.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        if (url.includes('.') && !url.includes(' ')) {
-            url = 'https://' + url;
-        } else {
-            url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    if (isEmbedded) {
+        let url = addressBar.value.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (url.includes('.') && !url.includes(' ')) {
+                url = 'https://' + url;
+            } else {
+                url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+            }
         }
+        if (webview) {
+            if (webview.tagName === 'WEBVIEW') {
+                webview.loadURL(url);
+            } else {
+                webview.src = url;
+            }
+            addressBar.value = url;
+        }
+    } else {
+        if (!activeTabId) return;
+        let url = addressBar.value.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (url.includes('.') && !url.includes(' ')) {
+                url = 'https://' + url;
+            } else {
+                url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+            }
+        }
+        window.electronAPI.navigate(activeTabId, url);
     }
-    window.electronAPI.navigate(activeTabId, url);
 }
 
 // --- EVENT LISTENERS from UI ---
-addTabBtn.addEventListener('click', createNewTab);
+if (!isEmbedded) {
+    addTabBtn.addEventListener('click', createNewTab);
+} else {
+    // Hide tab UI when embedded
+    tabsContainer.style.display = 'none';
+    addTabBtn.style.display = 'none';
+}
 addressBar.addEventListener('keyup', (e) => e.key === 'Enter' && navigate());
-reloadBtn.addEventListener('click', () => window.electronAPI.reload(activeTabId));
-backBtn.addEventListener('click', () => window.electronAPI.goBack(activeTabId));
-forwardBtn.addEventListener('click', () => window.electronAPI.goForward(activeTabId));
+reloadBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        if (webview.tagName === 'WEBVIEW') webview.reload();
+        else webview.contentWindow.location.reload();
+    } else {
+        window.electronAPI.reload(activeTabId);
+    }
+});
+backBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        if (webview.tagName === 'WEBVIEW') webview.goBack();
+        else webview.contentWindow.history.back();
+    } else {
+        window.electronAPI.goBack(activeTabId);
+    }
+});
+forwardBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        if (webview.tagName === 'WEBVIEW') webview.goForward();
+        else webview.contentWindow.history.forward();
+    } else {
+        window.electronAPI.goForward(activeTabId);
+    }
+});
 
 // --- LISTENERS from Main Process (via preload) ---
-window.electronAPI.onURLUpdated((tabId, url) => {
-    if (tabs[tabId]) {
-        tabs[tabId].url = url;
-        if (tabId === activeTabId) {
-            addressBar.value = url;
+if (!isEmbedded) {
+    window.electronAPI.onURLUpdated((tabId, url) => {
+        if (tabs[tabId]) {
+            tabs[tabId].url = url;
+            if (tabId === activeTabId) {
+                addressBar.value = url;
+            }
         }
-    }
-});
+    });
 
-window.electronAPI.onTitleUpdated((tabId, title) => {
-    if (tabs[tabId]) {
-        tabs[tabId].title = title;
-        tabs[tabId].el.querySelector('span').textContent = title;
-    }
-});
+    window.electronAPI.onTitleUpdated((tabId, title) => {
+        if (tabs[tabId]) {
+            tabs[tabId].title = title;
+            tabs[tabId].el.querySelector('span').textContent = title;
+        }
+    });
+}
 
 // --- INITIALIZATION ---
-createNewTab();
+if (isEmbedded) {
+    if (webview) {
+        if (webview.tagName === 'WEBVIEW') {
+            webview.loadURL('https://www.google.com');
+        } else {
+            webview.src = 'https://www.google.com';
+        }
+    }
+} else {
+    createNewTab();
+}
