@@ -14,7 +14,7 @@ let port = DEFAULT_PORT; // Choose an available port
 // Define user data paths (accessible to other modules if needed, e.g., passed during init)
 const userDataPath = app.getPath('userData');
 const dataDir = path.join(app.getPath('documents'), 'ai-local-data');
-const vaultPath = path.join(dataDir, 'ObsidianVault');
+const vaultPath = path.join(dataDir, 'Personas');
 const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
@@ -81,7 +81,7 @@ async function createUserDataDirectories() {
 
     try {
         await fs.mkdir(vaultPath, { recursive: true });
-        console.log('ObsidianVault directory ensured:', vaultPath);
+        console.log('Personas directory ensured:', vaultPath);
     } catch (err) {
         console.error('Error creating vault directory:', err);
     }

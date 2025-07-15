@@ -27,8 +27,8 @@ A previous version of the interface has been kept for reference in `programs/bro
 
 ## User Data and Images
 
-All persistent application data is stored under `ai-local-data` inside your system's **Documents** folder. Within this directory you will find:
-- `ObsidianVault` – persona data and logs.
+- All persistent application data is stored under `ai-local-data` inside your system's **Documents** folder. Within this directory you will find:
+- `Personas` – persona data and logs.
 - `Decks` – flashcard decks.
 - `Images` – persona icons and other assets.
 
