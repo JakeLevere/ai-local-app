@@ -172,6 +172,25 @@ if (!isEmbedded) {
     });
 }
 
+// --- LISTENERS from Main Process (via preload) ---
+if (!isEmbedded) {
+    window.electronAPI.onURLUpdated((tabId, url) => {
+        if (tabs[tabId]) {
+            tabs[tabId].url = url;
+            if (tabId === activeTabId) {
+                addressBar.value = url;
+            }
+        }
+    });
+
+    window.electronAPI.onTitleUpdated((tabId, title) => {
+        if (tabs[tabId]) {
+            tabs[tabId].title = title;
+            tabs[tabId].el.querySelector('span').textContent = title;
+        }
+    });
+}
+
 // --- INITIALIZATION ---
 if (isEmbedded) {
     if (webview) {
