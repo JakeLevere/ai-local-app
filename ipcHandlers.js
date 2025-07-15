@@ -131,6 +131,10 @@ function initialize(windowInstance, paths) {
     });
 
     ipcMain.on('load-display-url', (event, { displayId, url }) => {
+        console.log(`[Browser Debug] load-display-url for ${displayId}: ${url}`);
+        if (!/^https?:\/\//i.test(url)) {
+            console.error(`[Browser Debug] Invalid URL received: ${url}`);
+        }
         sendToRenderer('load-display', { displayId, url });
     });
 

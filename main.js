@@ -20,10 +20,10 @@ const videosPath = path.join(dataDir, 'Videos');
 
 // Global error handlers for more verbose logging
 process.on('uncaughtException', (err) => {
-    console.error('!!! Uncaught Exception in main process:', err);
+//     console.error('!!! Uncaught Exception in main process:', err);
 });
 process.on('unhandledRejection', (reason) => {
-    console.error('!!! Unhandled Rejection in main process:', reason);
+//     console.error('!!! Unhandled Rejection in main process:', reason);
 });
 
 // --- Express Local Server Setup ---
@@ -47,17 +47,17 @@ function startLocalServer() {
 
             server.once('error', (err) => {
                 if (err.code === 'EADDRINUSE' && retries < MAX_PORT_RETRIES) {
-                    console.error(`Port ${port} in use, trying ${port + 1}...`);
+//                     console.error(`Port ${port} in use, trying ${port + 1}...`);
                     port += 1;
                     attempt(retries + 1);
                 } else {
-                    console.error('!!! Failed to start local server:', err);
+//                     console.error('!!! Failed to start local server:', err);
                     reject(err);
                 }
             });
 
             server.once('listening', () => {
-                console.log(`>>> Local server listening on http://localhost:${port}`);
+//                 console.log(`>>> Local server listening on http://localhost:${port}`);
                 resolve(`http://localhost:${port}`);
             });
 
@@ -75,20 +75,20 @@ async function createUserDataDirectories() {
     try {
         await fs.mkdir(dataDir, { recursive: true });
     } catch (err) {
-        console.error('Error creating data directory:', err);
+//         console.error('Error creating data directory:', err);
     }
 
     try {
         await fs.mkdir(vaultPath, { recursive: true });
-        console.log('ObsidianVault directory ensured:', vaultPath);
+//         console.log('ObsidianVault directory ensured:', vaultPath);
     } catch (err) {
-        console.error('Error creating vault directory:', err);
+//         console.error('Error creating vault directory:', err);
     }
     try {
         await fs.mkdir(decksPath, { recursive: true });
-        console.log('Decks directory ensured:', decksPath);
+//         console.log('Decks directory ensured:', decksPath);
     } catch (err) {
-        console.error('Error creating decks directory:', err);
+//         console.error('Error creating decks directory:', err);
     }
     try {
         await fs.mkdir(imagesPath, { recursive: true });
@@ -97,11 +97,11 @@ async function createUserDataDirectories() {
             await fs.access(srcImages);
             await fs.cp(srcImages, imagesPath, { recursive: true, errorOnExist: false });
         } catch (copyErr) {
-            console.log('No bundled images found at', srcImages);
+//             console.log('No bundled images found at', srcImages);
         }
-        console.log('Images directory ensured:', imagesPath);
+//         console.log('Images directory ensured:', imagesPath);
     } catch (err) {
-        console.error('Error preparing images directory:', err);
+//         console.error('Error preparing images directory:', err);
     }
     try {
         await fs.mkdir(videosPath, { recursive: true });
@@ -110,11 +110,11 @@ async function createUserDataDirectories() {
             await fs.access(srcVideos);
             await fs.cp(srcVideos, videosPath, { recursive: true, errorOnExist: false });
         } catch (copyErr) {
-            console.log('No bundled videos found at', srcVideos);
+//             console.log('No bundled videos found at', srcVideos);
         }
-        console.log('Videos directory ensured:', videosPath);
+//         console.log('Videos directory ensured:', videosPath);
     } catch (err) {
-        console.error('Error preparing videos directory:', err);
+//         console.error('Error preparing videos directory:', err);
     }
 }
 
@@ -142,22 +142,22 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     });
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-        console.error('!!! Window failed to load', validatedURL, errorDescription, errorCode);
+console.error('!!! Window failed to load', validatedURL, errorDescription, errorCode);
     });
     mainWindow.on('unresponsive', () => {
-        console.error('!!! Browser window became unresponsive');
+console.error('!!! Browser window became unresponsive');
     });
     mainWindow.on('crashed', (e) => {
-        console.error('!!! Browser window crashed', e);
+console.error('!!! Browser window crashed', e);
     });
 
     // Relay console messages from the renderer to the main process console
     mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-        console.log(`Renderer console (${sourceId}:${line}):`, message);
+//         console.log(`Renderer console (${sourceId}:${line}):`, message);
     });
 
     const targetUrl = `${serverUrl}/index.html`;
-    console.log('>>> Loading renderer from', targetUrl);
+//     console.log('>>> Loading renderer from', targetUrl);
 
     // Ensure the window will be shown when the content is ready
     mainWindow.once('ready-to-show', () => {
@@ -183,16 +183,16 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
 
 // App initialization (Modified)
 app.whenReady().then(async () => {
-    console.log('>>> Preparing user data directories...');
+//     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories(); // Ensure directories exist first
-    console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
+//     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
 
     try {
         const serverUrl = await startLocalServer(); // Start server
-        console.log('>>> Server started at', serverUrl);
+//         console.log('>>> Server started at', serverUrl);
         await createWindow(serverUrl); // Create window using server URL
     } catch (error) {
-        console.error("!!! CRITICAL: Failed to initialize server or window. Quitting.", error);
+console.error("!!! CRITICAL: Failed to initialize server or window. Quitting.", error);
         app.quit();
         return;
     }
@@ -206,7 +206,7 @@ app.whenReady().then(async () => {
             if (server && server.listening) {
                  await createWindow(`http://localhost:${port}`);
             } else {
-                 console.error("Cannot reactivate window: Server not running.");
+console.error("Cannot reactivate window: Server not running.");
                  // Optionally try restarting server:
                  // try {
                  //    const serverUrl = await startLocalServer();
@@ -227,7 +227,7 @@ app.on('window-all-closed', () => {
 // Ensure server is closed when app quits
 app.on('will-quit', () => {
     if (server) {
-        console.log(">>> Stopping local server...");
+//         console.log(">>> Stopping local server...");
         server.close();
     }
 });
@@ -238,7 +238,7 @@ function sendToRenderer(channel, ...args) {
     // ... (keep existing code)
     if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
         try { mainWindow.webContents.send(channel, ...args); }
-        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
+//         catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
     } else {
         console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
     }
