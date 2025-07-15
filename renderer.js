@@ -207,12 +207,24 @@ function sendMessage() {
     const content = domElements.userInput.value.trim();
     if (!content) return;
     const lower = content.toLowerCase();
-    const tbMatch = lower.match(/open\s+time\s*block(?:.*?(?:slide|display)\s*(\d+))?/);
-    if (tbMatch) {
-        const displayNum = tbMatch[1] || '2';
-        const url = `http://localhost:3000/programs/Time%20Block.html`;
-        window.electronAPI.send('load-display', { displayId: `display${displayNum}`, url });
-        appendMessageToChatLog({ content: `Opening Time Block in slide ${displayNum}.` }, true);
+    const calMatch = lower.match(/open\s+calendar(?:.*?(?:display|slide)\s*(\d+))?/);
+    if (calMatch) {
+        const displayId = calMatch[1] ? `display${calMatch[1]}` : findAvailableDisplayId();
+        const displayNum = displayId.replace('display', '');
+        const url = `http://localhost:3000/programs/calendar/index.html`;
+        window.electronAPI.send('load-display', { displayId, url });
+        appendMessageToChatLog({ content: `Opening Calendar in display ${displayNum}.` }, true);
+        domElements.userInput.value = '';
+        return;
+    }
+
+    const browserMatch = lower.match(/open\s+browser(?:.*?(?:display|slide)\s*(\d+))?/);
+    if (browserMatch) {
+        const displayId = browserMatch[1] ? `display${browserMatch[1]}` : findAvailableDisplayId();
+        const displayNum = displayId.replace('display', '');
+        const url = `http://localhost:3000/programs/browser/index.html`;
+        window.electronAPI.send('load-display', { displayId, url });
+        appendMessageToChatLog({ content: `Opening Browser in display ${displayNum}.` }, true);
         domElements.userInput.value = '';
         return;
     }
