@@ -207,12 +207,17 @@ function sendMessage() {
     const content = domElements.userInput.value.trim();
     if (!content) return;
     const lower = content.toLowerCase();
-    const tbMatch = lower.match(/open\s+time\s*block(?:.*?(?:slide|display)\s*(\d+))?/);
-    if (tbMatch) {
-        const displayNum = tbMatch[1] || '2';
-        const url = `http://localhost:3000/programs/Time%20Block.html`;
+    const openMatch = lower.match(/open\s+(calendar|browser)(?:.*?(?:display|slide)\s*(\d+))?/);
+    if (openMatch) {
+        const program = openMatch[1];
+        let displayNum = openMatch[2];
+        if (!displayNum) {
+            const available = findAvailableDisplayId();
+            displayNum = available.replace('display', '');
+        }
+        const url = `http://localhost:3000/programs/${program}/index.html`;
         window.electronAPI.send('load-display', { displayId: `display${displayNum}`, url });
-        appendMessageToChatLog({ content: `Opening Time Block in slide ${displayNum}.` }, true);
+        appendMessageToChatLog({ content: `Opening ${program} in display ${displayNum}.` }, true);
         domElements.userInput.value = '';
         return;
     }
