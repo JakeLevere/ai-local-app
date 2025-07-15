@@ -216,8 +216,7 @@ function sendMessage() {
             const available = findAvailableDisplayId();
             displayNum = available.replace('display', '');
         }
-        const url = `http://localhost:3000/programs/${program}/index.html`;
-        window.electronAPI.send('load-display', { displayId: `display${displayNum}`, url });
+        window.electronAPI.send('open-program', { program, displayId: `display${displayNum}` });
         appendMessageToChatLog({ content: `Opening ${program} in display ${displayNum}.` }, true);
         domElements.userInput.value = '';
         return;

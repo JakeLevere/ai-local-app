@@ -171,8 +171,16 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
     await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
 
-    // Initialize IPC handlers, passing necessary context (Unchanged)
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath });
+    // Initialize IPC handlers, passing necessary context
+    initializeIpcHandlers(mainWindow, {
+        vaultPath,
+        decksPath,
+        userDataPath,
+        dataDir,
+        imagesPath,
+        videosPath,
+        serverUrl
+    });
 
     // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {
