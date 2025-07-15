@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const personaService = require('./personaService.js');
 const sharedDataService = require('./sharedDataService.js');
+const { buildBrowserURL } = require('./programs/browser/launcher.js');
 let aiService = null;
 let isAIServiceInitialized = false;
 let mainWindow = null;
@@ -33,6 +34,9 @@ async function ensureAIService() {
 function initialize(windowInstance, paths) {
     mainWindow = windowInstance;
     appPaths = paths;
+    if (!appPaths.serverUrl) {
+        appPaths.serverUrl = `http://localhost:${process.env.PORT || 3000}`;
+    }
     baseDir = __dirname;
     const sharedBase = paths.dataDir || paths.userDataPath;
     if (sharedBase) {
@@ -124,6 +128,18 @@ function initialize(windowInstance, paths) {
 
     ipcMain.on('load-display', (event, { displayId, url }) => {
         sendToRenderer('load-display', { displayId, url });
+    });
+
+    ipcMain.on('open-program', (event, { program, displayId }) => {
+        if (!program || !displayId) return;
+        if (program === 'browser') {
+            const url = buildBrowserURL(appPaths.serverUrl);
+            sendToRenderer('load-display', { displayId, url });
+        } else if (program === 'calendar') {
+            const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
+            const url = `${base.replace(/\/$/, '')}/programs/calendar/index.html`;
+            sendToRenderer('load-display', { displayId, url });
+        }
     });
 
     ipcMain.on('load-image-path', (event, { displayId, imagePath }) => {
