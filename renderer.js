@@ -28,6 +28,7 @@ function cacheDomElements() {
         chatLog: document.getElementById('chat-log'),
         personaImage: document.getElementById('persona-image'),
         personaPreviewVideo: document.getElementById('persona-preview-video'),
+        personaPreviewImage: document.getElementById('persona-preview-image'),
         statusTitle: document.getElementById('status-title'),
         convCountSpan: document.getElementById('conv-count'),
         lastInteractionSpan: document.getElementById('last-interaction'),
@@ -269,7 +270,16 @@ function updateStatusBarUI(identifier, status) {
     domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = './images/placeholder.png'; };
     if (domElements.personaPreviewVideo) {
         const videoPath = `./videos/${primaryIdToDisplay || 'placeholder'}.mp4`;
+        domElements.personaPreviewVideo.onerror = () => {
+            console.error(`Video failed to load: ${videoPath}`);
+            if (domElements.personaPreviewImage) {
+                domElements.personaPreviewVideo.style.display = 'none';
+                domElements.personaPreviewImage.style.display = 'block';
+            }
+        };
         if (domElements.personaPreviewVideo.src !== videoPath) {
+            domElements.personaPreviewVideo.style.display = 'block';
+            if (domElements.personaPreviewImage) domElements.personaPreviewImage.style.display = 'none';
             domElements.personaPreviewVideo.src = videoPath;
             domElements.personaPreviewVideo.load();
         }
