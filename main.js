@@ -18,6 +18,14 @@ const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
 
+// Global error handlers for more verbose logging
+process.on('uncaughtException', (err) => {
+    console.error('!!! Uncaught Exception in main process:', err);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('!!! Unhandled Rejection in main process:', reason);
+});
+
 // --- Express Local Server Setup ---
 let server;
 const MAX_PORT_RETRIES = 10;
@@ -97,6 +105,13 @@ async function createUserDataDirectories() {
     }
     try {
         await fs.mkdir(videosPath, { recursive: true });
+        const srcVideos = path.join(__dirname, 'videos');
+        try {
+            await fs.access(srcVideos);
+            await fs.cp(srcVideos, videosPath, { recursive: true, errorOnExist: false });
+        } catch (copyErr) {
+            console.log('No bundled videos found at', srcVideos);
+        }
         console.log('Videos directory ensured:', videosPath);
     } catch (err) {
         console.error('Error preparing videos directory:', err);
@@ -126,8 +141,20 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
         show: false, // Don't show until ready
     });
 
+    const targetUrl = `${serverUrl}/index.html`;
+    console.log('>>> Loading renderer from', targetUrl);
     // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
-    await mainWindow.loadURL(`${serverUrl}/index.html`); // <--- CHANGE: Load URL
+    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        console.error('!!! Window failed to load', validatedURL, errorDescription, errorCode);
+    });
+    mainWindow.on('unresponsive', () => {
+        console.error('!!! Browser window became unresponsive');
+    });
+    mainWindow.on('crashed', (e) => {
+        console.error('!!! Browser window crashed', e);
+    });
 
     // Maximize and show when ready (Unchanged)
     mainWindow.once('ready-to-show', () => {
@@ -150,10 +177,13 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
 
 // App initialization (Modified)
 app.whenReady().then(async () => {
+    console.log('>>> Preparing user data directories...');
     await createUserDataDirectories(); // Ensure directories exist first
+    console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
 
     try {
         const serverUrl = await startLocalServer(); // Start server
+        console.log('>>> Server started at', serverUrl);
         await createWindow(serverUrl); // Create window using server URL
     } catch (error) {
         console.error("!!! CRITICAL: Failed to initialize server or window. Quitting.", error);
