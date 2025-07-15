@@ -16,6 +16,7 @@ const dataDir = path.join(app.getPath('documents'), 'ai-local-data');
 const vaultPath = path.join(dataDir, 'ObsidianVault');
 const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
+const videosPath = path.join(dataDir, 'Videos');
 
 // --- Express Local Server Setup ---
 let server;
@@ -27,6 +28,8 @@ function startLocalServer() {
     expressApp.use(express.static(path.join(__dirname)));
     // Serve user images from the persistent data directory
     expressApp.use('/images', express.static(imagesPath));
+    // Serve user videos from the persistent data directory
+    expressApp.use('/videos', express.static(videosPath));
 
     // Optional: Add specific routes if needed, but static should cover it
 
@@ -92,6 +95,12 @@ async function createUserDataDirectories() {
     } catch (err) {
         console.error('Error preparing images directory:', err);
     }
+    try {
+        await fs.mkdir(videosPath, { recursive: true });
+        console.log('Videos directory ensured:', videosPath);
+    } catch (err) {
+        console.error('Error preparing videos directory:', err);
+    }
 }
 
 async function createWindow(serverUrl) { // <--- Modified to accept URL
@@ -128,7 +137,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     });
 
     // Initialize IPC handlers, passing necessary context (Unchanged)
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath });
+    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath });
 
     // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {
