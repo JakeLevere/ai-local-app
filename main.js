@@ -151,6 +151,11 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
         console.error('!!! Browser window crashed', e);
     });
 
+    // Relay console messages from the renderer to the main process console
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+        console.log(`Renderer console (${sourceId}:${line}):`, message);
+    });
+
     const targetUrl = `${serverUrl}/index.html`;
     console.log('>>> Loading renderer from', targetUrl);
     // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
