@@ -52,11 +52,21 @@
     <iframe id="viewer" src="https://example.com"></iframe>
 
     <script>
-        document.getElementById('go').addEventListener('click', () => {
+        const navigate = () => {
             const url = document.getElementById('url').value.trim();
             if (url) {
-                const prefixed = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+                const prefixed =
+                    url.startsWith('http://') || url.startsWith('https://')
+                        ? url
+                        : `https://${url}`;
                 document.getElementById('viewer').src = prefixed;
+            }
+        };
+
+        document.getElementById('go').addEventListener('click', navigate);
+        document.getElementById('url').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                navigate();
             }
         });
     </script>
