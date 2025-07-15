@@ -269,7 +269,8 @@ function updateStatusBarUI(identifier, status) {
     domElements.personaImage.src = iconToDisplay;
     domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = './images/placeholder.png'; };
     if (domElements.personaPreviewVideo) {
-        const videoPath = `./videos/${primaryIdToDisplay || 'placeholder'}.mp4`;
+        const sanitizedId = identifier ? sanitizeFolderName(identifier) : null;
+        const videoPath = `./videos/${sanitizedId || sanitizeFolderName(primaryIdToDisplay) || 'placeholder'}.mp4`;
         domElements.personaPreviewVideo.onerror = () => {
             console.error(`Video failed to load: ${videoPath}`);
             if (domElements.personaPreviewImage) {
