@@ -133,21 +133,21 @@ if (!isEmbedded) {
 addressBar.addEventListener('keyup', (e) => e.key === 'Enter' && navigate());
 reloadBtn.addEventListener('click', () => {
     if (isEmbedded && webview) {
-        webview.contentWindow.location.reload();
+        webview.reload();
     } else {
         window.electronAPI.reload(activeTabId);
     }
 });
 backBtn.addEventListener('click', () => {
     if (isEmbedded && webview) {
-        webview.contentWindow.history.back();
+        webview.goBack();
     } else {
         window.electronAPI.goBack(activeTabId);
     }
 });
 forwardBtn.addEventListener('click', () => {
     if (isEmbedded && webview) {
-        webview.contentWindow.history.forward();
+        webview.goForward();
     } else {
         window.electronAPI.goForward(activeTabId);
     }
