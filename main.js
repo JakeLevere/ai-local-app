@@ -158,15 +158,16 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
 
     const targetUrl = `${serverUrl}/index.html`;
     console.log('>>> Loading renderer from', targetUrl);
-    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
-    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
 
-    // Maximize and show when ready (Unchanged)
+    // Ensure the window will be shown when the content is ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.maximize();
         mainWindow.show();
         // Initial data load triggered from renderer ('DOMContentLoaded') now
     });
+
+    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
+    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
 
     // Initialize IPC handlers, passing necessary context (Unchanged)
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath });
