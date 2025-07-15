@@ -1,0 +1,18 @@
+{
+  "name": "electron-browser",
+  "version": "1.0.0",
+  "description": "A simple web browser built with Electron and BrowserView.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "Electron",
+    "Browser"
+  ],
+  "author": "YourName",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}
