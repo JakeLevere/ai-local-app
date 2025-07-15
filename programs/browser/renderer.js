@@ -7,6 +7,10 @@ const addressBar = document.getElementById('address-bar');
 const backBtn = document.getElementById('back-btn');
 const forwardBtn = document.getElementById('forward-btn');
 const reloadBtn = document.getElementById('reload-btn');
+const webview = document.getElementById('webview');
+
+// Detect if we're running embedded (no electron API available)
+const isEmbedded = !window.electronAPI;
 
 // --- STATE MANAGEMENT ---
 let tabs = {}; // Store tab data, mapping tabId to its info
@@ -91,41 +95,107 @@ function closeTab(tabId) {
 }
 
 function navigate() {
-    if (!activeTabId) return;
-    let url = addressBar.value.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        if (url.includes('.') && !url.includes(' ')) {
-            url = 'https://' + url;
-        } else {
-            url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    if (isEmbedded) {
+        let url = addressBar.value.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (url.includes('.') && !url.includes(' ')) {
+                url = 'https://' + url;
+            } else {
+                url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+            }
         }
+        if (webview) {
+            webview.src = url;
+            addressBar.value = url;
+        }
+    } else {
+        if (!activeTabId) return;
+        let url = addressBar.value.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (url.includes('.') && !url.includes(' ')) {
+                url = 'https://' + url;
+            } else {
+                url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+            }
+        }
+        window.electronAPI.navigate(activeTabId, url);
     }
-    window.electronAPI.navigate(activeTabId, url);
 }
 
 // --- EVENT LISTENERS from UI ---
-addTabBtn.addEventListener('click', createNewTab);
+if (!isEmbedded) {
+    addTabBtn.addEventListener('click', createNewTab);
+} else {
+    // Hide tab UI when embedded
+    tabsContainer.style.display = 'none';
+    addTabBtn.style.display = 'none';
+}
 addressBar.addEventListener('keyup', (e) => e.key === 'Enter' && navigate());
-reloadBtn.addEventListener('click', () => window.electronAPI.reload(activeTabId));
-backBtn.addEventListener('click', () => window.electronAPI.goBack(activeTabId));
-forwardBtn.addEventListener('click', () => window.electronAPI.goForward(activeTabId));
+reloadBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        webview.reload();
+    } else {
+        window.electronAPI.reload(activeTabId);
+    }
+});
+backBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        webview.goBack();
+    } else {
+        window.electronAPI.goBack(activeTabId);
+    }
+});
+forwardBtn.addEventListener('click', () => {
+    if (isEmbedded && webview) {
+        webview.goForward();
+    } else {
+        window.electronAPI.goForward(activeTabId);
+    }
+});
 
 // --- LISTENERS from Main Process (via preload) ---
-window.electronAPI.onURLUpdated((tabId, url) => {
-    if (tabs[tabId]) {
-        tabs[tabId].url = url;
-        if (tabId === activeTabId) {
-            addressBar.value = url;
+if (!isEmbedded) {
+    window.electronAPI.onURLUpdated((tabId, url) => {
+        if (tabs[tabId]) {
+            tabs[tabId].url = url;
+            if (tabId === activeTabId) {
+                addressBar.value = url;
+            }
         }
-    }
-});
+    });
 
-window.electronAPI.onTitleUpdated((tabId, title) => {
-    if (tabs[tabId]) {
-        tabs[tabId].title = title;
-        tabs[tabId].el.querySelector('span').textContent = title;
-    }
-});
+    window.electronAPI.onTitleUpdated((tabId, title) => {
+        if (tabs[tabId]) {
+            tabs[tabId].title = title;
+            tabs[tabId].el.querySelector('span').textContent = title;
+        }
+    });
+}
+
+// --- LISTENERS from Main Process (via preload) ---
+if (!isEmbedded) {
+    window.electronAPI.onURLUpdated((tabId, url) => {
+        if (tabs[tabId]) {
+            tabs[tabId].url = url;
+            if (tabId === activeTabId) {
+                addressBar.value = url;
+            }
+        }
+    });
+
+    window.electronAPI.onTitleUpdated((tabId, title) => {
+        if (tabs[tabId]) {
+            tabs[tabId].title = title;
+            tabs[tabId].el.querySelector('span').textContent = title;
+        }
+    });
+}
 
 // --- INITIALIZATION ---
-createNewTab();
+if (isEmbedded) {
+    if (webview) {
+        webview.src = 'https://www.google.com';
+    }
+} else {
+    createNewTab();
+}
