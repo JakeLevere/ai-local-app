@@ -141,11 +141,6 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
         show: false, // Don't show until ready
     });
 
-    const targetUrl = `${serverUrl}/index.html`;
-    console.log('>>> Loading renderer from', targetUrl);
-    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
-    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
-
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
         console.error('!!! Window failed to load', validatedURL, errorDescription, errorCode);
     });
@@ -155,6 +150,11 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     mainWindow.on('crashed', (e) => {
         console.error('!!! Browser window crashed', e);
     });
+
+    const targetUrl = `${serverUrl}/index.html`;
+    console.log('>>> Loading renderer from', targetUrl);
+    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
+    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
 
     // Maximize and show when ready (Unchanged)
     mainWindow.once('ready-to-show', () => {
