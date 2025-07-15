@@ -52,6 +52,7 @@
     <webview id="viewer" src="https://example.com" allowpopups></webview>
 
     <script>
+        const viewer = document.getElementById('viewer');
         const navigate = () => {
             const url = document.getElementById('url').value.trim();
             if (url) {
@@ -59,9 +60,20 @@
                     url.startsWith('http://') || url.startsWith('https://')
                         ? url
                         : `https://${url}`;
-                document.getElementById('viewer').src = prefixed;
+                console.log('[Browser] navigating to', prefixed);
+                viewer.src = prefixed;
             }
         };
+
+        viewer.addEventListener('did-start-loading', () => {
+            console.log('[Browser Troubleshooting] load started:', viewer.src);
+        });
+        viewer.addEventListener('did-stop-loading', () => {
+            console.log('[Browser Troubleshooting] load finished:', viewer.src);
+        });
+        viewer.addEventListener('did-fail-load', (e) => {
+            console.error('[Browser Troubleshooting] failed to load', viewer.src, e.errorDescription);
+        });
 
         document.getElementById('go').addEventListener('click', navigate);
         document.getElementById('url').addEventListener('keydown', (e) => {
