@@ -37,7 +37,7 @@
             cursor: pointer;
         }
         #controls button:hover { background: #6b88d9; }
-        iframe {
+        webview, iframe {
             flex: 1;
             border: none;
             width: 100%;
@@ -49,7 +49,7 @@
         <input id="url" type="text" placeholder="Enter URL" />
         <button id="go">Go</button>
     </div>
-    <iframe id="viewer" src="https://example.com"></iframe>
+    <webview id="viewer" src="https://example.com" allowpopups></webview>
 
     <script>
         const navigate = () => {
