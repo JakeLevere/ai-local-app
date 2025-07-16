@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Controls</title>
+    <style>
+        :root {
+            --primary-bg: #202124;
+            --secondary-bg: #303134;
+            --border-color: #3c4043;
+            --text-color: #e8eaed;
+            --accent-color: #8ab4f8;
+            --accent-hover: #9ac0f9;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+        /* This is the container for your browser's top bar */
+        #controls {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background-color: var(--secondary-bg);
+            height: 46px; /* Fixed height for the control area */
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        #url-input {
+            flex: 1;
+            padding: 8px 16px;
+            background: var(--primary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 20px;
+            font-size: 14px;
+            margin-right: 12px;
+        }
+        #url-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        #go-button {
+            padding: 8px 20px;
+            background: var(--accent-color);
+            border: none;
+            color: var(--primary-bg);
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 20px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        #go-button:hover {
+            background: var(--accent-hover);
+        }
+        /* This empty area is where the BrowserView will appear underneath */
+        #content-placeholder {
+            flex: 1;
+            background-color: #FFF; /* A white background for when pages are loading */
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <input id="url-input" type="text" placeholder="Enter URL...">
+        <button id="go-button">Go</button>
+    </div>
+    <div id="content-placeholder"></div>
+
+    <script>
+        const urlInput = document.getElementById('url-input');
+        const goButton = document.getElementById('go-button');
+
+        const navigate = () => {
+            const url = urlInput.value.trim();
+            if (url) {
+                // Use the 'electron' object exposed by preload.js to send
+                // the URL to the main process.
+                window.electron.send('navigate-to-url', url);
+            }
+        };
+
+        // --- Event Listeners for UI ---
+        goButton.addEventListener('click', navigate);
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                navigate();
+            }
+        });
+
+        // --- Listen for events FROM the main process ---
+        // This updates the URL bar when a page has finished loading (e.g., after a redirect)
+        window.electron.receive('page-did-finish-load', (url) => {
+            urlInput.value = url;
+        });
+
+    </script>
+</body>
+</html>

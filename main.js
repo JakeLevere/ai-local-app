@@ -1,11 +1,11 @@
 // main.js
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain } = require('electron'); // <--- Added BrowserView and ipcMain
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
 // Load IPC handlers from the project root
 const initializeIpcHandlers = require('./ipcHandlers');
-const express = require('express'); // <--- Add this
-const http = require('http'); // <--- Add this
+const express = require('express');
+const http = require('http');
 
 let mainWindow;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -40,8 +40,6 @@ function startLocalServer() {
     expressApp.use('/images', express.static(imagesPath));
     // Serve user videos from the persistent data directory
     expressApp.use('/videos', express.static(videosPath));
-
-    // Optional: Add specific routes if needed, but static should cover it
 
     return new Promise((resolve, reject) => {
         const attempt = (retries) => {
@@ -126,40 +124,85 @@ async function createUserDataDirectories() {
     }
 }
 
-async function createWindow(serverUrl) { // <--- Modified to accept URL
+// --- NEW BROWSERVIEW FUNCTION ---
+// This function creates a new, separate window for the browser.
+async function launchBrowser() {
+    // Create the browser window.
+    const browserWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+        },
+        show: false,
+    });
+
+    // Create and attach the BrowserView
+    const view = new BrowserView();
+    browserWindow.setBrowserView(view);
+
+    // Position and resize the BrowserView dynamically
+    const controlAreaHeight = 70;
+    const updateBounds = () => {
+        const [width, height] = browserWindow.getContentSize();
+        view.setBounds({ x: 0, y: controlAreaHeight, width: width, height: height - controlAreaHeight });
+    };
+
+    view.setAutoResize({ width: true, height: true });
+    updateBounds();
+    browserWindow.on('resize', updateBounds);
+
+    // Load initial URL and the UI
+    view.webContents.loadURL('https://www.google.com');
+    await browserWindow.loadFile('browser.html');
+
+    browserWindow.once('ready-to-show', () => {
+        browserWindow.maximize();
+        browserWindow.show();
+    });
+
+    // --- IPC Communication Scoped to this Browser Window ---
+    const navigateHandler = (event, url) => {
+        // Ensure the event is coming from our browser window
+        if (event.sender === browserWindow.webContents) {
+            const prefixedUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+            view.webContents.loadURL(prefixedUrl);
+        }
+    };
+    ipcMain.on('navigate-to-url', navigateHandler);
+
+    view.webContents.on('did-finish-load', () => {
+        const url = view.webContents.getURL();
+        browserWindow.webContents.send('page-did-finish-load', url);
+    });
+
+    // Clean up IPC listener when the browser window is closed
+    browserWindow.on('closed', () => {
+        ipcMain.removeListener('navigate-to-url', navigateHandler);
+    });
+}
+// --- END NEW BROWSERVIEW FUNCTION ---
+
+async function createWindow(serverUrl) {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         webPreferences: {
-            // --- Security Best Practices ---
-            nodeIntegration: false, // Keep Node.js out of renderer
-            contextIsolation: true, // Protect main/renderer contexts
-            // --- Preload Script ---
+            nodeIntegration: false,
+            contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            // --- Other Settings ---
-            webviewTag: true, // Allow <webview> tag
-            webSecurity: true, // Keep web security enabled (more secure)
-            // Consider setting sandbox: true for more security if possible
-
-             // IMPORTANT: Allow localhost content if webSecurity is strict
-            // This might not be strictly needed if served via HTTP,
-            // but good to be aware of if issues arise loading local resources.
-            // It depends on exact security settings and Chromium version.
+            webviewTag: true,
+            webSecurity: true,
         },
-        show: false, // Don't show until ready
+        show: false,
     });
 
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-        // Removed verbose troubleshooting output
-    });
-    mainWindow.on('unresponsive', () => {
-        // Removed verbose troubleshooting output
-    });
-    mainWindow.on('crashed', (e) => {
-        // Removed verbose troubleshooting output
-    });
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {});
+    mainWindow.on('unresponsive', () => {});
+    mainWindow.on('crashed', (e) => {});
 
-    // Relay console messages from the renderer to the main process console
     mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
         console.log(`Renderer console (${sourceId}:${line}):`, message);
     });
@@ -167,58 +210,49 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     const targetUrl = `${serverUrl}/index.html`;
     console.log('>>> Loading renderer from', targetUrl);
 
-    // Ensure the window will be shown when the content is ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.maximize();
         mainWindow.show();
-        // Initial data load triggered from renderer ('DOMContentLoaded') now
     });
 
-    // Load the URL from the local server (e.g., http://localhost:PORT/index.html)
-    await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
+    await mainWindow.loadURL(targetUrl);
 
-    // Initialize IPC handlers, passing necessary context (Unchanged)
+    // Initialize your existing IPC handlers
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
+    
+    // --- ADDED: IPC Listener to launch the browser ---
+    // This listens for a message from your main application to open the browser.
+    ipcMain.on('launch-browser', () => {
+        console.log('[Main Process] Launching browser window...');
+        launchBrowser();
+    });
 
-    // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
-
-     // Open DevTools (optional, for development)
-     // mainWindow.webContents.openDevTools();
 }
 
 // App initialization (Modified)
 app.whenReady().then(async () => {
     console.log('>>> Preparing user data directories...');
-    await createUserDataDirectories(); // Ensure directories exist first
+    await createUserDataDirectories();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
 
     try {
-        const serverUrl = await startLocalServer(); // Start server
+        const serverUrl = await startLocalServer();
         console.log('>>> Server started at', serverUrl);
-        await createWindow(serverUrl); // Create window using server URL
+        await createWindow(serverUrl);
     } catch (error) {
         app.quit();
         return;
     }
 
-
-    // macOS specific activation handling (Unchanged)
     app.on('activate', async () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-             // Need to ensure server is running or restart if needed on activate
-             // For simplicity, assume server is still running; might need more robust handling
             if (server && server.listening) {
                  await createWindow(`http://localhost:${port}`);
             } else {
                  console.error("Cannot reactivate window: Server not running.");
-                 // Optionally try restarting server:
-                 // try {
-                 //    const serverUrl = await startLocalServer();
-                 //    await createWindow(serverUrl);
-                 // } catch { app.quit(); }
             }
         }
     });
@@ -239,10 +273,7 @@ app.on('will-quit', () => {
     }
 });
 
-
-// --- Utility (can be used by ipcHandlers if passed or required) --- (Unchanged)
 function sendToRenderer(channel, ...args) {
-    // ... (keep existing code)
     if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
         try { mainWindow.webContents.send(channel, ...args); }
         catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
