@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveHistory: (markdown) => ipcRenderer.invoke('calendar-save-history', markdown)
 });
 
+// Provide the same API under the legacy 'electron' name
+contextBridge.exposeInMainWorld('electron', window.electronAPI);
+
 console.log('Preload script loaded.');
