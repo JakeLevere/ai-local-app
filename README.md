@@ -22,7 +22,7 @@ The built-in web server reads the `PORT` environment variable to determine which
 ## Project Files
 
 `main.js` is the Electron entry point. It starts a local Express server and then loads `index.html` from the project root.
-A previous version of the interface has been kept for reference in `programs/browser/index-legacy.html`.
+An earlier version of the interface has been removed and is no longer included.
 
 ## Adding Programs
 
