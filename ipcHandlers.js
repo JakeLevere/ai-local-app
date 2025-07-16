@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs').promises;
 const personaService = require('./personaService.js');
 const sharedDataService = require('./sharedDataService.js');
-const { buildBrowserURL } = require('./programs/browser/launcher.js');
 let aiService = null;
 let isAIServiceInitialized = false;
 let mainWindow = null;
@@ -132,23 +131,33 @@ function initialize(windowInstance, paths) {
 
     ipcMain.on('open-program', async (event, { program, displayId }) => {
         if (!program || !displayId) return;
-        if (program === 'browser') {
-            const url = buildBrowserURL(appPaths.serverUrl);
-            sendToRenderer('load-display', { displayId, url });
-        } else if (program === 'calendar') {
-            const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
-            const url = `${base.replace(/\/$/, '')}/programs/calendar/index.html`;
+
+        // Sanitize program name to prevent path traversal
+        const name = String(program).replace(/[^\w-]/g, '');
+        if (!name) return;
+
+        const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
+        const indexPath = path.join(baseDir, 'programs', name, 'index.html');
+        const filePath = path.join(baseDir, 'programs', `${name}.html`);
+
+        let relativePath = null;
+        try {
+            await fs.access(indexPath);
+            relativePath = `programs/${name}/index.html`;
+        } catch {
+            try {
+                await fs.access(filePath);
+                relativePath = `programs/${name}.html`;
+            } catch {
+                // no file found
+            }
+        }
+
+        if (relativePath) {
+            const url = `${base.replace(/\/$/, '')}/${relativePath}`;
             sendToRenderer('load-display', { displayId, url });
         } else {
-            try {
-                const filePath = path.join(baseDir, 'programs', program, 'index.html');
-                await fs.access(filePath);
-                const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
-                const url = `${base.replace(/\/$/, '')}/programs/${program}/index.html`;
-                sendToRenderer('load-display', { displayId, url });
-            } catch {
-                sendToRenderer('main-process-error', `No program "${program}" found.`);
-            }
+            sendToRenderer('append-chat-log', `No program '${name}' found.`, true);
         }
     });
 
