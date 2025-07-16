@@ -11,6 +11,9 @@ let ipcListenersAttached = false;
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
+// Alias for the exposed IPC API
+const electron = window.electron || window.electronAPI;
+
 let domElements = {};
 function cacheDomElements() {
     console.log("--- Caching DOM Elements ---");
@@ -218,8 +221,13 @@ function sendMessage() {
             displayNum = available.replace('display', '');
         }
         const displayId = `display${displayNum}`;
-        window.electronAPI.send('open-program', { program, displayId });
-        appendMessageToChatLog({ content: `Opening ${program} in display ${displayNum}.` }, true);
+        if (program === 'browser') {
+            electron.send('launch-browser');
+            appendMessageToChatLog({ content: 'Opening browser in a new window.' }, true);
+        } else {
+            electron.send('open-program', { program, displayId });
+            appendMessageToChatLog({ content: `Opening ${program} in display ${displayNum}.` }, true);
+        }
         domElements.userInput.value = '';
         return;
     }
