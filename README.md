@@ -24,6 +24,12 @@ The built-in web server reads the `PORT` environment variable to determine which
 `main.js` is the Electron entry point. It starts a local Express server and then loads `index.html` from the project root.
 A previous version of the interface has been kept for reference in `programs/browser/index-legacy.html`.
 
+## Adding Programs
+
+Place each program under `programs/<name>` with its own `index.html` or `<name>.html` file alongside any assets.
+Use the chat command `open <name>` to load the program automatically.
+If the folder or file is missing, the interface will show "No program '<name>' found.".
+
 
 ## User Data and Images
 
