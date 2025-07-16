@@ -30,6 +30,8 @@ Place each program under `programs/<name>` with its own `index.html` or `<name>.
 Use the chat command `open <name>` to load the program automatically.
 If the folder or file is missing, the interface will show "No program '<name>' found.".
 
+The command `open browser` works slightly differently. Instead of loading in a display frame, it launches the browser program in its own window.
+
 
 ## User Data and Images
 
