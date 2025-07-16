@@ -132,7 +132,7 @@ async function launchBrowser() {
         width: 1200,
         height: 800,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, 'programs', 'browser', 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true,
         },
@@ -156,7 +156,7 @@ async function launchBrowser() {
 
     // Load initial URL and the UI
     view.webContents.loadURL('https://www.google.com');
-    await browserWindow.loadFile('browser.html');
+    await browserWindow.loadFile(path.join('programs', 'browser', 'index.html'));
 
     browserWindow.once('ready-to-show', () => {
         browserWindow.maximize();
