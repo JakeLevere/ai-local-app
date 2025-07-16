@@ -281,3 +281,8 @@ function sendToRenderer(channel, ...args) {
         console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
     }
 }
+
+module.exports = {
+    createWindow,
+    launchBrowser,
+};
