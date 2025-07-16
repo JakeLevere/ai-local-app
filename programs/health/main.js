@@ -4,8 +4,9 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Define the hardcoded path for storing health data and reports.
-const HEALTH_DATA_DIR = 'C:\\Users\\jakek\\Documents\\ai-local-data\\Health Data';
+// Define the path for storing health data and reports under the user's Documents folder
+// e.g. <Documents>/ai-local-data/Health Data
+const HEALTH_DATA_DIR = path.join(app.getPath('documents'), 'ai-local-data', 'Health Data');
 const HEALTH_JSON_PATH = path.join(HEALTH_DATA_DIR, 'health-data.json');
 
 // Ensure the health data directory exists.
