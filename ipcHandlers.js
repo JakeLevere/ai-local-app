@@ -130,7 +130,7 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
-    ipcMain.on('open-program', (event, { program, displayId }) => {
+    ipcMain.on('open-program', async (event, { program, displayId }) => {
         if (!program || !displayId) return;
         if (program === 'browser') {
             const url = buildBrowserURL(appPaths.serverUrl);
@@ -139,6 +139,16 @@ function initialize(windowInstance, paths) {
             const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
             const url = `${base.replace(/\/$/, '')}/programs/calendar/index.html`;
             sendToRenderer('load-display', { displayId, url });
+        } else {
+            try {
+                const filePath = path.join(baseDir, 'programs', program, 'index.html');
+                await fs.access(filePath);
+                const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
+                const url = `${base.replace(/\/$/, '')}/programs/${program}/index.html`;
+                sendToRenderer('load-display', { displayId, url });
+            } catch {
+                sendToRenderer('main-process-error', `No program "${program}" found.`);
+            }
         }
     });
 
