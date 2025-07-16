@@ -222,10 +222,8 @@ async function createWindow(serverUrl) {
     
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
-    ipcMain.on('launch-browser', () => {
-        console.log('[Main Process] Launching browser window...');
-        launchBrowser();
-    });
+    ipcMain.removeAllListeners('launch-browser');
+    ipcMain.on('launch-browser', launchBrowser);
 
     mainWindow.on('closed', () => {
         mainWindow = null;
