@@ -209,7 +209,7 @@ function sendMessage() {
     const content = domElements.userInput.value.trim();
     if (!content) return;
     const lower = content.toLowerCase();
-    const openMatch = lower.match(/open\s+(calendar|browser)(?:.*?(?:display|slide)\s*(\d+))?/);
+    const openMatch = lower.match(/open\s+([a-z0-9_-]+)(?:.*?(?:display|slide)\s*(\d+))?/i);
     if (openMatch) {
         const program = openMatch[1];
         let displayNum = openMatch[2];
@@ -217,7 +217,8 @@ function sendMessage() {
             const available = findAvailableDisplayId();
             displayNum = available.replace('display', '');
         }
-        window.electronAPI.send('open-program', { program, displayId: `display${displayNum}` });
+        const displayId = `display${displayNum}`;
+        window.electronAPI.send('open-program', { program, displayId });
         appendMessageToChatLog({ content: `Opening ${program} in display ${displayNum}.` }, true);
         domElements.userInput.value = '';
         return;
