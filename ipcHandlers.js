@@ -263,8 +263,8 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    const calendarStateFile = path.join(appPaths.dataDir || baseDir, 'calendar-data.json');
-    const calendarHistoryFile = path.join(appPaths.dataDir || baseDir, 'calendar-history.md');
+    const calendarStateFile = path.join(appPaths.calendarPath || appPaths.dataDir || baseDir, 'calendar-data.json');
+    const calendarHistoryFile = path.join(appPaths.calendarPath || appPaths.dataDir || baseDir, 'calendar-history.md');
 
     ipcMain.handle('calendar-load-state', async () => {
         try {

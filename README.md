@@ -37,6 +37,7 @@ If the folder or file is missing, the interface will show "No program '<name>' f
 - `Personas` – persona data and logs.
 - `Decks` – flashcard decks.
 - `Images` – persona icons and other assets.
+- `Calendar` – calendar events and history (stored in `<Documents>/ai-local-data/Calendar`).
 
 
 ## Local Images
