@@ -18,6 +18,7 @@ const vaultPath = path.join(dataDir, 'Personas');
 const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
+const calendarPath = path.join(dataDir, 'Calendar');
 
 // Global error handlers for more verbose logging
 process.on('uncaughtException', (err) => {
@@ -117,6 +118,12 @@ async function createUserDataDirectories() {
     } catch (err) {
         console.error('Error preparing videos directory:', err);
     }
+    try {
+        await fs.mkdir(calendarPath, { recursive: true });
+        console.log('Calendar directory ensured:', calendarPath);
+    } catch (err) {
+        console.error('Error preparing calendar directory:', err);
+    }
 }
 
 async function createWindow(serverUrl) { // <--- Modified to accept URL
@@ -171,7 +178,7 @@ async function createWindow(serverUrl) { // <--- Modified to accept URL
     await mainWindow.loadURL(targetUrl); // <--- CHANGE: Load URL
 
     // Initialize IPC handlers, passing necessary context (Unchanged)
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath });
+    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
 
     // Clean up window object on close (Unchanged)
     mainWindow.on('closed', () => {
