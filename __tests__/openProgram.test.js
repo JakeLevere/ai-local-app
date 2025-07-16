@@ -38,6 +38,26 @@ describe('open-program handler', () => {
     );
   });
 
+  test('loads calendar program index', async () => {
+    fs.access = jest.fn().mockResolvedValue();
+    const handler = handlers['open-program'];
+    await handler({}, { program: 'calendar', displayId: 'display2' });
+    expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+      'load-display',
+      expect.objectContaining({ displayId: 'display2', url: expect.stringContaining('/programs/calendar/index.html') })
+    );
+  });
+
+  test('loads health program index', async () => {
+    fs.access = jest.fn().mockResolvedValue();
+    const handler = handlers['open-program'];
+    await handler({}, { program: 'health', displayId: 'display3' });
+    expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+      'load-display',
+      expect.objectContaining({ displayId: 'display3', url: expect.stringContaining('/programs/health/index.html') })
+    );
+  });
+
   test('sends error when program file does not exist', async () => {
     fs.access = jest.fn().mockRejectedValue(new Error('not found'));
     const handler = handlers['open-program'];
