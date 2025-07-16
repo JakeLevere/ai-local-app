@@ -213,8 +213,27 @@ function sendMessage() {
     if (openMatch) {
         const program = openMatch[1];
         if (program === 'browser') {
-            window.electronAPI.send('launch-browser');
-            appendMessageToChatLog({ content: 'Launching browser window.' }, true);
+            let displayNum = openMatch[2];
+            if (!displayNum) {
+                const available = findAvailableDisplayId();
+                displayNum = available.replace('display', '');
+            }
+            const displayId = `display${displayNum}`;
+            const elem = domElements.displays?.[displayId]?.element;
+            let bounds = null;
+            if (elem) {
+                const rect = elem.getBoundingClientRect();
+                const scale = window.devicePixelRatio || 1;
+                bounds = {
+                    x: Math.round(rect.left * scale),
+                    y: Math.round(rect.top * scale),
+                    width: Math.round(rect.width * scale),
+                    height: Math.round(rect.height * scale)
+                };
+            }
+            window.electronAPI.send('open-program', { program, displayId });
+            window.electronAPI.send('launch-browser', { displayId, bounds });
+            appendMessageToChatLog({ content: `Opening browser in display ${displayNum}.` }, true);
             domElements.userInput.value = '';
             return;
         }
