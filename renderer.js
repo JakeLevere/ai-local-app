@@ -212,6 +212,12 @@ function sendMessage() {
     const openMatch = lower.match(/open\s+([a-z0-9_-]+)(?:.*?(?:display|slide)\s*(\d+))?/i);
     if (openMatch) {
         const program = openMatch[1];
+        if (program === 'browser') {
+            window.electronAPI.send('launch-browser');
+            appendMessageToChatLog({ content: 'Launching browser window.' }, true);
+            domElements.userInput.value = '';
+            return;
+        }
         let displayNum = openMatch[2];
         if (!displayNum) {
             const available = findAvailableDisplayId();
