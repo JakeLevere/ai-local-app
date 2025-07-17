@@ -278,9 +278,9 @@ function launchBrowserOverlay(bounds, displayId) {
         width: bounds.width,
         height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
     });
-    // Keep the view anchored within the specified bounds even when the window
-    // resizes without stretching it to the full window size.
-    view.setAutoResize({ horizontal: true, vertical: true });
+    // Keep the view anchored within the specified bounds. Auto-resize is
+    // disabled so the view stays confined to its panel size.
+    view.setAutoResize({ width: false, height: false });
 
     view.webContents.loadURL('https://www.google.com');
 
