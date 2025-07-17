@@ -115,12 +115,11 @@ function updateBrowserBoundsForDisplay(displayId) {
     const elem = domElements.displays?.[displayId]?.element;
     if (!elem) return;
     const rect = elem.getBoundingClientRect();
-    const scale = window.devicePixelRatio || 1;
     const bounds = {
-        x: Math.round(rect.left * scale),
-        y: Math.round(rect.top * scale),
-        width: Math.round(rect.width * scale),
-        height: Math.round(rect.height * scale)
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
     };
     window.electronAPI.send('update-browser-bounds', { displayId, bounds });
 }
@@ -241,14 +240,13 @@ function sendMessage() {
             const elem = domElements.displays?.[displayId]?.element;
             let bounds = null;
             if (elem) {
-                const rect = elem.getBoundingClientRect();
-                const scale = window.devicePixelRatio || 1;
-                bounds = {
-                    x: Math.round(rect.left * scale),
-                    y: Math.round(rect.top * scale),
-                    width: Math.round(rect.width * scale),
-                    height: Math.round(rect.height * scale)
-                };
+            const rect = elem.getBoundingClientRect();
+            bounds = {
+                x: Math.round(rect.left),
+                y: Math.round(rect.top),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+            };
             }
             window.electronAPI.send('open-program', { program, displayId });
             window.electronAPI.send('launch-browser', { displayId, bounds });
