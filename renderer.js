@@ -512,6 +512,18 @@ document.addEventListener('DOMContentLoaded', () => {
     domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);
     domElements.chatCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
     domElements.statusCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
+    domElements.appContainer?.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'grid-template-columns') updateAllBrowserBounds();
+    });
+    domElements.leftSidebar?.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'width') updateAllBrowserBounds();
+    });
+    domElements.rightChat?.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'width') updateAllBrowserBounds();
+    });
+    domElements.statusBar?.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'height') updateAllBrowserBounds();
+    });
     selectedIdentifier = null;
     activePrimaryIdentifier = null;
     updateStatusBarUI(null, null); // Initial call with null
