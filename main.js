@@ -10,6 +10,7 @@ const http = require('http');
 let mainWindow;
 // Track browser views keyed by displayId
 const browserViews = {};
+const CONTROL_AREA_HEIGHT = 70; // Height reserved for browser controls
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
 
@@ -229,6 +230,10 @@ async function createWindow(serverUrl) {
         launchBrowserOverlay(bounds, displayId);
     });
 
+    ipcMain.on('update-browser-bounds', (event, { displayId, bounds }) => {
+        updateBrowserOverlayBounds(bounds, displayId);
+    });
+
     ipcMain.on('clear-display', (event, displayId) => {
         const existing = browserViews[displayId];
         if (existing) {
@@ -264,12 +269,11 @@ function launchBrowserOverlay(bounds, displayId) {
     });
 
     mainWindow.addBrowserView(view);
-    const controlAreaHeight = 70;
     view.setBounds({
         x: bounds.x,
-        y: bounds.y + controlAreaHeight,
+        y: bounds.y + CONTROL_AREA_HEIGHT,
         width: bounds.width,
-        height: Math.max(bounds.height - controlAreaHeight, 0),
+        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
     });
     view.setAutoResize({ width: true, height: true });
 
@@ -287,6 +291,19 @@ function launchBrowserOverlay(bounds, displayId) {
     });
 
     browserViews[displayId] = { view, navigateHandler };
+}
+
+// Update bounds of an existing BrowserView for a display
+function updateBrowserOverlayBounds(bounds, displayId) {
+    if (!mainWindow || !bounds) return;
+    const existing = browserViews[displayId];
+    if (!existing) return;
+    existing.view.setBounds({
+        x: bounds.x,
+        y: bounds.y + CONTROL_AREA_HEIGHT,
+        width: bounds.width,
+        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
+    });
 }
 
 // App initialization (Modified)

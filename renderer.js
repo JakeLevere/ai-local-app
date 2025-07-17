@@ -8,6 +8,7 @@ let primaryPersonaCache = {};
 let latestAIMessageElement = null;
 let eventListenersAttached = false;
 let ipcListenersAttached = false;
+const activeBrowserDisplays = {};
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
@@ -108,6 +109,24 @@ function getCurrentSlides() {
         }
     });
     return slides;
+}
+
+function updateBrowserBoundsForDisplay(displayId) {
+    const elem = domElements.displays?.[displayId]?.element;
+    if (!elem) return;
+    const rect = elem.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 1;
+    const bounds = {
+        x: Math.round(rect.left * scale),
+        y: Math.round(rect.top * scale),
+        width: Math.round(rect.width * scale),
+        height: Math.round(rect.height * scale)
+    };
+    window.electronAPI.send('update-browser-bounds', { displayId, bounds });
+}
+
+function updateAllBrowserBounds() {
+    Object.keys(activeBrowserDisplays).forEach(id => updateBrowserBoundsForDisplay(id));
 }
 
 function createInitialDeckIcons() {
@@ -233,6 +252,8 @@ function sendMessage() {
             }
             window.electronAPI.send('open-program', { program, displayId });
             window.electronAPI.send('launch-browser', { displayId, bounds });
+            activeBrowserDisplays[displayId] = true;
+            updateBrowserBoundsForDisplay(displayId);
             appendMessageToChatLog({ content: `Opening browser in display ${displayNum}.` }, true);
             domElements.userInput.value = '';
             return;
@@ -440,7 +461,7 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
     window.electronAPI.on('start-thinking', () => { if (latestAIMessageElement) latestAIMessageElement.classList.add('thinking-active'); requestAnimationFrame(() => { if (domElements.chatLog) domElements.chatLog.scrollTop = domElements.chatLog.scrollHeight; }); });
     window.electronAPI.on('stop-thinking', () => { if (latestAIMessageElement) latestAIMessageElement.classList.remove('thinking-active'); });
     window.electronAPI.on('load-image', ({ displayId, imagePath }) => { console.log(`Renderer: Received 'load-image' for ${displayId}`); const display = domElements.displays[displayId]; if (display?.element && display.image && display.iframe) { clearDisplayUI(displayId); display.element.classList.remove('loading-active'); const fileUrl = `file://${imagePath}`; display.image.src = fileUrl; display.image.dataset.path = imagePath; display.image.classList.add('active'); display.image.onload = () => { console.log(`   - Image loaded successfully for ${displayId}`); updateSlideIcon(displayId, 'image', fileUrl); }; display.image.onerror = () => { console.error(`Renderer: Failed to load image at ${fileUrl}`); appendMessageToChatLog({ content: `Error loading image in display ${displayId}.` }, true); updateSlideIcon(displayId, 'error', null); }; } else { console.error(`Renderer Error: Invalid display object for ${displayId} in 'load-image' handler.`); } });
-    window.electronAPI.on('clear-display', ({ displayId }) => { console.log(`Renderer: Received 'clear-display' for ${displayId}`); clearDisplayUI(displayId); });
+    window.electronAPI.on('clear-display', ({ displayId }) => { console.log(`Renderer: Received 'clear-display' for ${displayId}`); delete activeBrowserDisplays[displayId]; clearDisplayUI(displayId); });
     window.electronAPI.on('decks-updated', (updatedDecks) => { console.log('Renderer: Received updated decks'); if (!domElements.deckList) return; const currentSelection = domElements.deckList.querySelector('.deck-item.selected')?.dataset.deckName; domElements.deckList.innerHTML = ''; Object.keys(updatedDecks || {}).forEach(deckName => { const li = document.createElement('li'); li.className = 'deck-item'; li.dataset.deckName = deckName; li.innerHTML = `<img src="./images/placeholder.png" class="slide-icon"><span class="slide-name">${deckName}</span><button class="deck-save-btn" aria-label="Save Deck"></button>`; li.addEventListener('click', handleDeckItemClick); domElements.deckList.appendChild(li); }); const currentItem = domElements.deckList.querySelector(`.deck-item[data-deck-name="${currentSelection}"]`); if (currentItem) currentItem.classList.add('selected'); });
     window.electronAPI.on('load-deck-displays', (deckDisplays) => { console.log('Renderer: Loading deck displays:', deckDisplays); Object.keys(domElements.displays).forEach(displayId => { const content = deckDisplays?.[displayId]; if (content) { if (content.type === 'image' && content.src) { window.electronAPI.send('load-image-path', { displayId, imagePath: content.src.replace('file://', '') }); } else if ((content.type === 'iframe' || content.type === 'webview') && content.src) { window.electronAPI.send('load-display-url', { displayId, url: content.src }); } else { clearDisplayUI(displayId); } } else { clearDisplayUI(displayId); } }); const selectedDeck = domElements.deckList?.querySelector('.deck-item.selected'); if (selectedDeck) appendMessageToChatLog({ content: `Deck "${selectedDeck.dataset.deckName}" loaded.` }, true); });
     window.electronAPI.on('main-process-error', (errorMessage) => { console.error('Renderer: Received error from main process:', errorMessage); appendMessageToChatLog({ content: `Error: ${errorMessage}` }, true); });
@@ -460,6 +481,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!eventListenersAttached) setupEventListeners();
     if (!ipcListenersAttached) setupIpcListeners();
+    window.addEventListener('resize', updateAllBrowserBounds);
+    domElements.displaysContainer?.addEventListener('scroll', updateAllBrowserBounds);
+    domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);
+    domElements.chatCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
+    domElements.statusCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
     selectedIdentifier = null;
     activePrimaryIdentifier = null;
     updateStatusBarUI(null, null); // Initial call with null
