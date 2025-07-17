@@ -100,7 +100,7 @@
     <div id="controls">
         <input id="url-input" type="text" placeholder="Enter URL...">
         <button id="go-button">Go</button>
-        <input id="zoom-input" type="number" min="50" max="200" value="80" title="Zoom %" style="width:60px;">
+        <input id="zoom-input" type="number" min="50" max="200" value="72" title="Zoom %" style="width:60px;">
     </div>
     <div id="content-placeholder"></div>
 
@@ -111,6 +111,7 @@
         const tabBar = document.getElementById('tab-bar');
 
         const electron = window.electron || (window.parent && window.parent.electronAPI);
+        const displayId = window.frameElement ? window.frameElement.dataset.displayId : null;
 
         let tabs = [{ url: 'https://www.google.com', id: 0 }];
         let activeTab = 0;
@@ -157,7 +158,12 @@
         const setZoom = () => {
             const val = parseInt(zoomInput.value, 10);
             if (!isNaN(val)) {
-                electron.send('set-browser-zoom', val / 100);
+                const zoom = val / 100;
+                if (displayId) {
+                    electron.send('set-browser-zoom', { displayId, zoom });
+                } else {
+                    electron.send('set-browser-zoom', zoom);
+                }
             }
         };
 

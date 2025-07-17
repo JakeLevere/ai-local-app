@@ -11,7 +11,7 @@ let mainWindow;
 // Track browser views keyed by displayId
 const browserViews = {};
 const CONTROL_AREA_HEIGHT = 60; // Height reserved for browser controls
-const DEFAULT_BROWSER_ZOOM = 0.8;
+const DEFAULT_BROWSER_ZOOM = 0.72;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
 
