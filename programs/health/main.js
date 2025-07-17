@@ -26,7 +26,11 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false,
         },
+        autoHideMenuBar: true,
+        titleBarStyle: 'hidden',
+        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff' },
     });
+    mainWindow.removeMenu();
 
     // Load the application's HTML file.
     mainWindow.loadFile('index.html');

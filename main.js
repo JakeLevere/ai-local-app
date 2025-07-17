@@ -141,7 +141,11 @@ async function launchBrowser() {
             contextIsolation: true,
         },
         show: false,
+        autoHideMenuBar: true,
+        titleBarStyle: 'hidden',
+        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff' },
     });
+    browserWindow.removeMenu();
 
     // Create and attach the BrowserView
     const view = new BrowserView();
@@ -212,7 +216,11 @@ async function createWindow(serverUrl) {
             webSecurity: true,
         },
         show: false,
+        autoHideMenuBar: true,
+        titleBarStyle: 'hidden',
+        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff' },
     });
+    mainWindow.removeMenu();
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {});
     mainWindow.on('unresponsive', () => {});
