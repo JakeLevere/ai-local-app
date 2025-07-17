@@ -10,7 +10,8 @@ const http = require('http');
 let mainWindow;
 // Track browser views keyed by displayId
 const browserViews = {};
-const CONTROL_AREA_HEIGHT = 70; // Height reserved for browser controls
+const CONTROL_AREA_HEIGHT = 60; // Height reserved for browser controls
+const DEFAULT_BROWSER_ZOOM = 0.8;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
 
@@ -147,7 +148,7 @@ async function launchBrowser() {
     browserWindow.setBrowserView(view);
 
     // Position and resize the BrowserView dynamically
-    const controlAreaHeight = 70;
+    const controlAreaHeight = CONTROL_AREA_HEIGHT;
     const updateBounds = () => {
         const [width, height] = browserWindow.getContentSize();
         view.setBounds({ x: 0, y: controlAreaHeight, width: width, height: height - controlAreaHeight });
@@ -162,6 +163,7 @@ async function launchBrowser() {
 
     // Load initial URL and the UI
     view.webContents.loadURL('https://www.google.com');
+    view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
     await browserWindow.loadFile(path.join('programs', 'browser', 'index.html'));
 
     browserWindow.once('ready-to-show', () => {
@@ -178,6 +180,13 @@ async function launchBrowser() {
         }
     };
     ipcMain.on('navigate-to-url', navigateHandler);
+
+    const zoomHandler = (event, zoom) => {
+        if (event.sender === browserWindow.webContents && typeof zoom === 'number') {
+            view.webContents.setZoomFactor(zoom);
+        }
+    };
+    ipcMain.on('set-browser-zoom', zoomHandler);
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
@@ -237,6 +246,13 @@ async function createWindow(serverUrl) {
         updateBrowserOverlayBounds(bounds, displayId);
     });
 
+    ipcMain.on('set-browser-zoom', (event, { displayId, zoom }) => {
+        const existing = browserViews[displayId];
+        if (existing && typeof zoom === 'number') {
+            existing.view.webContents.setZoomFactor(zoom);
+        }
+    });
+
     ipcMain.on('clear-display', (event, displayId) => {
         const existing = browserViews[displayId];
         if (existing) {
@@ -283,6 +299,7 @@ function launchBrowserOverlay(bounds, displayId) {
     view.setAutoResize({ width: false, height: false });
 
     view.webContents.loadURL('https://www.google.com');
+    view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
 
     const navigateHandler = (event, url) => {
         const prefixed = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
