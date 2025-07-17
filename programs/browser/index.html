@@ -34,6 +34,22 @@
             flex-shrink: 0;
             box-sizing: border-box;
         }
+        #tab-bar {
+            display: flex;
+            background-color: var(--secondary-bg);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-color);
+            user-select: none;
+        }
+        .tab.active {
+            background-color: var(--primary-bg);
+            border-bottom: 2px solid var(--accent-color);
+        }
         #url-input {
             flex: 1;
             padding: 8px 16px;
@@ -70,6 +86,7 @@
     </style>
 </head>
 <body>
+    <div id="tab-bar"></div>
     <div id="controls">
         <input id="url-input" type="text" placeholder="Enter URL...">
         <button id="go-button">Go</button>
@@ -79,30 +96,60 @@
     <script>
         const urlInput = document.getElementById('url-input');
         const goButton = document.getElementById('go-button');
+        const tabBar = document.getElementById('tab-bar');
+
+        const electron = window.electron || (window.parent && window.parent.electronAPI);
+
+        let tabs = [{ url: 'https://www.google.com', id: 0 }];
+        let activeTab = 0;
+
+        const renderTabs = () => {
+            tabBar.innerHTML = '';
+            tabs.forEach((t, idx) => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (idx === activeTab ? ' active' : '');
+                tab.textContent = t.url.replace(/^https?:\/\//, '') || 'New Tab';
+                tab.onclick = () => {
+                    activeTab = idx;
+                    electron.send('navigate-to-url', tabs[activeTab].url);
+                    renderTabs();
+                };
+                tabBar.appendChild(tab);
+            });
+            const add = document.createElement('div');
+            add.className = 'tab';
+            add.textContent = '+';
+            add.onclick = () => {
+                tabs.push({ url: 'https://www.google.com', id: tabs.length });
+                activeTab = tabs.length - 1;
+                electron.send('navigate-to-url', tabs[activeTab].url);
+                renderTabs();
+            };
+            tabBar.appendChild(add);
+        };
 
         const navigate = () => {
             const url = urlInput.value.trim();
             if (url) {
-                // Use the 'electron' object exposed by preload.js to send
-                // the URL to the main process.
-                window.electron.send('navigate-to-url', url);
+                tabs[activeTab].url = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+                electron.send('navigate-to-url', tabs[activeTab].url);
+                renderTabs();
             }
         };
 
-        // --- Event Listeners for UI ---
         goButton.addEventListener('click', navigate);
         urlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                navigate();
-            }
+            if (e.key === 'Enter') navigate();
         });
 
-        // --- Listen for events FROM the main process ---
-        // This updates the URL bar when a page has finished loading (e.g., after a redirect)
-        window.electron.receive('page-did-finish-load', (url) => {
+        electron.receive('page-did-finish-load', (url) => {
+            tabs[activeTab].url = url;
             urlInput.value = url;
+            renderTabs();
         });
 
+        // initial render
+        renderTabs();
     </script>
 </body>
 </html>
