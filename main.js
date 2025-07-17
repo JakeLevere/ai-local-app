@@ -153,6 +153,9 @@ async function launchBrowser() {
         view.setBounds({ x: 0, y: controlAreaHeight, width: width, height: height - controlAreaHeight });
     };
 
+    // Allow the embedded view to resize with the window so the
+    // browser content always fills the available area beneath
+    // the control bar.
     view.setAutoResize({ width: true, height: true });
     updateBounds();
     browserWindow.on('resize', updateBounds);
@@ -275,7 +278,9 @@ function launchBrowserOverlay(bounds, displayId) {
         width: bounds.width,
         height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
     });
-    view.setAutoResize({ width: true, height: true });
+    // Keep the view anchored within the specified bounds even when the window
+    // resizes without stretching it to the full window size.
+    view.setAutoResize({ horizontal: true, vertical: true });
 
     view.webContents.loadURL('https://www.google.com');
 
