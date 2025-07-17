@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on(channel, subscription);
         return () => ipcRenderer.removeListener(channel, subscription);
     },
+    // Alias for `.on` used by some embedded programs
+    receive: (channel, func) => {
+        const subscription = (event, ...args) => func(...args);
+        ipcRenderer.on(channel, subscription);
+        return () => ipcRenderer.removeListener(channel, subscription);
+    },
     once: (channel, func) => {
         const subscription = (event, ...args) => func(...args);
         ipcRenderer.once(channel, subscription);
