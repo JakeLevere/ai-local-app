@@ -9,6 +9,8 @@ let latestAIMessageElement = null;
 let eventListenersAttached = false;
 let ipcListenersAttached = false;
 const activeBrowserDisplays = {};
+let scrollAnimationFrame = null;
+let scrollStopTimer = null;
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
@@ -126,6 +128,32 @@ function updateBrowserBoundsForDisplay(displayId) {
 
 function updateAllBrowserBounds() {
     Object.keys(activeBrowserDisplays).forEach(id => updateBrowserBoundsForDisplay(id));
+}
+
+function startScrollSync() {
+    if (scrollAnimationFrame === null) {
+        scrollAnimationFrame = requestAnimationFrame(scrollSyncLoop);
+    }
+    if (scrollStopTimer) {
+        clearTimeout(scrollStopTimer);
+    }
+    scrollStopTimer = setTimeout(stopScrollSync, 100);
+}
+
+function scrollSyncLoop() {
+    updateAllBrowserBounds();
+    scrollAnimationFrame = requestAnimationFrame(scrollSyncLoop);
+}
+
+function stopScrollSync() {
+    if (scrollAnimationFrame !== null) {
+        cancelAnimationFrame(scrollAnimationFrame);
+        scrollAnimationFrame = null;
+    }
+    if (scrollStopTimer) {
+        clearTimeout(scrollStopTimer);
+        scrollStopTimer = null;
+    }
 }
 
 function createInitialDeckIcons() {
@@ -480,13 +508,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!eventListenersAttached) setupEventListeners();
     if (!ipcListenersAttached) setupIpcListeners();
     window.addEventListener('resize', updateAllBrowserBounds);
-    domElements.displaysContainer?.addEventListener('scroll', updateAllBrowserBounds);
+    domElements.displaysContainer?.addEventListener('scroll', startScrollSync);
     domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);
     domElements.chatCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
     domElements.statusCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
     selectedIdentifier = null;
     activePrimaryIdentifier = null;
     updateStatusBarUI(null, null); // Initial call with null
+    updateAllBrowserBounds();
     const firstSlide = document.querySelector('.slide-tab');
     if (firstSlide) firstSlide.classList.add('selected');
     console.log("--- Renderer Initialization Complete ---");
