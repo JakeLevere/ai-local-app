@@ -192,6 +192,20 @@ async function launchBrowser() {
     };
     ipcMain.on('set-browser-zoom', zoomHandler);
 
+    const backHandler = (event) => {
+        if (event.sender === browserWindow.webContents && view.webContents.canGoBack()) {
+            view.webContents.goBack();
+        }
+    };
+    ipcMain.on('browser-go-back', backHandler);
+
+    const forwardHandler = (event) => {
+        if (event.sender === browserWindow.webContents && view.webContents.canGoForward()) {
+            view.webContents.goForward();
+        }
+    };
+    ipcMain.on('browser-go-forward', forwardHandler);
+
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
         browserWindow.webContents.send('page-did-finish-load', url);
@@ -200,6 +214,9 @@ async function launchBrowser() {
     // Clean up IPC listener when the browser window is closed
     browserWindow.on('closed', () => {
         ipcMain.removeListener('navigate-to-url', navigateHandler);
+        ipcMain.removeListener('set-browser-zoom', zoomHandler);
+        ipcMain.removeListener('browser-go-back', backHandler);
+        ipcMain.removeListener('browser-go-forward', forwardHandler);
     });
 }
 // --- END NEW BROWSERVIEW FUNCTION ---
@@ -258,6 +275,20 @@ async function createWindow(serverUrl) {
         const existing = browserViews[displayId];
         if (existing && typeof zoom === 'number') {
             existing.view.webContents.setZoomFactor(zoom);
+        }
+    });
+
+    ipcMain.on('browser-go-back', (event, displayId) => {
+        const existing = browserViews[displayId];
+        if (existing && existing.view.webContents.canGoBack()) {
+            existing.view.webContents.goBack();
+        }
+    });
+
+    ipcMain.on('browser-go-forward', (event, displayId) => {
+        const existing = browserViews[displayId];
+        if (existing && existing.view.webContents.canGoForward()) {
+            existing.view.webContents.goForward();
         }
     });
 

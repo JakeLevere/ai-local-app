@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Function to send data from renderer to main
     send: (channel, data) => {
         // Whitelist channels to prevent sending on arbitrary channels
-        const validChannels = ['navigate-to-url', 'set-browser-zoom'];
+        const validChannels = ['navigate-to-url', 'set-browser-zoom', 'browser-go-back', 'browser-go-forward'];
         if (validChannels.includes(channel)) {
             ipcRenderer.send(channel, data);
         }
