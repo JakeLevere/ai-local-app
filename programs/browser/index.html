@@ -28,11 +28,12 @@
         #controls {
             display: flex;
             align-items: center;
-            padding: 12px;
+            padding: 8px;
             background-color: var(--secondary-bg);
-            height: 46px; /* Fixed height for the control area */
+            height: 36px; /* Reduced height for a sleeker look */
             flex-shrink: 0;
             box-sizing: border-box;
+            gap: 6px;
         }
         #tab-bar {
             display: flex;
@@ -41,10 +42,11 @@
             flex-shrink: 0;
         }
         .tab {
-            padding: 8px 12px;
+            padding: 4px 8px;
             cursor: pointer;
             color: var(--text-color);
             user-select: none;
+            font-size: 12px;
         }
         .tab.active {
             background-color: var(--primary-bg);
@@ -52,31 +54,39 @@
         }
         #url-input {
             flex: 1;
-            padding: 8px 16px;
+            padding: 4px 8px;
             background: var(--primary-bg);
             border: 1px solid var(--border-color);
             color: var(--text-color);
-            border-radius: 20px;
-            font-size: 14px;
-            margin-right: 12px;
+            border-radius: 14px;
+            font-size: 12px;
         }
         #url-input:focus {
             outline: none;
             border-color: var(--accent-color);
         }
         #go-button {
-            padding: 8px 20px;
+            padding: 4px 12px;
             background: var(--accent-color);
             border: none;
             color: var(--primary-bg);
             font-weight: bold;
             cursor: pointer;
-            border-radius: 20px;
-            font-size: 14px;
+            border-radius: 14px;
+            font-size: 12px;
             transition: background-color 0.2s;
         }
         #go-button:hover {
             background: var(--accent-hover);
+        }
+        #zoom-input {
+            width: 60px;
+            padding: 4px 6px;
+            background: var(--primary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 14px;
+            font-size: 12px;
         }
         /* This empty area is where the BrowserView will appear underneath */
         #content-placeholder {
@@ -90,12 +100,14 @@
     <div id="controls">
         <input id="url-input" type="text" placeholder="Enter URL...">
         <button id="go-button">Go</button>
+        <input id="zoom-input" type="number" min="50" max="200" value="80" title="Zoom %" style="width:60px;">
     </div>
     <div id="content-placeholder"></div>
 
     <script>
         const urlInput = document.getElementById('url-input');
         const goButton = document.getElementById('go-button');
+        const zoomInput = document.getElementById('zoom-input');
         const tabBar = document.getElementById('tab-bar');
 
         const electron = window.electron || (window.parent && window.parent.electronAPI);
@@ -140,6 +152,18 @@
         goButton.addEventListener('click', navigate);
         urlInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') navigate();
+        });
+
+        const setZoom = () => {
+            const val = parseInt(zoomInput.value, 10);
+            if (!isNaN(val)) {
+                electron.send('set-browser-zoom', val / 100);
+            }
+        };
+
+        zoomInput.addEventListener('change', setZoom);
+        zoomInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') setZoom();
         });
 
         electron.receive('page-did-finish-load', (url) => {
