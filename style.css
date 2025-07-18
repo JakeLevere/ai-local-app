@@ -512,4 +512,12 @@ body.logging-in #info-panels {
 }
 body.logging-in .app-container {
     grid-template-columns: minmax(50px, 260px) 1fr minmax(50px, 340px);
+    transition: none;
+}
+
+body.logging-in #left-sidebar,
+body.logging-in #right-chat,
+body.logging-in #persona-status-bar,
+body.logging-in #info-panels {
+    transition: none;
 }
