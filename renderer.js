@@ -525,6 +525,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
 
+            [left, right, status, info].forEach(el => el.classList.add('vault-open'));
+
             // Capture starting positions **before** altering any classes so we
             // animate from the pre-login layout.
             const startLeft = left.getBoundingClientRect().width;
@@ -583,7 +585,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         status.style.height = '';
                         info.style.height = '';
-                        if (callback) callback();
+                    [left, right, status, info].forEach(el => el.classList.remove('vault-open'));
+                    if (callback) callback();
                     }
                 };
                 requestAnimationFrame(stepTB);
