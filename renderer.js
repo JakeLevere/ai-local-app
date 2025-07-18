@@ -514,6 +514,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overlay && loginForm) {
         overlay.classList.add('active');
         document.body.classList.add('pre-login');
+        const passInput = document.getElementById('login-pass');
+        if (passInput) {
+            passInput.focus();
+            passInput.select();
+        }
         const animatePanelReset = (callback) => {
             const left = domElements.leftSidebar;
             const right = domElements.rightChat;
@@ -531,12 +536,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // not affect the initial values used for the animation.
             document.body.classList.add('logging-in');
 
+            const endInfo = info.getBoundingClientRect().height;
+
             const container = domElements.appContainer;
             const containerWidth = container.getBoundingClientRect().width;
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
-            const endInfo = 0;
             // Extend the panel reset animation to three seconds for a
             // smoother transition back to the default layout after login.
             const duration = 3000;
