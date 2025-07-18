@@ -23,6 +23,8 @@ const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
 const calendarPath = path.join(dataDir, 'Calendar');
+const websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
+const websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
 
 // Global error handlers for more verbose logging
 process.on('uncaughtException', (err) => {
@@ -126,6 +128,13 @@ async function createUserDataDirectories() {
     } catch (err) {
         console.error('Error preparing calendar directory:', err);
     }
+    try {
+        await fs.mkdir(websiteHistoryPath, { recursive: true });
+        await fs.writeFile(websiteHistoryFile, '', { flag: 'a' });
+        console.log('Website history ensured:', websiteHistoryFile);
+    } catch (err) {
+        console.error('Error preparing website history directory:', err);
+    }
 }
 
 // --- NEW BROWSERVIEW FUNCTION ---
@@ -169,6 +178,10 @@ async function launchBrowser() {
     view.webContents.loadURL('https://www.google.com');
     view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
     await browserWindow.loadFile(path.join('programs', 'browser', 'index.html'));
+    browserWindow.webContents.on('did-finish-load', () => {
+        const url = browserWindow.webContents.getURL();
+        appendWebsiteHistory(url);
+    });
 
     browserWindow.once('ready-to-show', () => {
         browserWindow.maximize();
@@ -208,6 +221,7 @@ async function launchBrowser() {
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
+        appendWebsiteHistory(url);
         browserWindow.webContents.send('page-did-finish-load', url);
     });
 
@@ -256,6 +270,10 @@ async function createWindow(serverUrl) {
     });
 
     await mainWindow.loadURL(targetUrl);
+    mainWindow.webContents.on('did-finish-load', () => {
+        const url = mainWindow.webContents.getURL();
+        appendWebsiteHistory(url);
+    });
 
     // Initialize your existing IPC handlers
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
@@ -348,6 +366,7 @@ function launchBrowserOverlay(bounds, displayId) {
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
+        appendWebsiteHistory(url);
         sendToRenderer('page-did-finish-load', url);
     });
 
@@ -414,5 +433,15 @@ function sendToRenderer(channel, ...args) {
         catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
     } else {
         console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
+    }
+}
+
+async function appendWebsiteHistory(url) {
+    const timestamp = new Date().toLocaleString();
+    const entry = `${timestamp} - ${url}\n`;
+    try {
+        await fs.appendFile(websiteHistoryFile, entry, 'utf-8');
+    } catch (err) {
+        console.error('Error appending website history:', err);
     }
 }
