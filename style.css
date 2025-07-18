@@ -440,6 +440,21 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
     pointer-events: none;
 }
 #launch-overlay.active { pointer-events: all; }
+#panel-top, #panel-bottom, #panel-left, #panel-right {
+    position: fixed;
+    background-color: var(--bg-dark-grey);
+    transition: transform 0.6s ease-in-out;
+}
+#panel-top, #panel-bottom { left: 0; right: 0; height: 50vh; }
+#panel-left, #panel-right { top: 0; bottom: 0; width: 50vw; }
+#panel-top { top: 0; transform: translateY(-100%); }
+#panel-bottom { bottom: 0; transform: translateY(100%); }
+#panel-left { left: 0; transform: translateX(-100%); }
+#panel-right { right: 0; transform: translateX(100%); }
+#panel-top.closed { transform: translateY(0); }
+#panel-bottom.closed { transform: translateY(0); }
+#panel-left.closed { transform: translateX(0); }
+#panel-right.closed { transform: translateX(0); }
 #login-form {
     position: absolute;
     top: 50%;
@@ -470,28 +485,3 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 }
 #login-form button:hover { background: var(--baby-blue-darker); }
 #launch-overlay.hidden { display: none; }
-
-/* --- Launch Closed Panels --- */
-.launch-closed {
-    position: fixed;
-    z-index: 9998;
-    overflow: hidden;
-}
-#left-sidebar.launch-closed,
-#right-chat.launch-closed {
-    top: 0;
-    bottom: 0;
-    width: 50vw;
-    transition: width 0.6s ease-in-out;
-}
-#left-sidebar.launch-closed { left: 0; }
-#right-chat.launch-closed { right: 0; }
-#persona-status-bar.launch-closed,
-#info-panels.launch-closed {
-    left: 0;
-    right: 0;
-    height: 50vh;
-    transition: height 0.6s ease-in-out;
-}
-#persona-status-bar.launch-closed { top: 0; }
-#info-panels.launch-closed { bottom: 0; }
