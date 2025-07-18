@@ -431,3 +431,57 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; border: 1px solid var(--sidebar-bg); }
 ::-webkit-scrollbar-thumb:hover { background: #666; }
 #persona-section, #slide-section, #displays-container, #chat-log, #config-content, #deck-icons, .dropdown-content { scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
+
+/* --- Launch Overlay Styles --- */
+#launch-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+}
+#launch-overlay.active { pointer-events: all; }
+#panel-top, #panel-bottom, #panel-left, #panel-right {
+    position: fixed;
+    background-color: var(--bg-dark-grey);
+    transition: transform 0.6s ease-in-out;
+}
+#panel-top, #panel-bottom { left: 0; right: 0; height: 50vh; }
+#panel-left, #panel-right { top: 0; bottom: 0; width: 50vw; }
+#panel-top { top: 0; transform: translateY(-100%); }
+#panel-bottom { bottom: 0; transform: translateY(100%); }
+#panel-left { left: 0; transform: translateX(-100%); }
+#panel-right { right: 0; transform: translateX(100%); }
+#panel-top.closed { transform: translateY(0); }
+#panel-bottom.closed { transform: translateY(0); }
+#panel-left.closed { transform: translateX(0); }
+#panel-right.closed { transform: translateX(0); }
+#login-form {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-dark-grey);
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#login-form input {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-off-white);
+}
+#login-form button {
+    padding: 8px 15px;
+    border: none;
+    background: var(--baby-blue);
+    color: #111;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+#login-form button:hover { background: var(--baby-blue-darker); }
+#launch-overlay.hidden { display: none; }
