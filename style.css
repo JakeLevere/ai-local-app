@@ -29,6 +29,64 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Login Overlay */
+#login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+#login-overlay::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color);
+}
+#login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1001;
+}
+#login-form input {
+    padding: 8px 10px;
+}
+#login-error {
+    color: #ff6b6b;
+    font-size: 0.9em;
+    text-align: center;
+    min-height: 1em;
+}
+
+/* Closed panel layout */
+.closed-left,
+.closed-right,
+.closed-top,
+.closed-bottom {
+    transition: transform 0.5s ease-in-out;
+}
+#left-sidebar.closed-left {
+    transform: translateX(calc(50vw - 50%));
+}
+#right-chat.closed-right {
+    transform: translateX(calc(-50vw + 50%));
+}
+#persona-status-bar.closed-top {
+    transform: translateY(calc(50vh - 50%));
+}
+#info-panels.closed-bottom {
+    transform: translateY(calc(-50vh + 50%));
+}
+
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-very-dark); color: var(--text-off-white); height: 100vh; overflow: hidden; }
 
 .app-container { display: grid; grid-template-columns: minmax(50px, 260px) 1fr minmax(50px, 340px); grid-template-rows: 1fr; height: 100vh; background-color: var(--bg-dark-grey); gap: 1px; background-color: var(--border-color); transition: grid-template-columns 0.3s ease-in-out; }

@@ -17,12 +17,20 @@ The built-in web server reads the `PORT` environment variable to determine which
 3. Set required environment variables:
    - `OPENAI_API_KEY` – your OpenAI API key.
    - `PORT` – optional. Overrides the default `3000` port for the local server.
-4. Start the desktop app with `npm start`. This launches Electron using `main.js`.
+   - `APP_LOGIN_PASSWORD` – optional. Sets the password required to unlock the interface. Defaults to `password`.
+   4. Start the desktop app with `npm start`. This launches Electron using `main.js`.
 
 ## Project Files
 
 `main.js` is the Electron entry point. It starts a local Express server and then loads `index.html` from the project root.
 An earlier version of the interface has been removed and is no longer included.
+
+## Login
+
+On startup the interface is hidden behind a login overlay. Enter the password set in
+`APP_LOGIN_PASSWORD` (defaults to `password`) to reveal the panels. The left and
+right sidebars along with the top and bottom panels animate outward once the
+correct password is submitted.
 
 ## Adding Programs
 
