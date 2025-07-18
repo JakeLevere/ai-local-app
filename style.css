@@ -478,7 +478,9 @@ body.pre-login #left-sidebar,
 body.pre-login #right-chat,
 body.pre-login #persona-status-bar,
 body.pre-login #info-panels {
-    transition: width 0.6s ease-in-out, height 0.6s ease-in-out;
+    /* Disable transitions during the pre-login state to avoid the panels
+       animating in from their default positions on initial load. */
+    transition: none;
 }
 body.pre-login #left-sidebar,
 body.pre-login #right-chat {
