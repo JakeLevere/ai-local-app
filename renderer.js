@@ -567,8 +567,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const endRight = 340;
             const endStatus = 100;
 
-            const durationSide = 400;
-            const durationTB = 400;
+            const durationSide = 200;
+            const durationTB = 200;
 
             const animateTopBottom = () => {
                 const startTimeTB = performance.now();
@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         domElements.deckList,
                         domElements.chatLog
                     ]);
-                    setTimeout(animateTopBottom, 600);
+                    setTimeout(animateTopBottom, 50);
                 }
             };
             requestAnimationFrame(stepSide);
