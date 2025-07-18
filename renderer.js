@@ -499,6 +499,26 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
 document.addEventListener('DOMContentLoaded', () => {
     console.log("--- Renderer: DOMContentLoaded event fired ---");
     cacheDomElements();
+    const overlay = document.getElementById('launch-overlay');
+    const panels = document.querySelectorAll('#panel-top,#panel-bottom,#panel-left,#panel-right');
+    const loginForm = document.getElementById('login-form');
+    if (overlay && panels.length && loginForm) {
+        if (localStorage.getItem('loggedIn')) {
+            overlay.classList.add('hidden');
+        } else {
+            overlay.classList.add('active');
+            setTimeout(() => panels.forEach(p => p.classList.add('closed')));
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const pass = document.getElementById('login-pass').value;
+                if (pass === 'letmein') {
+                    localStorage.setItem('loggedIn', 'true');
+                    panels.forEach(p => p.classList.remove('closed'));
+                    setTimeout(() => overlay.classList.add('hidden'), 600);
+                }
+            });
+        }
+    }
     createInitialDeckIcons();
     const mainIcon = document.getElementById('deck-main');
     if (mainIcon) {
