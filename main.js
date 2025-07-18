@@ -160,6 +160,25 @@ async function launchBrowser() {
     const view = new BrowserView();
     browserWindow.setBrowserView(view);
 
+    // Intercept window.open calls from within the BrowserView
+    view.webContents.setWindowOpenHandler(({ url }) => {
+        const popup = new BrowserWindow({
+            width: 800,
+            height: 600,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+            },
+            autoHideMenuBar: true,
+        });
+        popup.removeMenu();
+        popup.loadURL(url);
+        popup.on('closed', () => {
+            popup.destroy();
+        });
+        return { action: 'deny' };
+    });
+
     // Position and resize the BrowserView dynamically
     const controlAreaHeight = CONTROL_AREA_HEIGHT;
     const updateBounds = () => {
@@ -342,6 +361,26 @@ function launchBrowserOverlay(bounds, displayId) {
             nodeIntegration: false,
             contextIsolation: true,
         },
+    });
+
+    // Intercept attempts to open a new window from within the view
+    view.webContents.setWindowOpenHandler(({ url }) => {
+        const popup = new BrowserWindow({
+            width: 800,
+            height: 600,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+            },
+            autoHideMenuBar: true,
+        });
+        popup.removeMenu();
+        popup.loadURL(url);
+        // Ensure the window cleans itself up when closed
+        popup.on('closed', () => {
+            popup.destroy();
+        });
+        return { action: 'deny' };
     });
 
     mainWindow.addBrowserView(view);
