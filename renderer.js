@@ -500,11 +500,12 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("--- Renderer: DOMContentLoaded event fired ---");
     cacheDomElements();
     const overlay = document.getElementById('launch-overlay');
-    const panels = document.querySelectorAll('#panel-top,#panel-bottom,#panel-left,#panel-right');
+    const launchTargets = document.querySelectorAll('#left-sidebar,#right-chat,#persona-status-bar,#info-panels');
     const loginForm = document.getElementById('login-form');
-    if (overlay && panels.length && loginForm) {
+    if (overlay && launchTargets.length && loginForm) {
         if (localStorage.getItem('loggedIn')) {
             overlay.classList.add('hidden');
+            launchTargets.forEach(el => el.classList.remove('launch-closed'));
         } else {
             overlay.classList.add('active');
             loginForm.addEventListener('submit', (e) => {
@@ -512,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pass = document.getElementById('login-pass').value;
                 if (pass === 'password') {
                     localStorage.setItem('loggedIn', 'true');
-                    panels.forEach(p => p.classList.remove('closed'));
+                    launchTargets.forEach(el => el.classList.remove('launch-closed'));
                     setTimeout(() => overlay.classList.add('hidden'), 600);
                 }
             });
