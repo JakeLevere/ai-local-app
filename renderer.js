@@ -504,16 +504,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overlay && loginForm) {
         overlay.classList.add('active');
         document.body.classList.add('pre-login');
+        const animatePanelReset = (callback) => {
+            const left = domElements.leftSidebar;
+            const right = domElements.rightChat;
+            const status = domElements.statusBar;
+            const info = domElements.infoPanels;
+            const startLeft = left.getBoundingClientRect().width;
+            const startRight = right.getBoundingClientRect().width;
+            const startStatus = status.getBoundingClientRect().height;
+            const startInfo = info.getBoundingClientRect().height;
+            const endLeft = 260;
+            const endRight = 340;
+            const endStatus = 100;
+            const endInfo = 0;
+            const duration = 600;
+            const startTime = performance.now();
+            const step = (now) => {
+                const progress = Math.min((now - startTime) / duration, 1);
+                left.style.width = `${startLeft + (endLeft - startLeft) * progress}px`;
+                right.style.width = `${startRight + (endRight - startRight) * progress}px`;
+                status.style.height = `${startStatus + (endStatus - startStatus) * progress}px`;
+                info.style.height = `${startInfo + (endInfo - startInfo) * progress}px`;
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    left.style.width = '';
+                    right.style.width = '';
+                    status.style.height = '';
+                    info.style.height = '';
+                    if (callback) callback();
+                }
+            };
+            requestAnimationFrame(step);
+        };
+
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const pass = document.getElementById('login-pass').value;
             if (pass === 'password') {
                 document.body.classList.add('logging-in');
-                setTimeout(() => {
+                animatePanelReset(() => {
                     document.body.classList.remove('pre-login');
                     document.body.classList.remove('logging-in');
                     overlay.classList.add('hidden');
-                }, 600);
+                });
             }
         });
     }
