@@ -52,6 +52,11 @@
             background-color: var(--primary-bg);
             border-bottom: 2px solid var(--accent-color);
         }
+        .tab-close {
+            font-size: 10px;
+            margin-left: 4px;
+            cursor: pointer;
+        }
         #url-input {
             flex: 1;
             padding: 4px 8px;
@@ -133,12 +138,36 @@
         let tabs = [{ url: 'https://www.google.com', id: 0 }];
         let activeTab = 0;
 
+        const removeTab = (idx) => {
+            const wasActive = idx === activeTab;
+            tabs.splice(idx, 1);
+            if (activeTab > idx) {
+                activeTab--;
+            } else if (wasActive) {
+                activeTab = Math.min(activeTab, tabs.length - 1);
+            }
+            if (wasActive && tabs[activeTab]) {
+                electron.send('navigate-to-url', tabs[activeTab].url);
+            }
+            renderTabs();
+        };
+
         const renderTabs = () => {
             tabBar.innerHTML = '';
             tabs.forEach((t, idx) => {
                 const tab = document.createElement('div');
                 tab.className = 'tab' + (idx === activeTab ? ' active' : '');
-                tab.textContent = t.url.replace(/^https?:\/\//, '') || 'New Tab';
+                const label = document.createElement('span');
+                label.textContent = t.url.replace(/^https?:\/\//, '') || 'New Tab';
+                tab.appendChild(label);
+                const close = document.createElement('span');
+                close.className = 'tab-close';
+                close.textContent = 'x';
+                close.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTab(idx);
+                };
+                tab.appendChild(close);
                 tab.onclick = () => {
                     activeTab = idx;
                     electron.send('navigate-to-url', tabs[activeTab].url);
