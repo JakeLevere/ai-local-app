@@ -507,11 +507,10 @@ document.addEventListener('DOMContentLoaded', () => {
             overlay.classList.add('hidden');
         } else {
             overlay.classList.add('active');
-            setTimeout(() => panels.forEach(p => p.classList.add('closed')));
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const pass = document.getElementById('login-pass').value;
-                if (pass === 'letmein') {
+                if (pass === 'password') {
                     localStorage.setItem('loggedIn', 'true');
                     panels.forEach(p => p.classList.remove('closed'));
                     setTimeout(() => overlay.classList.add('hidden'), 600);
