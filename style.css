@@ -310,6 +310,22 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 .program-icon:hover {
     background-color: var(--sidebar-item-hover);
 }
+
+/* Enlarged and centered when the display has no content */
+.display.empty .program-icons {
+    top: 50%;
+    left: 50%;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.display.empty .program-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+}
 .scroll-spacer { height: 60vh; width: 100%; flex-shrink: 0; }
 
 /* --- Slide Tabs --- */
