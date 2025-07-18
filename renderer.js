@@ -536,6 +536,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // not affect the initial values used for the animation.
             document.body.classList.add('logging-in');
 
+            // Ensure the top and bottom panels remain fully expanded as the
+            // side panels animate open. Without setting these inline heights
+            // the logging-in styles would collapse them immediately.
+            status.style.height = `${startStatus}px`;
+            info.style.height = `${startInfo}px`;
+
             // Temporarily reveal info panel children so we can measure the
             // final height. They are hidden in the pre-login state which
             // would otherwise return 0 and cause the panel to overshoot.
