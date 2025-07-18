@@ -13,10 +13,6 @@ let scrollAnimationFrame = null;
 let scrollStopTimer = null;
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
-const APP_PASSWORD = (typeof process !== 'undefined' && process.env && process.env.APP_LOGIN_PASSWORD) ?
-    process.env.APP_LOGIN_PASSWORD : 'password';
-const APP_PASSWORD = (typeof process !== 'undefined' && process.env && process.env.APP_LOGIN_PASSWORD) ?
-    process.env.APP_LOGIN_PASSWORD : 'password';
 
 let domElements = {};
 function cacheDomElements() {
@@ -59,10 +55,6 @@ function cacheDomElements() {
         slideTabs: document.getElementById('slide-tabs'),
         deckContainer: document.getElementById('deck-container'),
         deckIconsContainer: document.getElementById('deck-icons'),
-        loginOverlay: document.getElementById('login-overlay'),
-        loginForm: document.getElementById('login-form'),
-        loginPasswordInput: document.getElementById('login-password'),
-        loginError: document.getElementById('login-error'),
         displays: {
              'display1': { iframe: document.getElementById('iframe1'), image: document.getElementById('image1'), element: document.getElementById('display1') },
              'display2': { iframe: document.getElementById('iframe2'), image: document.getElementById('image2'), element: document.getElementById('display2') },
@@ -255,23 +247,6 @@ function handleAddDeck() {
     const addBtn = domElements.deckIconsContainer.querySelector('#add-deck-icon');
     domElements.deckIconsContainer.insertBefore(wrapper, addBtn);
     if (count >= 10 && addBtn) addBtn.style.display = 'none';
-}
-
-function handleLogin(event) {
-    event.preventDefault();
-    const entered = domElements.loginPasswordInput?.value || '';
-    if (entered === APP_PASSWORD) {
-        if (domElements.loginOverlay) domElements.loginOverlay.style.display = 'none';
-        domElements.leftSidebar?.classList.remove('closed-left');
-        domElements.rightChat?.classList.remove('closed-right');
-        domElements.statusBar?.classList.remove('closed-top');
-        domElements.infoPanels?.classList.remove('closed-bottom');
-    } else {
-        if (domElements.loginError) {
-            domElements.loginError.textContent = 'Incorrect password';
-            setTimeout(() => { if(domElements.loginError) domElements.loginError.textContent = ''; }, 2000);
-        }
-    }
 }
 
 function sendMessage() {
@@ -549,12 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
     domElements.statusBar?.addEventListener('transitionend', (e) => {
         if (e.propertyName === 'height') updateAllBrowserBounds();
     });
-    domElements.leftSidebar?.classList.add('closed-left');
-    domElements.rightChat?.classList.add('closed-right');
-    domElements.statusBar?.classList.add('closed-top');
-    domElements.infoPanels?.classList.add('closed-bottom');
-    if (domElements.loginOverlay) domElements.loginOverlay.style.display = 'flex';
-    domElements.loginForm?.addEventListener('submit', handleLogin);
     selectedIdentifier = null;
     activePrimaryIdentifier = null;
     updateStatusBarUI(null, null); // Initial call with null
