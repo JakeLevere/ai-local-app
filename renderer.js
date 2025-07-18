@@ -88,7 +88,9 @@ function clearDisplayUI(displayId) {
         display.image.classList.remove('active'); display.iframe.classList.remove('active'); display.element.classList.remove('loading-active');
         if (display.iframe.src && display.iframe.src !== 'about:blank') { display.iframe.src = 'about:blank'; }
         if (display.image.src) { display.image.src = ''; }
-        display.image.removeAttribute('data-path'); updateSlideIcon(displayId, 'empty', null);
+        display.image.removeAttribute('data-path');
+        display.element.classList.add('empty');
+        updateSlideIcon(displayId, 'empty', null);
     } else { console.error(`Renderer Error: Invalid display object or elements missing for ${displayId} in clearDisplayUI`); }
 }
 
@@ -210,6 +212,7 @@ function createProgramIcons() {
     ];
     Object.values(domElements.displays || {}).forEach(({ element }) => {
         if (!element) return;
+        element.classList.add('empty');
         const container = document.createElement('div');
         container.className = 'program-icons';
         programs.forEach(p => {
@@ -520,8 +523,44 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
         // *** END MODIFIED DEFAULT SELECTION LOGIC ***
 
     } else if (typeof receivedData === 'string' && receivedData.startsWith('DIAGNOSTIC_MESSAGE')) { console.log(`Renderer: Received diagnostic string, skipping list render.`); } else { console.warn(`Renderer: Received unexpected data type on 'personas-loaded': ${typeof receivedData}`); renderPersonaList([]); } });
-    window.electronAPI.on('load-display', ({ displayId, url }) => { try { console.log(`>>> RENDERER: Received \'load-display\' for ${displayId} with URL: ${url}`); if (!displayId || !url || !domElements?.displays) { return; } const display = domElements.displays[displayId]; if (!display?.element || !display.iframe || !display.image) { return; } const displayElement = display.element; const iframeElement = display.iframe; clearDisplayUI(displayId); displayElement.classList.remove('loading-active'); const onIframeLoad = () => { console.log(`>>> IFRAME LOAD FINISH for ${displayId} URL: ${iframeElement?.src}`); displayElement.classList.remove('loading-active'); iframeElement.removeEventListener('load', onIframeLoad); iframeElement.removeEventListener('error', onIframeError); }; const onIframeError = (error) => { console.error(`>>> IFRAME LOAD ERROR for ${displayId} URL: ${url}`, error); appendMessageToChatLog({ content: `Error loading content in display ${displayId}.` }, true); displayElement.classList.remove('loading-active'); updateSlideIcon(displayId, 'error', null); iframeElement.removeEventListener('error', onIframeError); iframeElement.removeEventListener('load', onIframeLoad); }; iframeElement.addEventListener('load', onIframeLoad, { once: true }); iframeElement.addEventListener('error', onIframeError, { once: true }); iframeElement.dataset.displayId = displayId; iframeElement.src = url;  applyBounceAnimation([displayElement]); updateSlideIcon(displayId, 'iframe', url); } catch (error) { console.error(`>>> RENDERER CRITICAL ERROR in \'load-display\' handler for ${displayId}:`, error); appendMessageToChatLog({ content: `Internal Error processing display ${displayId}. See DevTools.` }, true); try { domElements?.displays[displayId]?.element?.classList.remove('loading-active'); } catch(e){} } });
     window.electronAPI.on('initial-data-loaded', ({ identifier, status, content, entries, decks }) => { console.log(`Renderer: Received initial-data-loaded for ${identifier}`); if (identifier === selectedIdentifier) { updateStatusBarUI(identifier, status); if (domElements.prePromptText) domElements.prePromptText.value = content?.prePrompt || ''; if (domElements.memoryPromptText) domElements.memoryPromptText.value = content?.memoryPrompt ?? ''; if (domElements.memoryText) domElements.memoryText.value = content?.memory ?? ''; if (domElements.conversationsText) domElements.conversationsText.value = content?.conversations || ''; if (domElements.chatLog) { domElements.chatLog.innerHTML = ''; entries?.forEach(entry => appendMessageToChatLog(entry, false, entry?.content?.startsWith('You:'))); } if (domElements.deckList) { const currentDeck = domElements.deckList.querySelector('.deck-item.selected')?.dataset.deckName; domElements.deckList.innerHTML = ''; Object.keys(decks || {}).forEach(deckName => { const li = document.createElement('li'); li.className = 'deck-item'; li.dataset.deckName = deckName; li.innerHTML = `<img src="./images/placeholder.png" class="slide-icon"><span class="slide-name">${deckName}</span>`; li.addEventListener('click', handleDeckItemClick); domElements.deckList.appendChild(li); }); const currentItem = domElements.deckList.querySelector(`.deck-item[data-deck-name="${currentDeck}"]`); if (currentItem) currentItem.classList.add('selected'); } } else { console.log(`Renderer: Received initial data for ${identifier}, but ${selectedIdentifier} is currently selected. Ignoring.`); } });
+    window.electronAPI.on('load-display', ({ displayId, url }) => {
+        try {
+            console.log(`>>> RENDERER: Received 'load-display' for ${displayId} with URL: ${url}`);
+            if (!displayId || !url || !domElements?.displays) { return; }
+            const display = domElements.displays[displayId];
+            if (!display?.element || !display.iframe || !display.image) { return; }
+            const displayElement = display.element;
+            const iframeElement = display.iframe;
+            clearDisplayUI(displayId);
+            displayElement.classList.remove('loading-active');
+            displayElement.classList.remove('empty');
+            const onIframeLoad = () => {
+                console.log(`>>> IFRAME LOAD FINISH for ${displayId} URL: ${iframeElement?.src}`);
+                displayElement.classList.remove('loading-active');
+                iframeElement.removeEventListener('load', onIframeLoad);
+                iframeElement.removeEventListener('error', onIframeError);
+            };
+            const onIframeError = (error) => {
+                console.error(`>>> IFRAME LOAD ERROR for ${displayId} URL: ${url}`, error);
+                appendMessageToChatLog({ content: `Error loading content in display ${displayId}.` }, true);
+                displayElement.classList.remove('loading-active');
+                updateSlideIcon(displayId, 'error', null);
+                iframeElement.removeEventListener('error', onIframeError);
+                iframeElement.removeEventListener('load', onIframeLoad);
+            };
+            iframeElement.addEventListener('load', onIframeLoad, { once: true });
+            iframeElement.addEventListener('error', onIframeError, { once: true });
+            iframeElement.dataset.displayId = displayId;
+            iframeElement.src = url;
+            applyBounceAnimation([displayElement]);
+            updateSlideIcon(displayId, 'iframe', url);
+        } catch (error) {
+            console.error(`>>> RENDERER CRITICAL ERROR in 'load-display' handler for ${displayId}:`, error);
+            appendMessageToChatLog({ content: `Internal Error processing display ${displayId}. See DevTools.` }, true);
+            try { domElements?.displays[displayId]?.element?.classList.remove('loading-active'); } catch(e){}
+        }
+    });
     window.electronAPI.on('config-saved', ({ identifier, file, content }) => { if (identifier === selectedIdentifier) { appendMessageToChatLog({ content: `${file?.split('.')[0]} saved for ${identifier}.` }, true); } });
     window.electronAPI.on('config-populated', ({ identifier, type, content }) => { if (identifier === selectedIdentifier) { appendMessageToChatLog({ content: `${type === 'memory' ? 'Memory' : 'Pre-Prompt'} auto-populated for ${identifier}.` }, true); if (type === 'pre-prompt' && domElements.prePromptText) domElements.prePromptText.value = content; else if (type === 'memory' && domElements.memoryText) domElements.memoryText.value = content; } });
     window.electronAPI.on('memory-summary-updated', ({ identifier, content }) => { if (identifier === selectedIdentifier) { appendMessageToChatLog({ content: 'Memory updated for ' + identifier + '.' }, true); if (domElements.memoryText) domElements.memoryText.value = content; } });
@@ -532,7 +571,30 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
     window.electronAPI.on('stop-loading', ({ displayId }) => { const d=domElements.displays[displayId]; if(d?.element)d.element.classList.remove('loading-active'); });
     window.electronAPI.on('start-thinking', () => { if (latestAIMessageElement) latestAIMessageElement.classList.add('thinking-active'); requestAnimationFrame(() => { if (domElements.chatLog) domElements.chatLog.scrollTop = domElements.chatLog.scrollHeight; }); });
     window.electronAPI.on('stop-thinking', () => { if (latestAIMessageElement) latestAIMessageElement.classList.remove('thinking-active'); });
-    window.electronAPI.on('load-image', ({ displayId, imagePath }) => { console.log(`Renderer: Received 'load-image' for ${displayId}`); const display = domElements.displays[displayId]; if (display?.element && display.image && display.iframe) { clearDisplayUI(displayId); display.element.classList.remove('loading-active'); const fileUrl = `file://${imagePath}`; display.image.src = fileUrl; display.image.dataset.path = imagePath;  applyBounceAnimation([display.element]); display.image.onload = () => { console.log(`   - Image loaded successfully for ${displayId}`); updateSlideIcon(displayId, 'image', fileUrl); }; display.image.onerror = () => { console.error(`Renderer: Failed to load image at ${fileUrl}`); appendMessageToChatLog({ content: `Error loading image in display ${displayId}.` }, true); updateSlideIcon(displayId, 'error', null); }; } else { console.error(`Renderer Error: Invalid display object for ${displayId} in 'load-image' handler.`); } });
+    window.electronAPI.on('load-image', ({ displayId, imagePath }) => {
+        console.log(`Renderer: Received 'load-image' for ${displayId}`);
+        const display = domElements.displays[displayId];
+        if (display?.element && display.image && display.iframe) {
+            clearDisplayUI(displayId);
+            display.element.classList.remove('loading-active');
+            display.element.classList.remove('empty');
+            const fileUrl = `file://${imagePath}`;
+            display.image.src = fileUrl;
+            display.image.dataset.path = imagePath;
+            applyBounceAnimation([display.element]);
+            display.image.onload = () => {
+                console.log(`   - Image loaded successfully for ${displayId}`);
+                updateSlideIcon(displayId, 'image', fileUrl);
+            };
+            display.image.onerror = () => {
+                console.error(`Renderer: Failed to load image at ${fileUrl}`);
+                appendMessageToChatLog({ content: `Error loading image in display ${displayId}.` }, true);
+                updateSlideIcon(displayId, 'error', null);
+            };
+        } else {
+            console.error(`Renderer Error: Invalid display object for ${displayId} in 'load-image' handler.`);
+        }
+    });
     window.electronAPI.on('clear-display', ({ displayId }) => { console.log(`Renderer: Received 'clear-display' for ${displayId}`); delete activeBrowserDisplays[displayId]; clearDisplayUI(displayId); });
     window.electronAPI.on('decks-updated', (updatedDecks) => { console.log('Renderer: Received updated decks'); if (!domElements.deckList) return; const currentSelection = domElements.deckList.querySelector('.deck-item.selected')?.dataset.deckName; domElements.deckList.innerHTML = ''; Object.keys(updatedDecks || {}).forEach(deckName => { const li = document.createElement('li'); li.className = 'deck-item'; li.dataset.deckName = deckName; li.innerHTML = `<img src="./images/placeholder.png" class="slide-icon"><span class="slide-name">${deckName}</span><button class="deck-save-btn" aria-label="Save Deck"></button>`; li.addEventListener('click', handleDeckItemClick); domElements.deckList.appendChild(li); }); const currentItem = domElements.deckList.querySelector(`.deck-item[data-deck-name="${currentSelection}"]`); if (currentItem) currentItem.classList.add('selected'); });
     window.electronAPI.on('load-deck-displays', (deckDisplays) => { console.log('Renderer: Loading deck displays:', deckDisplays); Object.keys(domElements.displays).forEach(displayId => { const content = deckDisplays?.[displayId]; if (content) { if (content.type === 'image' && content.src) { window.electronAPI.send('load-image-path', { displayId, imagePath: content.src.replace('file://', '') }); } else if ((content.type === 'iframe' || content.type === 'webview') && content.src) { window.electronAPI.send('load-display-url', { displayId, url: content.src }); } else { clearDisplayUI(displayId); } } else { clearDisplayUI(displayId); } }); const selectedDeck = domElements.deckList?.querySelector('.deck-item.selected'); if (selectedDeck) appendMessageToChatLog({ content: `Deck "${selectedDeck.dataset.deckName}" loaded.` }, true); });
