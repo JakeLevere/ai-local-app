@@ -509,10 +509,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const right = domElements.rightChat;
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
+
+            // Capture starting positions **before** altering any classes so we
+            // animate from the pre-login layout.
             const startLeft = left.getBoundingClientRect().width;
             const startRight = right.getBoundingClientRect().width;
             const startStatus = status.getBoundingClientRect().height;
             const startInfo = info.getBoundingClientRect().height;
+
+            // Apply the logging-in class after measurements so CSS changes do
+            // not affect the initial values used for the animation.
+            document.body.classList.add('logging-in');
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
@@ -544,7 +551,6 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const pass = document.getElementById('login-pass').value;
             if (pass === 'password') {
-                document.body.classList.add('logging-in');
                 animatePanelReset(() => {
                     document.body.classList.remove('pre-login');
                     document.body.classList.remove('logging-in');
