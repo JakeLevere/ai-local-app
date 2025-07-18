@@ -499,17 +499,17 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
 document.addEventListener('DOMContentLoaded', () => {
     console.log("--- Renderer: DOMContentLoaded event fired ---");
     cacheDomElements();
-    const overlay = document.getElementById('launch-overlay');
-    const panels = document.querySelectorAll('#panel-top,#panel-bottom,#panel-left,#panel-right');
+    const overlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
-    if (overlay && panels.length && loginForm) {
+    if (overlay && loginForm) {
         overlay.classList.add('active');
+        document.body.classList.add('pre-login');
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const pass = document.getElementById('login-pass').value;
             if (pass === 'password') {
-                panels.forEach(p => p.classList.remove('closed'));
-                setTimeout(() => overlay.classList.add('hidden'), 600);
+                document.body.classList.remove('pre-login');
+                overlay.classList.add('hidden');
             }
         });
     }
