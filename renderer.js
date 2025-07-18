@@ -520,6 +520,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apply the logging-in class after measurements so CSS changes do
             // not affect the initial values used for the animation.
             document.body.classList.add('logging-in');
+
+            const container = domElements.appContainer;
+            const containerWidth = container.getBoundingClientRect().width;
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
@@ -530,10 +533,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const startTime = performance.now();
             const step = (now) => {
                 const progress = Math.min((now - startTime) / duration, 1);
-                left.style.width = `${startLeft + (endLeft - startLeft) * progress}px`;
-                right.style.width = `${startRight + (endRight - startRight) * progress}px`;
-                status.style.height = `${startStatus + (endStatus - startStatus) * progress}px`;
-                info.style.height = `${startInfo + (endInfo - startInfo) * progress}px`;
+                const leftWidth = startLeft + (endLeft - startLeft) * progress;
+                const rightWidth = startRight + (endRight - startRight) * progress;
+                const statusHeight = startStatus + (endStatus - startStatus) * progress;
+                const infoHeight = startInfo + (endInfo - startInfo) * progress;
+
+                left.style.width = `${leftWidth}px`;
+                right.style.width = `${rightWidth}px`;
+                status.style.height = `${statusHeight}px`;
+                info.style.height = `${infoHeight}px`;
+
+                const middleWidth = containerWidth - leftWidth - rightWidth;
+                container.style.gridTemplateColumns = `${leftWidth}px ${middleWidth}px ${rightWidth}px`;
+
                 if (progress < 1) {
                     requestAnimationFrame(step);
                 } else {
@@ -541,6 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     right.style.width = '';
                     status.style.height = '';
                     info.style.height = '';
+                    container.style.gridTemplateColumns = '';
                     if (callback) callback();
                 }
             };
