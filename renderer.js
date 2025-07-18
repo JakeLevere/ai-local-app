@@ -503,20 +503,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const panels = document.querySelectorAll('#panel-top,#panel-bottom,#panel-left,#panel-right');
     const loginForm = document.getElementById('login-form');
     if (overlay && panels.length && loginForm) {
-        if (localStorage.getItem('loggedIn')) {
-            overlay.classList.add('hidden');
-        } else {
-            overlay.classList.add('active');
-            loginForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const pass = document.getElementById('login-pass').value;
-                if (pass === 'password') {
-                    localStorage.setItem('loggedIn', 'true');
-                    panels.forEach(p => p.classList.remove('closed'));
-                    setTimeout(() => overlay.classList.add('hidden'), 600);
-                }
-            });
-        }
+        overlay.classList.add('active');
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('login-pass').value;
+            if (pass === 'password') {
+                panels.forEach(p => p.classList.remove('closed'));
+                setTimeout(() => overlay.classList.add('hidden'), 600);
+            }
+        });
     }
     createInitialDeckIcons();
     const mainIcon = document.getElementById('deck-main');
