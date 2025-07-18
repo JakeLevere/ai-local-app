@@ -18,17 +18,13 @@
 </head>
 <body>
     <div id="launch-overlay">
-        <div id="panel-top" class="closed"></div>
-        <div id="panel-bottom" class="closed"></div>
-        <div id="panel-left" class="closed"></div>
-        <div id="panel-right" class="closed"></div>
         <form id="login-form">
             <input type="password" id="login-pass" placeholder="Password">
             <button type="submit">Login</button>
         </form>
     </div>
     <div class="app-container">
-        <aside id="left-sidebar">
+        <aside id="left-sidebar" class="launch-closed">
             <svg id="collapse-arrow" viewBox="0 0 24 24">
                 <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -56,7 +52,7 @@
 
         <main id="main-content">
              <div id="central-display">
-                 <div id="persona-status-bar">
+                 <div id="persona-status-bar" class="launch-closed">
                      <div id="status-header">
                          <img id="persona-image" src="./images/placeholder.png" alt="Current AI Persona">
                          <div id="status-text-content">
@@ -102,7 +98,7 @@
                      <div class="scroll-spacer"></div>
                      </div>
              </div>
-             <div id="info-panels">
+             <div id="info-panels" class="launch-closed">
                   <div id="config-header">Configuration</div>
                   <div id="config-content">
                       <div class="dropdown"> <div class="dropdown-header" id="pre-prompt-header">Pre Prompt</div> <div class="dropdown-content" id="pre-prompt-content"> <textarea id="pre-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-pre-prompt">Save</button> <button id="auto-pre-prompt" style="display:none;">Auto-Populate</button> </div> </div> </div>
@@ -113,7 +109,7 @@
              </div>
          </main>
 
-        <aside id="right-chat">
+        <aside id="right-chat" class="launch-closed">
               <div id="chat-log-container"> <svg id="chat-collapse-arrow" viewBox="0 0 24 24"> <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> </svg> <h2>Chat</h2> <div id="chat-log"></div> </div> <div id="chat-input-area"> <input type="text" id="user_input" placeholder="Send a message..."> <button type="button" id="send_button">Chat</button> </div>
          </aside>
     </div>
