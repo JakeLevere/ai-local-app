@@ -471,26 +471,25 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 #login-form button:hover { background: var(--baby-blue-darker); }
 #login-overlay.hidden { display: none; }
 
+body.pre-login .app-container {
+    grid-template-columns: 50vw 0 50vw;
+}
 body.pre-login #left-sidebar,
 body.pre-login #right-chat,
 body.pre-login #persona-status-bar,
 body.pre-login #info-panels {
-    transition: transform 0.6s ease-in-out;
+    transition: width 0.6s ease-in-out, height 0.6s ease-in-out;
 }
-body.pre-login #left-sidebar {
-    transform: translateX(calc(50vw - 100%));
-    z-index: 30;
-}
+body.pre-login #left-sidebar,
 body.pre-login #right-chat {
-    transform: translateX(-50vw);
+    width: 50vw;
+    transform: none;
     z-index: 30;
 }
-body.pre-login #persona-status-bar {
-    transform: translateY(calc(50vh - 100%));
-    z-index: 20;
-}
+body.pre-login #persona-status-bar,
 body.pre-login #info-panels {
-    transform: translateY(-50vh);
+    height: 50vh;
+    transform: none;
     z-index: 20;
 }
 body.pre-login #left-sidebar > *,
@@ -505,4 +504,9 @@ body.logging-in #right-chat,
 body.logging-in #persona-status-bar,
 body.logging-in #info-panels {
     transform: none;
+    width: auto;
+    height: auto;
+}
+body.logging-in .app-container {
+    grid-template-columns: minmax(50px, 260px) 1fr minmax(50px, 340px);
 }
