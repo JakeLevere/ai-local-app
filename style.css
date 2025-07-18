@@ -477,13 +477,32 @@ body.pre-login #persona-status-bar,
 body.pre-login #info-panels {
     transition: transform 0.6s ease-in-out;
 }
-body.pre-login #left-sidebar { transform: translateX(-100%); }
-body.pre-login #right-chat { transform: translateX(100%); }
-body.pre-login #persona-status-bar { transform: translateY(-100%); }
-body.pre-login #info-panels { transform: translateY(100%); }
+body.pre-login #left-sidebar {
+    transform: translateX(calc(50vw - 100%));
+    z-index: 30;
+}
+body.pre-login #right-chat {
+    transform: translateX(-50vw);
+    z-index: 30;
+}
+body.pre-login #persona-status-bar {
+    transform: translateY(calc(50vh - 100%));
+    z-index: 20;
+}
+body.pre-login #info-panels {
+    transform: translateY(-50vh);
+    z-index: 20;
+}
 body.pre-login #left-sidebar > *,
 body.pre-login #right-chat > *,
 body.pre-login #persona-status-bar > *,
 body.pre-login #info-panels > * {
     display: none;
+}
+
+body.logging-in #left-sidebar,
+body.logging-in #right-chat,
+body.logging-in #persona-status-bar,
+body.logging-in #info-panels {
+    transform: none;
 }

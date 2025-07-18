@@ -508,8 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const pass = document.getElementById('login-pass').value;
             if (pass === 'password') {
-                document.body.classList.remove('pre-login');
-                overlay.classList.add('hidden');
+                document.body.classList.add('logging-in');
+                setTimeout(() => {
+                    document.body.classList.remove('pre-login');
+                    document.body.classList.remove('logging-in');
+                    overlay.classList.add('hidden');
+                }, 600);
             }
         });
     }
