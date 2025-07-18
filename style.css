@@ -38,7 +38,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .app-container.collapsed.chat-collapsed { grid-template-columns: 50px 1fr 50px; }
 
 /* --- Left Sidebar --- */
-#left-sidebar {
+#left-sidebar { 
     background-color: var(--sidebar-bg);
     width: 260px;
     padding: 0;
@@ -51,6 +51,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
 }
 #left-sidebar.collapsed { width: 50px; padding: 0; }
+#left-sidebar.collapsed #app-title { display: none; }
 #persona-section, #slide-section { padding: 10px 10px 0 10px; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
 #persona-section { flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
 #persona-select { width: 100%; margin-bottom: 5px; padding: 4px; background-color: var(--bg-dark-grey); color: var(--text-off-white); border: 1px solid var(--border-color); border-radius: 4px; }
@@ -115,8 +116,17 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #collapse-arrow { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; padding: 2px; cursor: pointer; fill: var(--text-grey); transition: transform 0.3s ease-in-out, right 0.3s ease-in-out, fill 0.2s ease; border-radius: 4px; }
 #collapse-arrow:hover { background-color: var(--sidebar-item-hover); fill: var(--text-off-white); }
 
+#app-title {
+    margin: 10px;
+    color: var(--user-green);
+    font-size: 1.2em;
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--user-green);
+}
+
 /* Collapsed State Styling (Sidebar) */
 #left-sidebar.collapsed { width: 50px; padding: 0; }
+#left-sidebar.collapsed #app-title { display: none; }
 #left-sidebar.collapsed .persona-name,
 #left-sidebar.collapsed h2,
 #left-sidebar.collapsed #deck-controls,
