@@ -454,6 +454,12 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
     flex-direction: column;
     gap: 10px;
 }
+#login-form h1 {
+    margin: 0 0 10px;
+    text-align: center;
+    color: var(--baby-blue);
+    font-size: 1.6em;
+}
 #login-form input {
     padding: 8px;
     border-radius: 4px;
