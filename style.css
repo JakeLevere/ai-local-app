@@ -497,7 +497,8 @@ body.pre-login #info-panels {
 body.pre-login #left-sidebar > *,
 body.pre-login #right-chat > *,
 body.pre-login #persona-status-bar > *,
-body.pre-login #info-panels > * {
+body.pre-login #info-panels > *,
+body.pre-login #displays-container {
     display: none;
 }
 
