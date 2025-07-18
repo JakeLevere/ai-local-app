@@ -286,6 +286,30 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 .display-number { position: absolute; top: 5px; left: 5px; background-color: rgba(0, 0, 0, 0.7); color: var(--text-off-white); padding: 2px 5px; border-radius: 3px; font-size: 0.8em; z-index: 10; }
 .clear-button { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background-color: rgba(255, 0, 0, 0.6); color: white; text-align: center; line-height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.8em; font-weight: bold; z-index: 10; border: 1px solid rgba(255, 255, 255, 0.3); transition: background-color 0.2s ease; }
 .clear-button:hover { background-color: rgba(200, 0, 0, 0.8); }
+.program-icons {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+}
+.program-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0,0,0,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    user-select: none;
+}
+.program-icon:hover {
+    background-color: var(--sidebar-item-hover);
+}
 .scroll-spacer { height: 60vh; width: 100%; flex-shrink: 0; }
 
 /* --- Slide Tabs --- */

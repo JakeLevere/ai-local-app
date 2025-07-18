@@ -200,6 +200,42 @@ function createInitialDeckIcons() {
     domElements.deckIconsContainer.appendChild(addBtn);
 }
 
+function createProgramIcons() {
+    const programs = [
+        { name: 'browser', symbol: '🌐' },
+        { name: 'calendar', symbol: '📅' },
+        { name: 'health', symbol: '❤️' },
+        { name: 'persona-creator', symbol: '🎭' },
+        { name: 'height-test', symbol: '📏' }
+    ];
+    Object.values(domElements.displays || {}).forEach(({ element }) => {
+        if (!element) return;
+        const container = document.createElement('div');
+        container.className = 'program-icons';
+        programs.forEach(p => {
+            const icon = document.createElement('span');
+            icon.className = 'program-icon';
+            icon.dataset.program = p.name;
+            icon.textContent = p.symbol;
+            container.appendChild(icon);
+        });
+        element.appendChild(container);
+    });
+}
+
+function setupProgramIconListeners() {
+    document.querySelectorAll('.program-icon').forEach(icon => {
+        icon.addEventListener('click', () => {
+            const program = icon.dataset.program;
+            const display = icon.closest('.display');
+            const displayId = display ? display.id : null;
+            if (program && displayId) {
+                window.electronAPI.send('open-program', { program, displayId });
+            }
+        });
+    });
+}
+
 function handleDeckMainClick() {
     if (domElements.deckContainer)
         domElements.deckContainer.classList.toggle('expanded');
@@ -638,6 +674,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     createInitialDeckIcons();
+    createProgramIcons();
+    setupProgramIconListeners();
     const mainIcon = document.getElementById('deck-main');
     if (mainIcon) {
         mainIcon.style.backgroundColor = deckColors[0];
