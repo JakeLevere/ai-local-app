@@ -536,7 +536,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // not affect the initial values used for the animation.
             document.body.classList.add('logging-in');
 
+            // Temporarily reveal info panel children so we can measure the
+            // final height. They are hidden in the pre-login state which
+            // would otherwise return 0 and cause the panel to overshoot.
+            const revealedChildren = [];
+            Array.from(info.children).forEach(child => {
+                if (getComputedStyle(child).display === 'none') {
+                    child.style.display = 'block';
+                    child.style.visibility = 'hidden';
+                    revealedChildren.push(child);
+                }
+            });
             const endInfo = info.getBoundingClientRect().height;
+            revealedChildren.forEach(child => {
+                child.style.display = '';
+                child.style.visibility = '';
+            });
 
             const container = domElements.appContainer;
             const containerWidth = container.getBoundingClientRect().width;
