@@ -517,7 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const endRight = 340;
             const endStatus = 100;
             const endInfo = 0;
-            const duration = 600;
+            // Extend the panel reset animation to three seconds for a
+            // smoother transition back to the default layout after login.
+            const duration = 3000;
             const startTime = performance.now();
             const step = (now) => {
                 const progress = Math.min((now - startTime) / duration, 1);
