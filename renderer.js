@@ -546,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // final height. They are hidden in the pre-login state which
             // would otherwise return 0 and cause the panel to overshoot.
             const revealedChildren = [];
+            info.style.height = '';
             Array.from(info.children).forEach(child => {
                 if (getComputedStyle(child).display === 'none') {
                     child.style.display = 'block';
@@ -558,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 child.style.display = '';
                 child.style.visibility = '';
             });
+            info.style.height = `${startInfo}px`;
 
             const container = domElements.appContainer;
             const containerWidth = container.getBoundingClientRect().width;
