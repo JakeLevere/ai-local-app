@@ -558,37 +558,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
-            // Extend the panel reset animation to three seconds for a
-            // smoother transition back to the default layout after login.
-            const duration = 600;
+
+            const durationSide = 400;
+            const durationTB = 400;
+
+            const animateTopBottom = () => {
+                const startTimeTB = performance.now();
+                const stepTB = (now) => {
+                    const progress = Math.min((now - startTimeTB) / durationTB, 1);
+                    const statusHeight = startStatus + (endStatus - startStatus) * progress;
+                    const infoHeight = startInfo + (endInfo - startInfo) * progress;
+                    status.style.height = `${statusHeight}px`;
+                    info.style.height = `${infoHeight}px`;
+                    if (progress < 1) {
+                        requestAnimationFrame(stepTB);
+                    } else {
+                        status.style.height = '';
+                        info.style.height = '';
+                        if (callback) callback();
+                    }
+                };
+                requestAnimationFrame(stepTB);
+            };
+
             const startTime = performance.now();
-            const step = (now) => {
-                const progress = Math.min((now - startTime) / duration, 1);
+            const stepSide = (now) => {
+                const progress = Math.min((now - startTime) / durationSide, 1);
                 const leftWidth = startLeft + (endLeft - startLeft) * progress;
                 const rightWidth = startRight + (endRight - startRight) * progress;
-                const statusHeight = startStatus + (endStatus - startStatus) * progress;
-                const infoHeight = startInfo + (endInfo - startInfo) * progress;
-
                 left.style.width = `${leftWidth}px`;
                 right.style.width = `${rightWidth}px`;
-                status.style.height = `${statusHeight}px`;
-                info.style.height = `${infoHeight}px`;
-
                 const middleWidth = containerWidth - leftWidth - rightWidth;
                 container.style.gridTemplateColumns = `${leftWidth}px ${middleWidth}px ${rightWidth}px`;
 
                 if (progress < 1) {
-                    requestAnimationFrame(step);
+                    requestAnimationFrame(stepSide);
                 } else {
                     left.style.width = '';
                     right.style.width = '';
-                    status.style.height = '';
-                    info.style.height = '';
                     container.style.gridTemplateColumns = '';
-                    if (callback) callback();
+                    applyBounceAnimation([
+                        domElements.personaListContainer,
+                        domElements.deckList,
+                        domElements.chatLog
+                    ]);
+                    setTimeout(animateTopBottom, 600);
                 }
             };
-            requestAnimationFrame(step);
+            requestAnimationFrame(stepSide);
         };
 
         loginForm.addEventListener('submit', (e) => {
