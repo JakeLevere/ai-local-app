@@ -553,6 +553,7 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
             iframeElement.addEventListener('error', onIframeError, { once: true });
             iframeElement.dataset.displayId = displayId;
             iframeElement.src = url;
+            iframeElement.classList.add('active');
             applyBounceAnimation([displayElement]);
             updateSlideIcon(displayId, 'iframe', url);
         } catch (error) {
@@ -581,6 +582,7 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
             const fileUrl = `file://${imagePath}`;
             display.image.src = fileUrl;
             display.image.dataset.path = imagePath;
+            display.image.classList.add('active');
             applyBounceAnimation([display.element]);
             display.image.onload = () => {
                 console.log(`   - Image loaded successfully for ${displayId}`);
