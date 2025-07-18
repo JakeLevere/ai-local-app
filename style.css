@@ -25,6 +25,7 @@
     --primary-icon-size: 38px;
     --primary-item-padding: 8px 10px;
     --primary-font-size: 0.95em;
+    --display-highlight: rgba(255, 165, 0, 0.6);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -638,4 +639,10 @@ body.logging-in #right-chat,
 body.logging-in #persona-status-bar,
 body.logging-in #info-panels {
     transition: none;
+}
+
+/* Highlight displays that are fully visible */
+.display.fully-visible {
+    box-shadow: 0 0 10px var(--display-highlight);
+    border-color: var(--display-highlight);
 }
