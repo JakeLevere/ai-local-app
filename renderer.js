@@ -245,6 +245,18 @@ function setupProgramIconListeners() {
             const displayId = display ? display.id : null;
             if (program && displayId) {
                 window.electronAPI.send('open-program', { program, displayId });
+                if (program === 'browser') {
+                    const rect = display.getBoundingClientRect();
+                    const bounds = {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    };
+                    window.electronAPI.send('launch-browser', { displayId, bounds });
+                    activeBrowserDisplays[displayId] = true;
+                    updateBrowserBoundsForDisplay(displayId);
+                }
             }
         });
     });
