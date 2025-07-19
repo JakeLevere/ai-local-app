@@ -46,10 +46,27 @@ async function setHealthMetrics(metrics) {
     await writeData(data);
 }
 
+async function getFavoritePersonaId() {
+    const data = await readData();
+    return data.favoritePersonaId || null;
+}
+
+async function setFavoritePersonaId(id) {
+    const data = await readData();
+    if (id) {
+        data.favoritePersonaId = id;
+    } else {
+        delete data.favoritePersonaId;
+    }
+    await writeData(data);
+}
+
 module.exports = {
     init,
     getCalendarEvents,
     setCalendarEvents,
     getHealthMetrics,
-    setHealthMetrics
+    setHealthMetrics,
+    getFavoritePersonaId,
+    setFavoritePersonaId
 };

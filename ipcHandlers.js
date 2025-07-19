@@ -263,6 +263,23 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.handle('get-favorite-persona', async () => {
+        try {
+            return await sharedDataService.getFavoritePersonaId();
+        } catch (err) {
+            console.error('Failed to get favorite persona:', err);
+            return null;
+        }
+    });
+
+    ipcMain.on('set-favorite-persona', async (event, personaId) => {
+        try {
+            await sharedDataService.setFavoritePersonaId(personaId);
+        } catch (err) {
+            console.error('Failed to set favorite persona:', err);
+        }
+    });
+
     const calendarStateFile = path.join(appPaths.calendarPath || appPaths.dataDir || baseDir, 'calendar-data.json');
     const calendarHistoryFile = path.join(appPaths.calendarPath || appPaths.dataDir || baseDir, 'calendar-history.md');
 

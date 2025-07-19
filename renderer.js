@@ -5,6 +5,7 @@ console.log("--- Renderer Script Loading ---");
 let selectedIdentifier = null;
 let activePrimaryIdentifier = null;
 let primaryPersonaCache = {};
+let favoritePersonaId = null;
 let latestAIMessageElement = null;
 let eventListenersAttached = false;
 let ipcListenersAttached = false;
@@ -39,6 +40,7 @@ function cacheDomElements() {
         chatCollapseArrow: document.getElementById('chat-collapse-arrow'),
         personaSelect: document.getElementById('persona-select'),
         personaListContainer: document.getElementById('persona-list-container'),
+        favoriteCheckbox: document.getElementById('favorite-persona-checkbox'),
         configPanelHeader: document.getElementById('config-header'),
         prePromptText: document.getElementById('pre-prompt-text'),
         memoryPromptText: document.getElementById('memory-prompt-text'),
@@ -79,6 +81,15 @@ function cacheDomElements() {
 function sanitizeFolderName(name) {
     if (!name) return '';
     return String(name).toLowerCase().replace(/[^a-z0-9_-]/gi, '_');
+}
+
+async function fetchFavoritePersona() {
+    try {
+        favoritePersonaId = await window.electronAPI.invoke('get-favorite-persona');
+    } catch (err) {
+        console.error('Failed to fetch favorite persona:', err);
+        favoritePersonaId = null;
+    }
 }
 
 function clearDisplayUI(displayId) {
@@ -496,7 +507,10 @@ function handlePersonaItemClick(event) {
         ac.classList.remove('active');
         ac.previousElementSibling?.classList.remove('active');
     });
+    updateFavoriteCheckbox();
 }
+function handleFavoriteCheckboxChange(e){if(!selectedIdentifier)return;if(e.target.checked){favoritePersonaId=selectedIdentifier;window.electronAPI.send("set-favorite-persona",selectedIdentifier);}else{favoritePersonaId=null;window.electronAPI.send("set-favorite-persona",null);}updateFavoriteCheckbox();}
+function updateFavoriteCheckbox(){if(domElements.favoriteCheckbox)domElements.favoriteCheckbox.checked=(selectedIdentifier===favoritePersonaId);}
 function handlePersonaSelectChange(event) {
     const identifier = event.target.value;
     if (!identifier) return;
@@ -513,22 +527,27 @@ function handlePersonaSelectChange(event) {
         ac.classList.remove('active');
         ac.previousElementSibling?.classList.remove('active');
     });
+    updateFavoriteCheckbox();
 }
 function handleSlideItemClick(event) { const item = event.currentTarget; const displayId = item.dataset.displayId; console.log('Renderer: Slide item clicked:', displayId); document.querySelectorAll('.slide-tab.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); const displayElement = domElements.displays[displayId]?.element; if (displayElement?.scrollIntoView) { displayElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });  } else { console.warn(`Renderer Warning: Could not find display element for ${displayId} to scroll.`); } }
 function handleDeckItemClick(event) { const item = event.currentTarget; const deckName = item.dataset.deckName; if (!deckName) return; domElements.deckList.querySelectorAll('.deck-item.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); window.electronAPI.send('load-deck', deckName); }
 
-function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.configHeader?.addEventListener('click', () => els.infoPanels?.classList.toggle('active')); els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; const parentConfig = header.closest('#config-content'); parentConfig?.querySelectorAll('.dropdown-content.active').forEach(activeContent => { if (activeContent !== content) { activeContent.classList.remove('active'); activeContent.previousElementSibling?.classList.remove('active'); } }); content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
+function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.configHeader?.addEventListener('click', () => els.infoPanels?.classList.toggle('active')); els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; const parentConfig = header.closest('#config-content'); parentConfig?.querySelectorAll('.dropdown-content.active').forEach(activeContent => { if (activeContent !== content) { activeContent.classList.remove('active'); activeContent.previousElementSibling?.classList.remove('active'); } }); content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteCheckbox?.addEventListener('change', handleFavoriteCheckboxChange); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
 function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log("Renderer: Attaching IPC listeners..."); window.electronAPI.on('backend-ready', () => { console.log("Renderer: Received backend-ready signal."); console.log("Renderer: Requesting persona list..."); window.electronAPI.send('discover-personas'); }); window.electronAPI.on('personas-loaded', (receivedData) => { console.log(`Renderer: Received 'personas-loaded' event.`); console.log(`  -> Type of receivedData: ${typeof receivedData}`); console.log(`  -> receivedData:`, receivedData); if (Array.isArray(receivedData)) { const personas = receivedData; primaryPersonaCache = {}; personas.forEach(p => { primaryPersonaCache[p.id] = p; }); renderPersonaList(personas); renderPersonaDropdown(personas);
         // *** MODIFIED DEFAULT SELECTION LOGIC ***
         if (personas.length > 0) {
-            const firstPrimaryId = personas[0].id; // Assuming first in list is primary
-            console.log(`Renderer: Setting initial selection to first primary: ${firstPrimaryId}`);
-            const firstPrimaryItem = domElements.personaListContainer?.querySelector(`.persona-item[data-persona-id="${firstPrimaryId}"]`);
-            if (firstPrimaryItem) {
-                firstPrimaryItem.classList.add('selected'); if (domElements.personaSelect) domElements.personaSelect.value = firstPrimaryId;
+            let defaultId = personas[0].id;
+            if (favoritePersonaId && personas.some(p => p.id === favoritePersonaId)) {
+                defaultId = favoritePersonaId;
             }
-            selectedIdentifier = firstPrimaryId;
-            activePrimaryIdentifier = firstPrimaryId;
+            console.log(`Renderer: Setting initial selection to ${defaultId}`);
+            const item = domElements.personaListContainer?.querySelector(`.persona-item[data-persona-id="${defaultId}"]`);
+            if (item) {
+                item.classList.add('selected');
+                if (domElements.personaSelect) domElements.personaSelect.value = defaultId;
+            }
+            selectedIdentifier = defaultId;
+            activePrimaryIdentifier = defaultId;
             // Remove active class from config panel initially
              if (domElements.infoPanels) domElements.infoPanels.classList.remove('active');
              document.querySelectorAll('.dropdown-content.active').forEach(activeContent => {
@@ -536,6 +555,7 @@ function setupIpcListeners() { if (ipcListenersAttached) { return; } console.log
                  if (activeContent.previousElementSibling) activeContent.previousElementSibling.classList.remove('active');
              });
             loadInitialContent(selectedIdentifier); // Load content for the default selection
+            updateFavoriteCheckbox();
         }
         // *** END MODIFIED DEFAULT SELECTION LOGIC ***
 
@@ -764,7 +784,9 @@ document.addEventListener('DOMContentLoaded', () => {
         mainIcon.addEventListener('click', handleDeckMainClick);
     }
     if (!eventListenersAttached) setupEventListeners();
-    if (!ipcListenersAttached) setupIpcListeners();
+    fetchFavoritePersona().then(() => {
+        if (!ipcListenersAttached) setupIpcListeners();
+    });
     window.addEventListener('resize', updateAllBrowserBounds);
     domElements.displaysContainer?.addEventListener('scroll', startScrollSync);
     domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);

@@ -658,3 +658,11 @@ body.logging-in #info-panels {
     box-shadow: 0 0 10px var(--display-highlight);
     border-color: var(--display-highlight);
 }
+
+#favorite-persona-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 0.9rem;
+}
