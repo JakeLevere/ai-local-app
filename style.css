@@ -366,6 +366,7 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 }
 #persona-status-bar.collapsed #deck-container {
     left: 60px;
+    top: 10px; /* Align deck icon with collapsed persona image */
 }
 
 .deck-icon {
