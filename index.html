@@ -32,18 +32,14 @@
             <h1 id="app-title">Your Personal Ai Vault</h1>
             <div id="persona-section">
                 <h2>AI Personas</h2>
+                <ul id="persona-list-container" class="persona-list-container">
+                    <li class="loading-personas">Loading Personas...</li>
+                </ul>
                 <div id="persona-preview">
                     <video id="persona-preview-video" src="./videos/placeholder.mp4" autoplay loop muted playsinline poster="./images/placeholder.png"></video>
                     <img id="persona-preview-image" src="./images/placeholder.png" alt="Persona preview fallback" />
                 </div>
-                <div id="persona-selector" class="dropdown">
-                    <div class="dropdown-header" id="persona-select-header">Select Persona</div>
-                    <div class="dropdown-content" id="persona-dropdown-content">
-                        <ul id="persona-list-container" class="persona-list-container">
-                            <li class="loading-personas">Loading Personas...</li>
-                        </ul>
-                    </div>
-                </div>
+                <select id="persona-select"></select>
             </div>
             <div id="slide-section">
                 <div id="deck-controls">
