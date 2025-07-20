@@ -40,7 +40,6 @@ function cacheDomElements() {
         chatCollapseArrow: document.getElementById('chat-collapse-arrow'),
         personaSelect: document.getElementById('persona-select'),
         personaListContainer: document.getElementById('persona-list-container'),
-        favoriteCheckbox: document.getElementById('favorite-persona-checkbox'),
         configPanelHeader: document.getElementById('config-header'),
         prePromptText: document.getElementById('pre-prompt-text'),
         memoryPromptText: document.getElementById('memory-prompt-text'),
@@ -90,6 +89,22 @@ async function fetchFavoritePersona() {
         console.error('Failed to fetch favorite persona:', err);
         favoritePersonaId = null;
     }
+    updateFavoriteStars();
+}
+
+function updateFavoriteStars(){
+    if(!domElements.personaListContainer) return;
+    domElements.personaListContainer.querySelectorAll('.persona-item').forEach(item=>{
+        const star=item.querySelector('.favorite-star');
+        if(!star) return;
+        if(item.dataset.personaId===favoritePersonaId){
+            star.textContent='★';
+            star.classList.add('active');
+        }else{
+            star.textContent='☆';
+            star.classList.remove('active');
+        }
+    });
 }
 
 function clearDisplayUI(displayId) {
@@ -483,9 +498,12 @@ function renderPersonaList(personas) {
         const li = document.createElement('li');
         li.className = 'persona-item primary-persona';
         li.dataset.personaId = p.id;
-        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span> `;
+        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span> <span class="favorite-star">☆</span> `;
+        const star = li.querySelector('.favorite-star');
+        star.addEventListener('click', handleFavoriteStarClick);
         container.appendChild(li);
     });
+    updateFavoriteStars();
 }
 function renderPersonaDropdown(personas) {
     const dropdown = domElements.personaSelect;
@@ -521,8 +539,8 @@ function handlePersonaItemClick(event) {
     });
     updateFavoriteCheckbox();
 }
-async function handleFavoriteCheckboxChange(e){if(!selectedIdentifier)return;if(e.target.checked){favoritePersonaId=selectedIdentifier;try{await window.electronAPI.invoke("set-favorite-persona",selectedIdentifier);}catch(err){console.error("Failed to set favorite persona",err);}}else{favoritePersonaId=null;try{await window.electronAPI.invoke("set-favorite-persona",null);}catch(err){console.error("Failed to clear favorite persona",err);}}updateFavoriteCheckbox();}
-function updateFavoriteCheckbox(){if(domElements.favoriteCheckbox)domElements.favoriteCheckbox.checked=(selectedIdentifier===favoritePersonaId);}
+async function handleFavoriteStarClick(e){e.stopPropagation();const item=e.currentTarget.closest('.persona-item');if(!item)return;const id=item.dataset.personaId;try{if(favoritePersonaId===id){favoritePersonaId=null;await window.electronAPI.invoke('set-favorite-persona',null);}else{favoritePersonaId=id;await window.electronAPI.invoke('set-favorite-persona',id);}}catch(err){console.error('Failed to toggle favorite persona',err);}updateFavoriteCheckbox();}
+function updateFavoriteCheckbox(){updateFavoriteStars();}
 function handlePersonaSelectChange(event) {
     const identifier = event.target.value;
     if (!identifier) return;
