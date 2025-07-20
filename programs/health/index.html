@@ -51,26 +51,26 @@
         <h1 class="text-xl font-bold text-white">Health Dashboard</h1>
 
         <!-- Health Metrics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
             <!-- Blood Pressure Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg">
-                <h3 class="font-bold text-base text-rose-400">Blood Pressure</h3>
-                <input type="text" id="bpInput" placeholder="e.g., 120/80" class="text-lg font-light bg-transparent w-full mt-1 focus:outline-none">
+            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
+                <h3 class="font-bold text-rose-400 text-center">Blood Pressure</h3>
+                <input type="text" id="bpInput" placeholder="e.g., 120/80" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
             </div>
             <!-- Cholesterol Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg">
-                <h3 class="font-bold text-base text-amber-400">Total Cholesterol</h3>
-                <input type="text" id="cholesterolInput" placeholder="e.g., 190 mg/dL" class="text-lg font-light bg-transparent w-full mt-1 focus:outline-none">
+            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
+                <h3 class="font-bold text-amber-400 text-center">Total Cholesterol</h3>
+                <input type="text" id="cholesterolInput" placeholder="e.g., 190 mg/dL" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
             </div>
             <!-- Blood Sugar Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg">
-                <h3 class="font-bold text-base text-lime-400">Blood Sugar</h3>
-                <input type="text" id="sugarInput" placeholder="e.g., 95 mg/dL" class="text-lg font-light bg-transparent w-full mt-1 focus:outline-none">
+            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
+                <h3 class="font-bold text-lime-400 text-center">Blood Sugar</h3>
+                <input type="text" id="sugarInput" placeholder="e.g., 95 mg/dL" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
             </div>
             <!-- Heart Rate Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg">
-                <h3 class="font-bold text-base text-violet-400">Resting Heart Rate</h3>
-                <input type="text" id="hrInput" placeholder="e.g., 65 bpm" class="text-lg font-light bg-transparent w-full mt-1 focus:outline-none">
+            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
+                <h3 class="font-bold text-violet-400 text-center">Resting Heart Rate</h3>
+                <input type="text" id="hrInput" placeholder="e.g., 65 bpm" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
             </div>
         </div>
 
