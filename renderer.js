@@ -40,6 +40,7 @@ function cacheDomElements() {
         chatCollapseArrow: document.getElementById('chat-collapse-arrow'),
         personaSelect: document.getElementById('persona-select'),
         personaListContainer: document.getElementById('persona-list-container'),
+        favoriteStarOverlay: document.getElementById('favorite-star-overlay'),
         configPanelHeader: document.getElementById('config-header'),
         prePromptText: document.getElementById('pre-prompt-text'),
         memoryPromptText: document.getElementById('memory-prompt-text'),
@@ -69,8 +70,8 @@ function cacheDomElements() {
              'display10': { iframe: document.getElementById('iframe10'), image: document.getElementById('image10'), element: document.getElementById('display10') }
         }
     };
-    if (!domElements.personaListContainer || !domElements.displays?.display1?.iframe || !domElements.chatLog) {
-        console.error("!!! Renderer FATAL: Could not find essential DOM elements (personaListContainer, display1 iframe, chatLog). Check HTML IDs.");
+    if (!domElements.displays?.display1?.iframe || !domElements.chatLog) {
+        console.error("!!! Renderer FATAL: Could not find essential DOM elements (display1 iframe, chatLog). Check HTML IDs.");
     } else {
         console.log("--- DOM Elements Cached Successfully ---");
         console.log(`[Cache] Persona list container found: ${!!domElements.personaListContainer}`);
@@ -93,18 +94,29 @@ async function fetchFavoritePersona() {
 }
 
 function updateFavoriteStars(){
-    if(!domElements.personaListContainer) return;
-    domElements.personaListContainer.querySelectorAll('.persona-item').forEach(item=>{
-        const star=item.querySelector('.favorite-star');
-        if(!star) return;
-        if(item.dataset.personaId===favoritePersonaId){
-            star.textContent='★';
-            star.classList.add('active');
+    if(domElements.personaListContainer){
+        domElements.personaListContainer.querySelectorAll('.persona-item').forEach(item=>{
+            const star=item.querySelector('.favorite-star');
+            if(!star) return;
+            if(item.dataset.personaId===favoritePersonaId){
+                star.textContent='★';
+                star.classList.add('active');
+            }else{
+                star.textContent='☆';
+                star.classList.remove('active');
+            }
+        });
+    }
+    const overlay = domElements.favoriteStarOverlay;
+    if(overlay){
+        if(selectedIdentifier && selectedIdentifier===favoritePersonaId){
+            overlay.textContent='★';
+            overlay.classList.add('active');
         }else{
-            star.textContent='☆';
-            star.classList.remove('active');
+            overlay.textContent='☆';
+            overlay.classList.remove('active');
         }
-    });
+    }
 }
 
 function clearDisplayUI(displayId) {
@@ -503,7 +515,6 @@ function updateSlideIcon(displayId, type, src) { const slideItem = domElements.s
 function renderPersonaList(personas) {
     const container = domElements.personaListContainer;
     if (!container) {
-        console.error('Renderer Error: persona list container not found');
         return;
     }
     container.innerHTML = '';
@@ -515,9 +526,7 @@ function renderPersonaList(personas) {
         const li = document.createElement('li');
         li.className = 'persona-item primary-persona';
         li.dataset.personaId = p.id;
-        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span> <span class="favorite-star">☆</span> `;
-        const star = li.querySelector('.favorite-star');
-        star.addEventListener('click', handleFavoriteStarClick);
+        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span>`;
         container.appendChild(li);
     });
     updateFavoriteStars();
@@ -556,7 +565,23 @@ function handlePersonaItemClick(event) {
     });
     updateFavoriteCheckbox();
 }
-async function handleFavoriteStarClick(e){e.stopPropagation();const item=e.currentTarget.closest('.persona-item');if(!item)return;const id=item.dataset.personaId;try{if(favoritePersonaId===id){favoritePersonaId=null;await window.electronAPI.invoke('set-favorite-persona',null);}else{favoritePersonaId=id;await window.electronAPI.invoke('set-favorite-persona',id);}}catch(err){console.error('Failed to toggle favorite persona',err);}updateFavoriteCheckbox();}
+async function handleFavoriteStarClick(e){
+    e.stopPropagation();
+    const id = selectedIdentifier;
+    if(!id) return;
+    try{
+        if(favoritePersonaId===id){
+            favoritePersonaId=null;
+            await window.electronAPI.invoke('set-favorite-persona',null);
+        }else{
+            favoritePersonaId=id;
+            await window.electronAPI.invoke('set-favorite-persona',id);
+        }
+    }catch(err){
+        console.error('Failed to toggle favorite persona',err);
+    }
+    updateFavoriteCheckbox();
+}
 function updateFavoriteCheckbox(){updateFavoriteStars();}
 function handlePersonaSelectChange(event) {
     const identifier = event.target.value;
@@ -579,7 +604,7 @@ function handlePersonaSelectChange(event) {
 function handleSlideItemClick(event) { const item = event.currentTarget; const displayId = item.dataset.displayId; console.log('Renderer: Slide item clicked:', displayId); document.querySelectorAll('.slide-tab.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); const displayElement = domElements.displays[displayId]?.element; if (displayElement?.scrollIntoView) { displayElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });  } else { console.warn(`Renderer Warning: Could not find display element for ${displayId} to scroll.`); } }
 function handleDeckItemClick(event) { const item = event.currentTarget; const deckName = item.dataset.deckName; if (!deckName) return; domElements.deckList.querySelectorAll('.deck-item.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); window.electronAPI.send('load-deck', deckName); }
 
-function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.configHeader?.addEventListener('click', () => els.infoPanels?.classList.toggle('active')); els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; const parentConfig = header.closest('#config-content'); parentConfig?.querySelectorAll('.dropdown-content.active').forEach(activeContent => { if (activeContent !== content) { activeContent.classList.remove('active'); activeContent.previousElementSibling?.classList.remove('active'); } }); content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteCheckbox?.addEventListener('change', handleFavoriteCheckboxChange); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
+function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.configHeader?.addEventListener('click', () => els.infoPanels?.classList.toggle('active')); els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; const parentConfig = header.closest('#config-content'); parentConfig?.querySelectorAll('.dropdown-content.active').forEach(activeContent => { if (activeContent !== content) { activeContent.classList.remove('active'); activeContent.previousElementSibling?.classList.remove('active'); } }); content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteStarOverlay?.addEventListener('click', handleFavoriteStarClick); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
 function setupIpcListeners() {
     if (ipcListenersAttached) { return; }
     console.log("Renderer: Attaching IPC listeners...");
