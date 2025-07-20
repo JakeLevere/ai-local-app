@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
 
-            [left, right, status, info].forEach(el => el.classList.add('vault-open'));
+            [left, right, status, info].forEach(el => el.classList.add('vault-open', 'center-glow'));
 
             // Capture starting positions **before** altering any classes so we
             // animate from the pre-login layout.
@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         status.style.height = '';
                         info.style.height = '';
-                    [left, right, status, info].forEach(el => el.classList.remove('vault-open'));
+                    [left, right, status, info].forEach(el => el.classList.remove('vault-open', 'center-glow'));
                     if (callback) callback();
                     }
                 };
