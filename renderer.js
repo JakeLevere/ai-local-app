@@ -39,6 +39,8 @@ function cacheDomElements() {
         rightChat: document.getElementById('right-chat'),
         chatCollapseArrow: document.getElementById('chat-collapse-arrow'),
         personaSelect: document.getElementById('persona-select'),
+        personaSelectHeader: document.getElementById('persona-select-header'),
+        personaDropdownContent: document.getElementById('persona-dropdown-content'),
         personaListContainer: document.getElementById('persona-list-container'),
         configPanelHeader: document.getElementById('config-header'),
         prePromptText: document.getElementById('pre-prompt-text'),
@@ -518,6 +520,7 @@ function renderPersonaList(personas) {
         li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span> <span class="favorite-star">☆</span> `;
         const star = li.querySelector('.favorite-star');
         star.addEventListener('click', handleFavoriteStarClick);
+        li.addEventListener('click', handlePersonaItemClick);
         container.appendChild(li);
     });
     updateFavoriteStars();
@@ -548,6 +551,16 @@ function handlePersonaItemClick(event) {
     item.classList.add('selected');
     selectedIdentifier = identifier;
     activePrimaryIdentifier = identifier;
+    if(domElements.personaSelectHeader){
+        const nameEl = item.querySelector('.persona-name');
+        domElements.personaSelectHeader.textContent = nameEl ? nameEl.textContent : identifier;
+    }
+    if(domElements.personaDropdownContent){
+        domElements.personaDropdownContent.classList.remove('active');
+    }
+    if(domElements.personaSelectHeader){
+        domElements.personaSelectHeader.classList.remove('active');
+    }
     loadInitialContent(selectedIdentifier);
     if (domElements.infoPanels) domElements.infoPanels.classList.remove('active');
     document.querySelectorAll('.dropdown-content.active').forEach(ac => {
@@ -601,6 +614,12 @@ function setupIpcListeners() {
             if (item) {
                 item.classList.add('selected');
                 if (domElements.personaSelect) domElements.personaSelect.value = defaultId;
+                if (domElements.personaSelectHeader) {
+                    const nameEl = item.querySelector('.persona-name');
+                    domElements.personaSelectHeader.textContent = nameEl ? nameEl.textContent : defaultId;
+                }
+            } else if(domElements.personaSelectHeader) {
+                domElements.personaSelectHeader.textContent = defaultId;
             }
             selectedIdentifier = defaultId;
             activePrimaryIdentifier = defaultId;
@@ -702,6 +721,12 @@ function setupIpcListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("--- Renderer: DOMContentLoaded event fired ---");
     cacheDomElements();
+    if(domElements.personaSelectHeader){
+        domElements.personaSelectHeader.addEventListener('click', () => {
+            domElements.personaDropdownContent?.classList.toggle('active');
+            domElements.personaSelectHeader.classList.toggle('active');
+        });
+    }
     const overlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
     if (overlay && loginForm) {
