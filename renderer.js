@@ -521,7 +521,7 @@ function handlePersonaItemClick(event) {
     });
     updateFavoriteCheckbox();
 }
-function handleFavoriteCheckboxChange(e){if(!selectedIdentifier)return;if(e.target.checked){favoritePersonaId=selectedIdentifier;window.electronAPI.send("set-favorite-persona",selectedIdentifier);}else{favoritePersonaId=null;window.electronAPI.send("set-favorite-persona",null);}updateFavoriteCheckbox();}
+async function handleFavoriteCheckboxChange(e){if(!selectedIdentifier)return;if(e.target.checked){favoritePersonaId=selectedIdentifier;try{await window.electronAPI.invoke("set-favorite-persona",selectedIdentifier);}catch(err){console.error("Failed to set favorite persona",err);}}else{favoritePersonaId=null;try{await window.electronAPI.invoke("set-favorite-persona",null);}catch(err){console.error("Failed to clear favorite persona",err);}}updateFavoriteCheckbox();}
 function updateFavoriteCheckbox(){if(domElements.favoriteCheckbox)domElements.favoriteCheckbox.checked=(selectedIdentifier===favoritePersonaId);}
 function handlePersonaSelectChange(event) {
     const identifier = event.target.value;

@@ -118,10 +118,13 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 
 #app-title {
     margin: 10px;
+    padding: 6px 8px;
     color: var(--user-green);
     font-size: 1.2em;
     font-weight: bold;
     text-shadow: 0 0 10px var(--user-green);
+    border: 2px solid var(--user-green);
+    border-radius: 6px;
 }
 
 /* Collapsed State Styling (Sidebar) */

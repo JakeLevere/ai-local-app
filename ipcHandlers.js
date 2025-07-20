@@ -272,11 +272,13 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    ipcMain.on('set-favorite-persona', async (event, personaId) => {
+    ipcMain.handle('set-favorite-persona', async (event, personaId) => {
         try {
             await sharedDataService.setFavoritePersonaId(personaId);
+            return true;
         } catch (err) {
             console.error('Failed to set favorite persona:', err);
+            return false;
         }
     });
 
