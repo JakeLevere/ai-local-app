@@ -156,6 +156,13 @@ function initialize(windowInstance, paths) {
         if (relativePath) {
             const url = `${base.replace(/\/$/, '')}/${relativePath}`;
             sendToRenderer('load-display', { displayId, url });
+            try {
+                const current = await sharedDataService.getOpenDisplays();
+                current[displayId] = { program: name };
+                await sharedDataService.setOpenDisplays(current);
+            } catch (err) {
+                console.error('IPC: Failed to persist open display state:', err);
+            }
         } else {
             sendToRenderer('append-chat-log', `No program '${name}' found.`, true);
         }
@@ -311,7 +318,16 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    sendToRenderer('backend-ready');
+    sharedDataService.getOpenDisplays()
+        .then(displays => {
+            sendToRenderer('restore-open-displays', displays);
+        })
+        .catch(err => {
+            console.error('IPC: Failed to load open displays:', err);
+        })
+        .finally(() => {
+            sendToRenderer('backend-ready');
+        });
 }
 
 module.exports = initialize;

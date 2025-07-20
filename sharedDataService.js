@@ -77,6 +77,17 @@ async function setFavoritePersonaId(id) {
     }
 }
 
+async function getOpenDisplays() {
+    const data = await readData();
+    return data.openDisplays || {};
+}
+
+async function setOpenDisplays(displays) {
+    const data = await readData();
+    data.openDisplays = displays;
+    await writeData(data);
+}
+
 module.exports = {
     init,
     getCalendarEvents,
@@ -84,5 +95,7 @@ module.exports = {
     getHealthMetrics,
     setHealthMetrics,
     getFavoritePersonaId,
-    setFavoritePersonaId
+    setFavoritePersonaId,
+    getOpenDisplays,
+    setOpenDisplays
 };

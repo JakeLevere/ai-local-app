@@ -667,6 +667,31 @@ function setupIpcListeners() {
         console.log("Renderer: Requesting persona list...");
         window.electronAPI.send('discover-personas');
     });
+    window.electronAPI.on('restore-open-displays', (displays) => {
+        if (!displays) return;
+        Object.keys(displays).forEach(id => {
+            const info = displays[id];
+            if (info && info.program) {
+                window.electronAPI.send('open-program', { program: info.program, displayId: id });
+                if (info.program === 'browser') {
+                    const el = domElements.displays[id]?.element;
+                    if (el) {
+                        const bounds = calculateVisibleBounds(el);
+                        window.electronAPI.send('launch-browser', {
+                            displayId: id,
+                            bounds: {
+                                x: Math.round(bounds.x),
+                                y: Math.round(bounds.y),
+                                width: Math.round(bounds.width),
+                                height: Math.round(bounds.height)
+                            }
+                        });
+                        activeBrowserDisplays[id] = true;
+                    }
+                }
+            }
+        });
+    });
     window.electronAPI.on('personas-loaded', (receivedData) => { console.log(`Renderer: Received 'personas-loaded' event.`); console.log(`  -> Type of receivedData: ${typeof receivedData}`); console.log(`  -> receivedData:`, receivedData); if (Array.isArray(receivedData)) { const personas = receivedData; primaryPersonaCache = {}; personas.forEach(p => { primaryPersonaCache[p.id] = p; }); renderPersonaList(personas); renderPersonaDropdown(personas);
         // *** MODIFIED DEFAULT SELECTION LOGIC ***
         if (personas.length > 0) {
