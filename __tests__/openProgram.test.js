@@ -11,7 +11,11 @@ jest.mock('electron', () => ({
 }));
 
 jest.mock('../personaService.js', () => ({}));
-jest.mock('../sharedDataService.js', () => ({ init: jest.fn() }));
+jest.mock('../sharedDataService.js', () => ({
+  init: jest.fn(),
+  getOpenDisplays: jest.fn().mockResolvedValue({}),
+  setOpenDisplays: jest.fn().mockResolvedValue()
+}));
 
 const initialize = require('../ipcHandlers');
 

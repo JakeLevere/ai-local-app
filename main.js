@@ -6,6 +6,7 @@ const fs = require('fs').promises; // Needed for initial dir creation
 const initializeIpcHandlers = require('./ipcHandlers');
 const express = require('express');
 const http = require('http');
+const sharedDataService = require('./sharedDataService');
 
 let mainWindow;
 // Track browser views keyed by displayId
@@ -329,13 +330,22 @@ async function createWindow(serverUrl) {
         }
     });
 
-    ipcMain.on('clear-display', (event, displayId) => {
+    ipcMain.on('clear-display', async (event, displayId) => {
         const existing = browserViews[displayId];
         if (existing) {
             mainWindow.removeBrowserView(existing.view);
             ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
             existing.view.destroy();
             delete browserViews[displayId];
+        }
+        try {
+            const current = await sharedDataService.getOpenDisplays();
+            if (current[displayId]) {
+                delete current[displayId];
+                await sharedDataService.setOpenDisplays(current);
+            }
+        } catch (err) {
+            console.error('Main: Failed to update open display state:', err);
         }
     });
 
