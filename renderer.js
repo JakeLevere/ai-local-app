@@ -428,6 +428,7 @@ function sendMessage() {
         domElements.userInput.value = '';
         return;
     }
+    appendMessageToChatLog({ content }, false, true);
     window.electronAPI.send('add-entry', { userContent: content, personaIdentifier: selectedIdentifier });
     domElements.userInput.value = '';
 }
