@@ -141,15 +141,31 @@ function getCurrentSlides() {
     return slides;
 }
 
+function calculateVisibleBounds(elem) {
+    if (!elem) return { x: 0, y: 0, width: 0, height: 0 };
+    const rect = elem.getBoundingClientRect();
+    const statusRect = domElements.statusBar?.getBoundingClientRect() || { bottom: 0 };
+    const infoRect = domElements.infoPanels?.getBoundingClientRect() || { top: window.innerHeight };
+
+    const left = Math.max(rect.left, 0);
+    const right = Math.min(rect.right, window.innerWidth);
+    const top = Math.max(rect.top, statusRect.bottom);
+    const bottom = Math.min(rect.bottom, infoRect.top);
+
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    return { x: left, y: top, width, height };
+}
+
 function updateBrowserBoundsForDisplay(displayId) {
     const elem = domElements.displays?.[displayId]?.element;
     if (!elem) return;
-    const rect = elem.getBoundingClientRect();
+    const clipped = calculateVisibleBounds(elem);
     const bounds = {
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
+        x: Math.round(clipped.x),
+        y: Math.round(clipped.y),
+        width: Math.round(clipped.width),
+        height: Math.round(clipped.height)
     };
     window.electronAPI.send('update-browser-bounds', { displayId, bounds });
 }
@@ -261,14 +277,16 @@ function setupProgramIconListeners() {
             if (program && displayId) {
                 window.electronAPI.send('open-program', { program, displayId });
                 if (program === 'browser') {
-                    const rect = display.getBoundingClientRect();
-                    const bounds = {
-                        x: Math.round(rect.left),
-                        y: Math.round(rect.top),
-                        width: Math.round(rect.width),
-                        height: Math.round(rect.height)
-                    };
-                    window.electronAPI.send('launch-browser', { displayId, bounds });
+                    const bounds = calculateVisibleBounds(display);
+                    window.electronAPI.send('launch-browser', {
+                        displayId,
+                        bounds: {
+                            x: Math.round(bounds.x),
+                            y: Math.round(bounds.y),
+                            width: Math.round(bounds.width),
+                            height: Math.round(bounds.height)
+                        }
+                    });
                     activeBrowserDisplays[displayId] = true;
                     updateBrowserBoundsForDisplay(displayId);
                 }
@@ -370,18 +388,17 @@ function sendMessage() {
             }
             const displayId = `display${displayNum}`;
             const elem = domElements.displays?.[displayId]?.element;
-            let bounds = null;
-            if (elem) {
-            const rect = elem.getBoundingClientRect();
-            bounds = {
-                x: Math.round(rect.left),
-                y: Math.round(rect.top),
-                width: Math.round(rect.width),
-                height: Math.round(rect.height)
-            };
-            }
+            const visible = elem ? calculateVisibleBounds(elem) : { x: 0, y: 0, width: 0, height: 0 };
             window.electronAPI.send('open-program', { program, displayId });
-            window.electronAPI.send('launch-browser', { displayId, bounds });
+            window.electronAPI.send('launch-browser', {
+                displayId,
+                bounds: {
+                    x: Math.round(visible.x),
+                    y: Math.round(visible.y),
+                    width: Math.round(visible.width),
+                    height: Math.round(visible.height)
+                }
+            });
             activeBrowserDisplays[displayId] = true;
             updateBrowserBoundsForDisplay(displayId);
             appendMessageToChatLog({ content: `Opening browser in display ${displayNum}.` }, true);
