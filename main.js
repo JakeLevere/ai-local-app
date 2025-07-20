@@ -10,7 +10,11 @@ const http = require('http');
 let mainWindow;
 // Track browser views keyed by displayId
 const browserViews = {};
-const CONTROL_AREA_HEIGHT = 60; // Height reserved for browser controls
+// Height previously reserved for browser controls. The browser view now
+// spans the full window so the content can scroll underneath the overlay
+// panels. Keeping the constant for backward compatibility if needed
+// elsewhere.
+const CONTROL_AREA_HEIGHT = 0;
 const DEFAULT_BROWSER_ZOOM = 0.55;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
@@ -180,10 +184,10 @@ async function launchBrowser() {
     });
 
     // Position and resize the BrowserView dynamically
-    const controlAreaHeight = CONTROL_AREA_HEIGHT;
     const updateBounds = () => {
         const [width, height] = browserWindow.getContentSize();
-        view.setBounds({ x: 0, y: controlAreaHeight, width: width, height: height - controlAreaHeight });
+        // Fill the entire window so scrolling happens underneath the control panels
+        view.setBounds({ x: 0, y: 0, width, height });
     };
 
     // Allow the embedded view to resize with the window so the
@@ -386,9 +390,9 @@ function launchBrowserOverlay(bounds, displayId) {
     mainWindow.addBrowserView(view);
     view.setBounds({
         x: bounds.x,
-        y: bounds.y + CONTROL_AREA_HEIGHT,
+        y: bounds.y,
         width: bounds.width,
-        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
+        height: bounds.height,
     });
     // Keep the view anchored within the specified bounds. Auto-resize is
     // disabled so the view stays confined to its panel size.
@@ -419,9 +423,9 @@ function updateBrowserOverlayBounds(bounds, displayId) {
     if (!existing) return;
     existing.view.setBounds({
         x: bounds.x,
-        y: bounds.y + CONTROL_AREA_HEIGHT,
+        y: bounds.y,
         width: bounds.width,
-        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
+        height: bounds.height,
     });
 }
 
