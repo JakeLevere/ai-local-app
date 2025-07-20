@@ -654,6 +654,22 @@ body.pre-login #right-chat {
     transform: none;
     z-index: 30;
 }
+body.pre-login #left-sidebar::before,
+body.pre-login #right-chat::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--display-highlight);
+    box-shadow: 0 0 12px 4px var(--display-highlight);
+    pointer-events: none;
+    z-index: 50;
+}
+body.pre-login #left-sidebar::before { right: 0; }
+body.pre-login #right-chat::before { left: 0; }
+body.logging-in #left-sidebar::before,
+body.logging-in #right-chat::before { content: none; }
 body.pre-login #persona-status-bar,
 body.pre-login #info-panels {
     height: 50vh;
