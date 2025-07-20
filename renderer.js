@@ -800,6 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         domElements.deckList,
                         domElements.chatLog
                     ]);
+                    if (domElements.userInput) {
+                        domElements.userInput.focus();
+                        domElements.userInput.select();
+                    }
                 });
             }
         });
