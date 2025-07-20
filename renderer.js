@@ -510,7 +510,59 @@ function updateStatusBarUI(identifier, status) {
     console.log("[Status Bar Update] Finished.");
 }
 
-function appendMessageToChatLog(entry, isStatus = false, isUser = false) { if (!domElements.chatLog) { console.error("Renderer Error: chatLog element not found!"); return; } const p = document.createElement('p'); const messageContent = entry?.content || '...'; if (isStatus) { p.className = 'status-message'; p.textContent = messageContent; } else { let speaker = "AI"; let message = messageContent; if (isUser) { speaker = 'You'; p.className = 'user-message'; } else { if (selectedIdentifier) { const parts = selectedIdentifier.split('/'); const primaryId = parts[0]; if (parts.length === 1) { speaker = primaryPersonaCache[primaryId]?.name || primaryId; } else { const subId = parts[1]; const subPersona = primaryPersonaCache[primaryId]?.subPersonas.find(sub => sanitizeFolderName(sub.name) === subId); speaker = subPersona?.name || subId; } } p.className = 'ai-message'; if (messageContent.startsWith('Error:')) { speaker = 'Error'; message = messageContent.substring(6).trim(); p.classList.add('error-message'); p.style.color = '#FF6B6B'; p.style.backgroundColor = 'rgba(255, 107, 107, 0.1)'; } } p.innerHTML = `<strong>${speaker}:<span class="thinking-bar"></span></strong> <span class="message-text"></span>`; const messageTextElement = p.querySelector('.message-text'); if (messageTextElement) messageTextElement.textContent = message; else p.textContent = message; if (p.classList.contains('ai-message') && !p.classList.contains('error-message') && !isUser && !isStatus) { latestAIMessageElement = p; } } domElements.chatLog.appendChild(p); requestAnimationFrame(() => { if (domElements.chatLog) domElements.chatLog.scrollTop = domElements.chatLog.scrollHeight; }); }
+function appendMessageToChatLog(entry, isStatus = false, isUser = false) {
+    if (!domElements.chatLog) {
+        console.error("Renderer Error: chatLog element not found!");
+        return;
+    }
+    const p = document.createElement('p');
+    const messageContent = entry?.content || '...';
+    if (isStatus) {
+        p.className = 'status-message';
+        p.textContent = messageContent;
+    } else {
+        let speaker = "AI";
+        let message = messageContent;
+        if (isUser) {
+            speaker = 'You';
+            p.className = 'user-message';
+        } else {
+            if (selectedIdentifier) {
+                const parts = selectedIdentifier.split('/');
+                const primaryId = parts[0];
+                if (parts.length === 1) {
+                    speaker = primaryPersonaCache[primaryId]?.name || primaryId;
+                } else {
+                    const subId = parts[1];
+                    const subPersona = primaryPersonaCache[primaryId]?.subPersonas.find(sub => sanitizeFolderName(sub.name) === subId);
+                    speaker = subPersona?.name || subId;
+                }
+            }
+            p.className = 'ai-message';
+            if (messageContent.startsWith('Error:')) {
+                speaker = 'Error';
+                message = messageContent.substring(6).trim();
+                p.classList.add('error-message');
+                p.style.color = '#FF6B6B';
+                p.style.backgroundColor = 'rgba(255, 107, 107, 0.1)';
+            }
+        }
+        p.innerHTML = `<strong>${speaker}:<span class="thinking-bar"></span></strong> <span class="message-text"></span>`;
+        const messageTextElement = p.querySelector('.message-text');
+        if (messageTextElement) messageTextElement.textContent = message;
+        else p.textContent = message;
+        if (p.classList.contains('ai-message') && !p.classList.contains('error-message') && !isUser && !isStatus) {
+            if (latestAIMessageElement) {
+                latestAIMessageElement.classList.remove('thinking-active');
+            }
+            latestAIMessageElement = p;
+        }
+    }
+    domElements.chatLog.appendChild(p);
+    requestAnimationFrame(() => {
+        if (domElements.chatLog) domElements.chatLog.scrollTop = domElements.chatLog.scrollHeight;
+    });
+}
 function updateSlideIcon(displayId, type, src) { const slideItem = domElements.slideTabs?.querySelector(`.slide-tab[data-display-id="${displayId}"]`); if (!slideItem) return; const slideIcon = slideItem.querySelector('.slide-icon'); const slideName = slideItem.querySelector('.slide-name'); if (!slideIcon || !slideName) return; slideIcon.style.backgroundColor = 'transparent'; slideIcon.onerror = () => { if (slideIcon) slideIcon.src = './images/placeholder.png'; if (slideName) slideName.textContent = 'Load Error'; }; const imageBasePath = './images'; if (type === 'image' && src) { slideIcon.src = src.startsWith('file://') ? src : `file://${src}`; slideName.textContent = 'Image'; } else if (type === 'iframe' && src) { if (src.includes('player.twitch.tv')) { slideIcon.src = `${imageBasePath}/twitch-icon.png`; slideName.textContent = 'Twitch Stream';} else if (src.includes('example.com')) { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Example.com'; } else if (src.includes('persona-creator.html')) { slideIcon.src = `${imageBasePath}/persona-creator-icon.png`; slideName.textContent = 'Persona Creator'; } else if (src === 'about:blank' || !src) { slideIcon.src = `${imageBasePath}/placeholder.png`; slideIcon.style.backgroundColor = '#444'; slideName.textContent = 'Empty'; } else { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Web Page'; } } else { slideIcon.src = `${imageBasePath}/placeholder.png`; slideIcon.style.backgroundColor = '#444'; slideName.textContent = type === 'error' ? 'Load Error' : 'Empty'; } }
 
 function renderPersonaList(personas) {
