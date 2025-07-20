@@ -386,9 +386,9 @@ function launchBrowserOverlay(bounds, displayId) {
     mainWindow.addBrowserView(view);
     view.setBounds({
         x: bounds.x,
-        y: bounds.y,
+        y: bounds.y + CONTROL_AREA_HEIGHT,
         width: bounds.width,
-        height: Math.max(bounds.height, 0),
+        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
     });
     // Keep the view anchored within the specified bounds. Auto-resize is
     // disabled so the view stays confined to its panel size.
@@ -419,9 +419,9 @@ function updateBrowserOverlayBounds(bounds, displayId) {
     if (!existing) return;
     existing.view.setBounds({
         x: bounds.x,
-        y: bounds.y,
+        y: bounds.y + CONTROL_AREA_HEIGHT,
         width: bounds.width,
-        height: Math.max(bounds.height, 0),
+        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
     });
 }
 

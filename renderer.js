@@ -143,44 +143,14 @@ function getCurrentSlides() {
 
 function updateBrowserBoundsForDisplay(displayId) {
     const elem = domElements.displays?.[displayId]?.element;
-    if (!elem || !domElements.displaysContainer) return;
-
+    if (!elem) return;
     const rect = elem.getBoundingClientRect();
-    const containerRect = domElements.displaysContainer.getBoundingClientRect();
-
-    let visibleTop = Math.max(rect.top, containerRect.top);
-    let visibleBottom = Math.min(rect.bottom, containerRect.bottom);
-
-    // Clip overlap with bottom info/config panel
-    if (domElements.infoPanels) {
-        const infoRect = domElements.infoPanels.getBoundingClientRect();
-        const overlapTop = Math.max(visibleTop, infoRect.top);
-        const overlapBottom = Math.min(visibleBottom, infoRect.bottom);
-        if (overlapBottom > overlapTop) {
-            visibleBottom = Math.min(visibleBottom, infoRect.top);
-        }
-    }
-
-    // Clip overlap with deck dropdown
-    if (domElements.deckContainer?.classList.contains('expanded')) {
-        const deckRect = domElements.deckIconsContainer?.getBoundingClientRect();
-        if (deckRect) {
-            const overlapTop = Math.max(visibleTop, deckRect.top);
-            const overlapBottom = Math.min(visibleBottom, deckRect.bottom);
-            if (overlapBottom > overlapTop) {
-                visibleTop = Math.max(visibleTop, deckRect.bottom);
-            }
-        }
-    }
-
-    const height = Math.max(visibleBottom - visibleTop, 0);
     const bounds = {
         x: Math.round(rect.left),
-        y: Math.round(visibleTop),
+        y: Math.round(rect.top),
         width: Math.round(rect.width),
-        height: Math.round(height)
+        height: Math.round(rect.height)
     };
-
     window.electronAPI.send('update-browser-bounds', { displayId, bounds });
 }
 
