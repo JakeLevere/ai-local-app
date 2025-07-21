@@ -578,6 +578,19 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
     border-top: 1px solid var(--border-color);
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
     z-index: 10;
+    transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
+    max-height: 400px;
+}
+
+#program-maker.collapsed {
+    max-height: 40px;
+    overflow: hidden;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+#program-maker.collapsed > *:not(h2) {
+    display: none;
 }
 #program-maker textarea {
     width: 100%;
