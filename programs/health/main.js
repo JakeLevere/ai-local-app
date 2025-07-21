@@ -17,8 +17,8 @@ if (!fs.existsSync(HEALTH_DATA_DIR)) {
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
-        width: 1400,
-        height: 900,
+        width: 1200,
+        height: 800,
         webPreferences: {
             // Attach the preload script to the renderer process (index.html)
             preload: path.join(__dirname, 'preload.js'),
