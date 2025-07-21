@@ -922,11 +922,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const startInfo = info.getBoundingClientRect().height;
             const startProgram = program.getBoundingClientRect().height;
 
-            document.body.classList.add('logging-in');
-
+            // Lock initial dimensions before layout changes when the logging-in
+            // class is applied. This prevents panels from jumping to their final
+            // sizes prior to the animation starting.
+            left.style.width = `${startLeft}px`;
+            right.style.width = `${startRight}px`;
             status.style.height = `${startStatus}px`;
             info.style.height = `${startInfo}px`;
             program.style.height = `${startProgram}px`;
+
+            document.body.classList.add('logging-in');
 
             const revealedChildren = [];
             info.style.height = 'auto';
