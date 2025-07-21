@@ -587,10 +587,18 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
     overflow: hidden;
     padding: 5px 10px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #program-maker.collapsed > *:not(h2) {
     display: none;
+}
+#program-maker.collapsed h2 {
+    margin: 0;
+    width: 100%;
+    text-align: center;
 }
 #program-maker textarea {
     width: 100%;
