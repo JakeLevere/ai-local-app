@@ -550,6 +550,8 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
     background-color: var(--bg-dark-grey);
     border-top: 1px solid var(--border-color);
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
+    transition: height 0.3s ease-in-out, padding 0.3s ease-in-out, transform 0.6s ease;
+    transform-origin: bottom center;
 }
 #config-header { background-color: var(--sidebar-bg); padding: 10px; cursor: pointer; font-size: 0.9em; color: var(--text-off-white); text-align: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
 #info-panels.active #config-header { border-bottom: none; }
