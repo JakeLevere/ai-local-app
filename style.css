@@ -582,6 +582,7 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
     background-color: var(--bg-dark-grey);
     border-top: 1px solid var(--border-color);
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
+    z-index: 10;
 }
 #program-maker textarea {
     width: 100%;
@@ -706,14 +707,20 @@ body.pre-login #left-sidebar > *,
 body.pre-login #right-chat > *,
 body.pre-login #persona-status-bar > *,
 body.pre-login #info-panels > *,
-body.pre-login #displays-container {
+body.pre-login #displays-container,
+body.pre-login #program-maker {
+    display: none;
+}
+
+body.logging-in #program-maker {
     display: none;
 }
 
 body.logging-in #left-sidebar,
 body.logging-in #right-chat,
 body.logging-in #persona-status-bar,
-body.logging-in #info-panels {
+body.logging-in #info-panels,
+body.logging-in #program-maker {
     transform: none;
     width: auto;
     height: auto;
