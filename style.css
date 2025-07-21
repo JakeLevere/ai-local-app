@@ -38,7 +38,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .app-container.collapsed.chat-collapsed { grid-template-columns: 50px 1fr 50px; }
 
 /* --- Left Sidebar --- */
-#left-sidebar { 
+#left-sidebar {
     background-color: var(--sidebar-bg);
     width: 260px;
     padding: 0;
@@ -46,14 +46,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     position: relative;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     transform-origin: left center;
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
 }
 #left-sidebar.collapsed { width: 50px; padding: 0; }
 #left-sidebar.collapsed #app-title { display: none; }
-#persona-section, #slide-section { padding: 10px 10px 0 10px; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
-#persona-section { flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
+#persona-section { padding: 10px 10px 0 10px; display: flex; flex-direction: column; padding-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
 #persona-select { width: 100%; margin-bottom: 5px; padding: 4px; background-color: var(--bg-dark-grey); color: var(--text-off-white); border: 1px solid var(--border-color); border-radius: 4px; }
 #persona-preview { text-align: center; padding-top: 10px; position: relative; }
 #favorite-star-overlay {
@@ -73,13 +73,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     object-fit: contain;
     display: none;
 }
-#slide-section { flex-grow: 1; padding-top: 5px; padding-bottom: 10px; }
 #left-sidebar h2 { font-size: 0.75em; font-weight: 600; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 0 5px 5px; margin: 10px 0 5px 0; border: none; flex-shrink: 0; }
 #create-deck, #create-slide { width: 100%; padding: 6px 12px; margin-bottom: 10px; background-color: var(--button-primary-bg); color: var(--button-text-dark); border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: 600; text-align: center; transition: background-color 0.2s ease, opacity 0.2s ease; flex-shrink: 0; }
 #create-deck:hover, #create-slide:hover { background-color: var(--button-primary-hover-bg); opacity: 0.9; }
 #deck-controls { margin-bottom: 10px; padding: 5px 0; flex-shrink: 0; }
 #deck-dropdown { width: 100%; padding: 6px 8px; background-color: var(--input-bg); color: var(--text-off-white); border: 1px solid var(--border-color); border-radius: 5px; font-size: 0.85em; -webkit-appearance: none; appearance: none; }
-#slide-section hr { border: 0; height: 1px; background: var(--separator-color); margin: 10px 0; flex-shrink: 0; }
 
 /* --- Persona List Hierarchy Styles --- */
 .persona-list-container { list-style: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; }
@@ -142,11 +140,8 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #left-sidebar.collapsed #deck-controls,
 #left-sidebar.collapsed #create-slide,
 #left-sidebar.collapsed .slide-name,
-#left-sidebar.collapsed #slide-section hr,
 #left-sidebar.collapsed #create-deck { display: none; }
-#left-sidebar.collapsed #persona-section, #left-sidebar.collapsed #slide-section { padding: 5px; align-items: center; overflow-y: hidden; }
-#left-sidebar.collapsed #persona-section { padding-bottom: 5px; border-bottom: 1px solid var(--separator-color); margin-bottom: 5px; }
-#left-sidebar.collapsed #slide-section { padding-top: 0; border-bottom: none; }
+#left-sidebar.collapsed #persona-section { padding: 5px; align-items: center; overflow-y: hidden; padding-bottom: 5px; border-bottom: 1px solid var(--separator-color); margin-bottom: 5px; }
 #left-sidebar.collapsed .persona-item,
 #left-sidebar.collapsed .deck-item { padding: 6px 0px; margin-bottom: 4px; margin-right: 0; justify-content: center; border-left: none; width: 100%; }
 #left-sidebar.collapsed .persona-item.primary-persona.selected { background-color: var(--sidebar-item-selected); }
@@ -559,13 +554,13 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #config-header { background-color: var(--sidebar-bg); padding: 10px; cursor: pointer; font-size: 0.9em; color: var(--text-off-white); text-align: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
 #info-panels.active #config-header { border-bottom: none; }
 #config-header:hover { background-color: rgba(135, 206, 250, 0.1); }
-#config-content { max-height: 0; overflow-y: auto; padding: 0 15px; transition: max-height 0.3s ease-in-out, padding 0.1s ease-in-out; background-color: var(--sidebar-bg); }
-#info-panels.active #config-content { max-height: 400px; padding: 15px; }
+#config-content { max-height: 0; overflow: hidden; padding: 0 15px; transition: max-height 0.3s ease-in-out, padding 0.1s ease-in-out; background-color: var(--sidebar-bg); }
+#info-panels.active #config-content { max-height: none; padding: 15px; overflow: visible; }
 .dropdown { margin-bottom: 10px; }
 .dropdown-header { background-color: var(--bg-dark-grey); padding: 10px; cursor: pointer; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.9em; color: var(--text-off-white); transition: background-color 0.2s ease; }
 .dropdown-header:hover { background-color: rgba(135, 206, 250, 0.1); }
 .dropdown-content { max-height: 0; overflow: hidden; padding: 0 10px; background-color: var(--input-bg); border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 4px 4px; transition: max-height 0.3s ease-in-out, padding 0.1s ease-in-out; }
-.dropdown-content.active { max-height: 200px; padding: 10px; overflow-y: auto; }
+.dropdown-content.active { max-height: none; padding: 10px; overflow: visible; }
 textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark); color: var(--text-off-white); border: 1px solid #555; padding: 8px; font-size: 0.9em; resize: vertical; border-radius: 4px; }
 .dropdown-buttons { margin-top: 10px; display: flex; justify-content: flex-end; }
 .dropdown-buttons button { padding: 8px 15px; border: none; background-color: var(--baby-blue); color: #111; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 0.9em; font-weight: 600; transition: background-color 0.2s ease; }
@@ -610,7 +605,7 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 ::-webkit-scrollbar-track { background: var(--sidebar-bg); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; border: 1px solid var(--sidebar-bg); }
 ::-webkit-scrollbar-thumb:hover { background: #666; }
-#persona-section, #slide-section, #displays-container, #chat-log, #config-content, #deck-icons, .dropdown-content { scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
+#persona-section, #displays-container, #chat-log, #config-content, #deck-icons, .dropdown-content { scrollbar-width: thin; scrollbar-color: #444 var(--sidebar-bg); }
 
 /* --- Login Overlay Styles --- */
 #login-overlay {
