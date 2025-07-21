@@ -182,26 +182,16 @@ function calculateVisibleBounds(elem) {
     if (!elem) return { x: 0, y: 0, width: 0, height: 0 };
     const rect = elem.getBoundingClientRect();
 
-    const left = Math.max(rect.left, 0);
-    const right = Math.min(rect.right, window.innerWidth);
-
-    // Determine the visible vertical region taking into account the
-    // top status bar and the bottom program maker panel. These panels
-    // overlap the display area, so we use their edges as our clipping
-    // boundaries instead of the viewport edges.
-    const topLimit = domElements.statusBar
-        ? domElements.statusBar.getBoundingClientRect().bottom
-        : 0;
-    const bottomLimit = domElements.programMaker
-        ? domElements.programMaker.getBoundingClientRect().top
-        : window.innerHeight;
-
-    const top = Math.max(rect.top, topLimit);
-    const bottom = Math.min(rect.bottom, bottomLimit);
-
-    const width = Math.max(0, right - left);
-    const height = Math.max(0, bottom - top);
-    return { x: left, y: top, width, height };
+    // Instead of clipping the bounds to the top status bar or bottom
+    // program maker panels, return the element's full bounding rect.
+    // Negative values are allowed so the main process can position the
+    // BrowserView outside the visible area without resizing it.
+    return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height
+    };
 }
 
 function updateBrowserBoundsForDisplay(displayId) {
