@@ -1056,7 +1056,12 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const displayId = item.dataset.displayId;
-            if (displayId) window.electronAPI.send('clear-display', displayId);
+            if (displayId) {
+                // Immediately clear UI and local tracking before notifying main
+                delete activeBrowserDisplays[displayId];
+                clearDisplayUI(displayId);
+                window.electronAPI.send('clear-display', displayId);
+            }
         });
     });
     window.addEventListener('resize', updateAllBrowserBounds);
