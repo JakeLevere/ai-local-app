@@ -561,7 +561,7 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 .dropdown-header:hover { background-color: rgba(135, 206, 250, 0.1); }
 .dropdown-content { max-height: 0; overflow: hidden; padding: 0 10px; background-color: var(--input-bg); border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 4px 4px; transition: max-height 0.3s ease-in-out, padding 0.1s ease-in-out; }
 .dropdown-content.active { max-height: none; padding: 10px; overflow: visible; }
-textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark); color: var(--text-off-white); border: 1px solid #555; padding: 8px; font-size: 0.9em; resize: vertical; border-radius: 4px; }
+textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark); color: var(--text-off-white); border: 1px solid #555; padding: 8px; font-size: 0.9em; resize: vertical; border-radius: 4px; overflow-y: hidden; }
 .dropdown-buttons { margin-top: 10px; display: flex; justify-content: flex-end; }
 .dropdown-buttons button { padding: 8px 15px; border: none; background-color: var(--baby-blue); color: #111; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 0.9em; font-weight: 600; transition: background-color 0.2s ease; }
 .dropdown-buttons button:hover { background-color: var(--baby-blue-darker); }
