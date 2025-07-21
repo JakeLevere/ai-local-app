@@ -218,19 +218,27 @@ function stopScrollSync() {
 // after the bounce effect has finished.
 function applyBounceAnimation(elements, callback) {
     let remaining = 0;
+    let called = false;
+    const done = () => {
+        if (!called && typeof callback === 'function') {
+            called = true;
+            callback();
+        }
+    };
     elements.forEach(el => {
         if (!el) return;
         remaining++;
         el.classList.add('bounce-in');
         el.addEventListener('animationend', () => {
             el.classList.remove('bounce-in');
-            if (--remaining === 0 && typeof callback === 'function') {
-                callback();
-            }
+            if (--remaining === 0) done();
         }, { once: true });
     });
-    if (remaining === 0 && typeof callback === 'function') {
-        callback();
+    if (remaining === 0) {
+        done();
+    } else {
+        // Fallback in case animation events do not fire (e.g. element hidden)
+        setTimeout(done, 700);
     }
 }
 
