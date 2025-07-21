@@ -38,6 +38,15 @@
                     <span id="favorite-star-overlay" class="favorite-star">☆</span>
                 </div>
                 <select id="persona-select"></select>
+            <div id="info-panels">
+                <div id="config-header">Configuration</div>
+                <div id="config-content">
+                    <div class="dropdown"> <div class="dropdown-header" id="pre-prompt-header">Pre Prompt</div> <div class="dropdown-content" id="pre-prompt-content"> <textarea id="pre-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-pre-prompt">Save</button> <button id="auto-pre-prompt" style="display:none;">Auto-Populate</button> </div> </div> </div>
+                    <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-prompt-header">Memory Prompt</div> <div class="dropdown-content" id="memory-prompt-content"> <textarea id="memory-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory-prompt">Save</button> </div> </div> </div>
+                    <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-header">Memory</div> <div class="dropdown-content" id="memory-content"> <textarea id="memory-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory">Save</button> <button id="update-memory">Update</button> </div> </div> </div>
+                    <div class="dropdown"> <div class="dropdown-header" id="conversations-header">Stored Conversations</div> <div class="dropdown-content" id="conversations-content"> <textarea id="conversations-text" readonly></textarea> <div class="dropdown-buttons"> </div> </div> </div>
+                </div>
+            </div>
             </div>
             <div id="slide-section">
                 <div id="deck-controls">
@@ -98,15 +107,12 @@
                      <div class="scroll-spacer"></div>
                      </div>
              </div>
-             <div id="info-panels">
-                  <div id="config-header">Configuration</div>
-                  <div id="config-content">
-                      <div class="dropdown"> <div class="dropdown-header" id="pre-prompt-header">Pre Prompt</div> <div class="dropdown-content" id="pre-prompt-content"> <textarea id="pre-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-pre-prompt">Save</button> <button id="auto-pre-prompt" style="display:none;">Auto-Populate</button> </div> </div> </div>
-                      <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-prompt-header">Memory Prompt</div> <div class="dropdown-content" id="memory-prompt-content"> <textarea id="memory-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory-prompt">Save</button> </div> </div> </div>
-                      <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-header">Memory</div> <div class="dropdown-content" id="memory-content"> <textarea id="memory-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory">Save</button> <button id="update-memory">Update</button> </div> </div> </div>
-                      <div class="dropdown"> <div class="dropdown-header" id="conversations-header">Stored Conversations</div> <div class="dropdown-content" id="conversations-content"> <textarea id="conversations-text" readonly></textarea> <div class="dropdown-buttons"> </div> </div> </div>
-                  </div>
-             </div>
+            <div id="program-maker">
+                 <h2>Program Maker</h2>
+                 <textarea id="program-description" placeholder="Describe your program..."></textarea>
+                 <button id="generate-program">Generate</button>
+                 <div id="program-output"></div>
+            </div>
          </main>
 
         <aside id="right-chat">

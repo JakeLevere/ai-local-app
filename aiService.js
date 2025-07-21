@@ -163,6 +163,26 @@ async function updateMemorySummary(identifier, vaultPath, options = {}) {
     return summary;
 }
 
+async function generateProgramFiles(description) {
+    await initializeOpenAI();
+    const systemPrompt = 'Generate a simple program based on the user description. Respond with JSON {"files":[{"name":"file.ext","content":"..."}]}';
+    const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: description }
+        ],
+        temperature: 0.2
+    });
+    const text = response.choices?.[0]?.message?.content?.trim() ?? '';
+    try {
+        const json = JSON.parse(text);
+        return json.files || [];
+    } catch (err) {
+        return [{ name: 'output.txt', content: text }];
+    }
+}
+
 module.exports = {
     initializeOpenAI,
     getChatResponse,
@@ -173,5 +193,6 @@ module.exports = {
     sanitizeFolderName,
     getPersonaFolderPath,
     getPrimaryPersonaFolderPath,
-    parseConversationPairs
+    parseConversationPairs,
+    generateProgramFiles
 };

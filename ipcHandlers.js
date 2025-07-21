@@ -233,6 +233,16 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.on('generate-program', async (event, description) => {
+        try {
+            const currentAIService = await ensureAIService();
+            const files = await currentAIService.generateProgramFiles(description);
+            sendToRenderer('program-generated', files);
+        } catch (err) {
+            sendToRenderer('main-process-error', `Failed to generate program: ${err.message}`);
+        }
+    });
+
     ipcMain.on('save-deck-slides', async (event, { deckName, slides }) => {
         try {
             const existing = await personaService.loadDeck(deckName, appPaths.decksPath) || {};
