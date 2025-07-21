@@ -1053,6 +1053,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!eventListenersAttached) setupEventListeners();
     if (!ipcListenersAttached) setupIpcListeners();
+    document.querySelectorAll('.slide-tab').forEach(item => {
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const displayId = item.dataset.displayId;
+            if (displayId) window.electronAPI.send('clear-display', displayId);
+        });
+    });
     window.addEventListener('resize', updateAllBrowserBounds);
     domElements.displaysContainer?.addEventListener('scroll', startScrollSync);
     domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);
