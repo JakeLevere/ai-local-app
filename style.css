@@ -725,6 +725,7 @@ body.pre-login #persona-status-bar,
 body.pre-login #info-panels,
 body.pre-login #program-maker {
     height: 50vh;
+    max-height: 50vh;
     transform: none;
     z-index: 20;
 }
