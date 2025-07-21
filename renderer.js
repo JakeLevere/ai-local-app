@@ -921,6 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const startStatus = status.getBoundingClientRect().height;
             const startInfo = info.getBoundingClientRect().height;
             const startProgram = program.getBoundingClientRect().height;
+            const defaultProgramMax = 400;
 
             // Lock initial dimensions before layout changes when the logging-in
             // class is applied. This prevents panels from jumping to their final
@@ -930,6 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.style.height = `${startStatus}px`;
             info.style.height = `${startInfo}px`;
             program.style.height = `${startProgram}px`;
+            program.style.maxHeight = `${startProgram}px`;
 
             document.body.classList.add('logging-in');
 
@@ -954,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
-            const endProgram = parseFloat(getComputedStyle(program).maxHeight) || 40;
+            const endProgram = defaultProgramMax;
 
             const durationSide = 300;
             const durationTB = 300;
@@ -968,6 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 status.style.height = '';
                 info.style.height = '';
                 program.style.height = '';
+                program.style.maxHeight = '';
                 [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
                 applyBounceAnimation([
                     domElements.personaListContainer,
@@ -986,6 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     status.style.height = `${statusHeight}px`;
                     info.style.height = `${infoHeight}px`;
                     program.style.height = `${programHeight}px`;
+                    program.style.maxHeight = `${programHeight}px`;
                     if (progress < 1) {
                         requestAnimationFrame(stepTB);
                     } else {
