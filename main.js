@@ -10,7 +10,7 @@ const sharedDataService = require('./sharedDataService');
 
 let mainWindow;
 // Track browser views keyed by displayId
-const browserViews = {};
+const browserViews = {}; // { view, navigateHandler, brightnessKey }
 const CONTROL_AREA_HEIGHT = 60; // Height reserved for browser controls
 const DEFAULT_BROWSER_ZOOM = 0.55;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -316,6 +316,21 @@ async function createWindow(serverUrl) {
         }
     });
 
+    ipcMain.on('set-browser-brightness', (event, { displayId, brightness }) => {
+        const existing = browserViews[displayId];
+        if (!existing || typeof brightness !== 'number') return;
+        const level = Math.max(0, Math.min(brightness, 100));
+        if (existing.brightnessKey) {
+            existing.view.webContents.removeInsertedCSS(existing.brightnessKey).catch(() => {});
+            existing.brightnessKey = null;
+        }
+        if (level < 100) {
+            existing.view.webContents.insertCSS(`html { filter: brightness(${level}%); }`).then(key => {
+                existing.brightnessKey = key;
+            }).catch(err => { console.error('Failed to set browser brightness:', err); });
+        }
+    });
+
     ipcMain.on('browser-go-back', (event, displayId) => {
         const existing = browserViews[displayId];
         if (existing && existing.view.webContents.canGoBack()) {
@@ -335,6 +350,9 @@ async function createWindow(serverUrl) {
         if (existing) {
             mainWindow.removeBrowserView(existing.view);
             ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
+            if (existing.brightnessKey) {
+                try { existing.view.webContents.removeInsertedCSS(existing.brightnessKey); } catch {}
+            }
             existing.view.destroy();
             delete browserViews[displayId];
         }
@@ -419,7 +437,7 @@ function launchBrowserOverlay(bounds, displayId) {
         sendToRenderer('page-did-finish-load', url);
     });
 
-    browserViews[displayId] = { view, navigateHandler };
+    browserViews[displayId] = { view, navigateHandler, brightnessKey: null };
 }
 
 // Update bounds of an existing BrowserView for a display
