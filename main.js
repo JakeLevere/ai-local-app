@@ -309,6 +309,14 @@ async function createWindow(serverUrl) {
         updateBrowserOverlayBounds(bounds, displayId);
     });
 
+    ipcMain.on('hide-browser-view', (event, displayId) => {
+        hideBrowserOverlay(displayId);
+    });
+
+    ipcMain.on('show-browser-view', (event, displayId) => {
+        showBrowserOverlay(displayId);
+    });
+
     ipcMain.on('set-browser-zoom', (event, { displayId, zoom }) => {
         const existing = browserViews[displayId];
         if (existing && typeof zoom === 'number') {
@@ -439,7 +447,13 @@ function launchBrowserOverlay(bounds, displayId) {
         sendToRenderer('page-did-finish-load', url);
     });
 
-    browserViews[displayId] = { view, navigateHandler, brightnessKey: null };
+    browserViews[displayId] = {
+        view,
+        navigateHandler,
+        brightnessKey: null,
+        bounds,
+        visible: true
+    };
 }
 
 // Update bounds of an existing BrowserView for a display
@@ -447,12 +461,40 @@ function updateBrowserOverlayBounds(bounds, displayId) {
     if (!mainWindow || !bounds) return;
     const existing = browserViews[displayId];
     if (!existing) return;
-    existing.view.setBounds({
-        x: bounds.x,
-        y: bounds.y + CONTROL_AREA_HEIGHT,
-        width: bounds.width,
-        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
-    });
+    existing.bounds = bounds;
+    if (existing.visible) {
+        existing.view.setBounds({
+            x: bounds.x,
+            y: bounds.y + CONTROL_AREA_HEIGHT,
+            width: bounds.width,
+            height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
+        });
+    }
+}
+
+function hideBrowserOverlay(displayId) {
+    const existing = browserViews[displayId];
+    if (!existing || !existing.visible) return;
+    try {
+        mainWindow.removeBrowserView(existing.view);
+        existing.visible = false;
+    } catch (err) {
+        console.error('Failed to hide browser overlay:', err);
+    }
+}
+
+function showBrowserOverlay(displayId) {
+    const existing = browserViews[displayId];
+    if (!existing || existing.visible) return;
+    try {
+        mainWindow.addBrowserView(existing.view);
+        if (existing.bounds) {
+            updateBrowserOverlayBounds(existing.bounds, displayId);
+        }
+        existing.visible = true;
+    } catch (err) {
+        console.error('Failed to show browser overlay:', err);
+    }
 }
 
 // App initialization (Modified)
