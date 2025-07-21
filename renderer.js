@@ -346,6 +346,8 @@ function setupProgramIconListeners() {
                     });
                     activeBrowserDisplays[displayId] = true;
                     updateBrowserBoundsForDisplay(displayId);
+                    const bright = display.classList.contains('fully-visible') ? 100 : 35;
+                    window.electronAPI.send('set-browser-brightness', { displayId, brightness: bright });
                 }
             }
         });
@@ -396,10 +398,17 @@ function setupDisplayVisibilityObserver() {
         entries.forEach(entry => {
             const display = entry.target.querySelector('.display');
             if (!display) return;
+            const id = display.id;
             if (entry.intersectionRatio >= 1) {
                 display.classList.add('fully-visible');
+                if (activeBrowserDisplays[id]) {
+                    window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: 100 });
+                }
             } else {
                 display.classList.remove('fully-visible');
+                if (activeBrowserDisplays[id]) {
+                    window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: 35 });
+                }
             }
         });
     }, { root: container, threshold: 1.0 });
@@ -495,6 +504,8 @@ function sendMessage() {
             });
             activeBrowserDisplays[displayId] = true;
             updateBrowserBoundsForDisplay(displayId);
+            const bright2 = elem && elem.querySelector('.display')?.classList.contains('fully-visible') ? 100 : 35;
+            window.electronAPI.send('set-browser-brightness', { displayId, brightness: bright2 });
             appendMessageToChatLog({ content: `Opening browser in display ${displayNum}.` }, true);
             domElements.userInput.value = '';
             return;
@@ -767,6 +778,8 @@ function setupIpcListeners() {
                             }
                         });
                         activeBrowserDisplays[id] = true;
+                        const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
+                        window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: bright3 });
                     }
                 }
             }
