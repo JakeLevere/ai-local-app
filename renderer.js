@@ -972,7 +972,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 program.style.height = '';
                 program.style.maxHeight = '';
                 [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
+
+                document.body.classList.remove('pre-login');
+                document.body.classList.remove('logging-in');
+                overlay.classList.add('hidden');
+
                 applyBounceAnimation([
+                    domElements.displaysContainer,
                     domElements.personaListContainer,
                     domElements.deckList,
                     domElements.chatLog
@@ -1025,21 +1031,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pass = document.getElementById('login-pass').value;
             if (pass === 'password') {
                 animatePanelReset(() => {
-                    document.body.classList.remove('pre-login');
-                    document.body.classList.remove('logging-in');
-                    overlay.classList.add('hidden');
-                    applyBounceAnimation([
-                        domElements.displaysContainer,
-                        domElements.personaListContainer,
-                        domElements.deckList,
-                        domElements.chatLog
-                    ], () => {
-                        // Recalculate bounds for any active BrowserViews now that
-                        // the layout has expanded after login. Run twice to ensure
-                        // measurements occur after the DOM has fully settled.
-                        updateAllBrowserBounds();
-                        setTimeout(updateAllBrowserBounds, 50);
-                    });
+                    updateAllBrowserBounds();
+                    setTimeout(updateAllBrowserBounds, 50);
                     if (domElements.userInput) {
                         domElements.userInput.focus();
                         domElements.userInput.select();
