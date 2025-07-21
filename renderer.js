@@ -57,6 +57,9 @@ function cacheDomElements() {
         slideTabs: document.getElementById('slide-tabs'),
         deckContainer: document.getElementById('deck-container'),
         deckIconsContainer: document.getElementById('deck-icons'),
+        programDescription: document.getElementById('program-description'),
+        programOutput: document.getElementById('program-output'),
+        generateProgramBtn: document.getElementById('generate-program'),
         displays: {
              'display1': { iframe: document.getElementById('iframe1'), image: document.getElementById('image1'), element: document.getElementById('display1') },
              'display2': { iframe: document.getElementById('iframe2'), image: document.getElementById('image2'), element: document.getElementById('display2') },
@@ -324,6 +327,30 @@ function setupProgramIconListeners() {
                 }
             }
         });
+    });
+}
+
+function handleGenerateProgram() {
+    const desc = domElements.programDescription?.value?.trim();
+    if (!desc) return;
+    if (domElements.programOutput) domElements.programOutput.textContent = 'Generating...';
+    window.electronAPI.send('generate-program', desc);
+}
+
+function setupProgramMaker() {
+    domElements.generateProgramBtn?.addEventListener('click', handleGenerateProgram);
+    window.electronAPI.on('program-generated', (files) => {
+        if (!domElements.programOutput) return;
+        domElements.programOutput.innerHTML = '';
+        if (Array.isArray(files)) {
+            files.forEach(f => {
+                const pre = document.createElement('pre');
+                pre.textContent = `// ${f.name}\n${f.content}`;
+                domElements.programOutput.appendChild(pre);
+            });
+        } else {
+            domElements.programOutput.textContent = String(files);
+        }
     });
 }
 
@@ -966,6 +993,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createInitialDeckIcons();
     createProgramIcons();
     setupProgramIconListeners();
+    setupProgramMaker();
     setupDisplayVisibilityObserver();
     const mainIcon = document.getElementById('deck-main');
     if (mainIcon) {

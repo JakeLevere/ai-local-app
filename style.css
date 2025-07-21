@@ -550,15 +550,10 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 
 /* --- Config Panel --- */
 #info-panels {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    margin-top: 10px;
     background-color: var(--bg-dark-grey);
-    z-index: 20;
     border-top: 1px solid var(--border-color);
-    transition: height 0.3s ease-in-out, transform 0.6s ease;
-    transform-origin: bottom center;
     box-shadow: 0 0 10px rgba(0,0,0,0.8);
 }
 #config-header { background-color: var(--sidebar-bg); padding: 10px; cursor: pointer; font-size: 0.9em; color: var(--text-off-white); text-align: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
@@ -577,6 +572,37 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 .dropdown-buttons button:hover { background-color: var(--baby-blue-darker); }
 #info-panels.primary-selected #auto-pre-prompt, #info-panels.primary-selected #update-memory { display: none; }
 #info-panels.primary-selected #memory-prompt-header, #info-panels.primary-selected #memory-prompt-content, #info-panels.primary-selected #memory-header, #info-panels.primary-selected #memory-content { display: none; }
+
+#program-maker {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background-color: var(--bg-dark-grey);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+#program-maker textarea {
+    width: 100%;
+    min-height: 60px;
+    background-color: var(--bg-very-dark);
+    color: var(--text-off-white);
+    border: 1px solid #555;
+    padding: 8px;
+    border-radius: 4px;
+    resize: vertical;
+    margin-bottom: 10px;
+}
+#program-output {
+    background-color: var(--bg-very-dark);
+    color: var(--text-off-white);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
 
 
 /* --- Global Scrollbar Styles --- */
