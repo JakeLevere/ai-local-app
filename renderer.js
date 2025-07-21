@@ -899,8 +899,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const right = domElements.rightChat;
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
+            const program = domElements.programMaker;
 
-            [left, right, status, info].forEach(el => el.classList.add('vault-open', 'center-glow'));
+            [left, right, status, info, program].forEach(el => el.classList.add('vault-open', 'center-glow'));
 
             // Capture starting positions **before** altering any classes so we
             // animate from the pre-login layout.
@@ -908,6 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const startRight = right.getBoundingClientRect().width;
             const startStatus = status.getBoundingClientRect().height;
             const startInfo = info.getBoundingClientRect().height;
+            const startProgram = program.getBoundingClientRect().height;
 
             // Apply the logging-in class after measurements so CSS changes do
             // not affect the initial values used for the animation.
@@ -918,6 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // the logging-in styles would collapse them immediately.
             status.style.height = `${startStatus}px`;
             info.style.height = `${startInfo}px`;
+            program.style.height = `${startProgram}px`;
 
             // Temporarily reveal info panel children so we can measure the
             // final height. They are hidden in the pre-login state which
@@ -943,6 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const endLeft = 260;
             const endRight = 340;
             const endStatus = 100;
+            const endProgram = parseFloat(getComputedStyle(program).maxHeight) || 40;
 
             const durationSide = 300;
             const durationTB = 300;
@@ -953,14 +957,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const progress = Math.min((now - startTimeTB) / durationTB, 1);
                     const statusHeight = startStatus + (endStatus - startStatus) * progress;
                     const infoHeight = startInfo + (endInfo - startInfo) * progress;
+                    const programHeight = startProgram + (endProgram - startProgram) * progress;
                     status.style.height = `${statusHeight}px`;
                     info.style.height = `${infoHeight}px`;
+                    program.style.height = `${programHeight}px`;
                     if (progress < 1) {
                         requestAnimationFrame(stepTB);
                     } else {
                         status.style.height = '';
                         info.style.height = '';
-                    [left, right, status, info].forEach(el => el.classList.remove('vault-open', 'center-glow'));
+                        program.style.height = '';
+                    [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
                     if (callback) callback();
                     }
                 };
