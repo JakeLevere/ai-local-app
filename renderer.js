@@ -930,8 +930,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         domElements.chatLog
                     ]);
                     // Recalculate bounds for any active BrowserViews now that
-                    // the layout has expanded after login
+                    // the layout has expanded after login. Run twice to ensure
+                    // measurements occur after the DOM has fully settled.
                     updateAllBrowserBounds();
+                    setTimeout(updateAllBrowserBounds, 50);
                     if (domElements.userInput) {
                         domElements.userInput.focus();
                         domElements.userInput.select();
