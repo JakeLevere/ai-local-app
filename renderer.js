@@ -903,28 +903,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             [left, right, status, info, program].forEach(el => el.classList.add('vault-open', 'center-glow'));
 
-            // Capture starting positions **before** altering any classes so we
-            // animate from the pre-login layout.
             const startLeft = left.getBoundingClientRect().width;
             const startRight = right.getBoundingClientRect().width;
             const startStatus = status.getBoundingClientRect().height;
             const startInfo = info.getBoundingClientRect().height;
             const startProgram = program.getBoundingClientRect().height;
 
-            // Apply the logging-in class after measurements so CSS changes do
-            // not affect the initial values used for the animation.
             document.body.classList.add('logging-in');
 
-            // Ensure the top and bottom panels remain fully expanded as the
-            // side panels animate open. Without setting these inline heights
-            // the logging-in styles would collapse them immediately.
             status.style.height = `${startStatus}px`;
             info.style.height = `${startInfo}px`;
             program.style.height = `${startProgram}px`;
 
-            // Temporarily reveal info panel children so we can measure the
-            // final height. They are hidden in the pre-login state which
-            // would otherwise return 0 and cause the panel to overshoot.
             const revealedChildren = [];
             info.style.height = 'auto';
             Array.from(info.children).forEach(child => {
@@ -951,6 +941,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const durationSide = 300;
             const durationTB = 300;
 
+            let completed = 0;
+            const finish = () => {
+                if (++completed < 2) return;
+                left.style.width = '';
+                right.style.width = '';
+                container.style.gridTemplateColumns = '';
+                status.style.height = '';
+                info.style.height = '';
+                program.style.height = '';
+                [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
+                applyBounceAnimation([
+                    domElements.personaListContainer,
+                    domElements.deckList,
+                    domElements.chatLog
+                ], callback);
+            };
+
             const animateTopBottom = () => {
                 const startTimeTB = performance.now();
                 const stepTB = (now) => {
@@ -964,11 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (progress < 1) {
                         requestAnimationFrame(stepTB);
                     } else {
-                        status.style.height = '';
-                        info.style.height = '';
-                        program.style.height = '';
-                    [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
-                    if (callback) callback();
+                        finish();
                     }
                 };
                 requestAnimationFrame(stepTB);
@@ -987,17 +990,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (progress < 1) {
                     requestAnimationFrame(stepSide);
                 } else {
-                    left.style.width = '';
-                    right.style.width = '';
-                    container.style.gridTemplateColumns = '';
-                    applyBounceAnimation([
-                        domElements.personaListContainer,
-                        domElements.deckList,
-                        domElements.chatLog
-                    ]);
-                    setTimeout(animateTopBottom, 100);
+                    finish();
                 }
             };
+
+            animateTopBottom();
             requestAnimationFrame(stepSide);
         };
 
