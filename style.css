@@ -279,6 +279,7 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #right-chat.vault-open { animation: vault-right 0.6s ease; }
 #persona-status-bar.vault-open { animation: vault-top 0.6s ease; }
 #info-panels.vault-open { animation: vault-bottom 0.6s ease; }
+#program-maker.vault-open { animation: vault-bottom 0.6s ease; }
 
 @keyframes vault-left {
   0% { transform: rotateY(0deg); }
@@ -305,7 +306,8 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #left-sidebar.center-glow::after,
 #right-chat.center-glow::after,
 #persona-status-bar.center-glow::after,
-#info-panels.center-glow::after {
+#info-panels.center-glow::after,
+#program-maker.center-glow::after {
   content: '';
   position: absolute;
   background: var(--display-highlight);
@@ -320,6 +322,7 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #right-chat.center-glow::after { top: 0; left: 0; width: 2px; height: 100%; }
 #persona-status-bar.center-glow::after { bottom: 0; left: 0; width: 100%; height: 2px; }
 #info-panels.center-glow::after { top: 0; left: 0; width: 100%; height: 2px; }
+#program-maker.center-glow::after { top: 0; left: 0; width: 100%; height: 2px; }
 
 @keyframes glow-fade {
   from { opacity: 1; }
@@ -689,7 +692,8 @@ body.pre-login .app-container {
 body.pre-login #left-sidebar,
 body.pre-login #right-chat,
 body.pre-login #persona-status-bar,
-body.pre-login #info-panels {
+body.pre-login #info-panels,
+body.pre-login #program-maker {
     /* Disable transitions during the pre-login state to avoid the panels
        animating in from their default positions on initial load. */
     transition: none;
@@ -717,7 +721,8 @@ body.pre-login #right-chat::before { left: 0; }
 body.logging-in #left-sidebar::before,
 body.logging-in #right-chat::before { content: none; }
 body.pre-login #persona-status-bar,
-body.pre-login #info-panels {
+body.pre-login #info-panels,
+body.pre-login #program-maker {
     height: 50vh;
     transform: none;
     z-index: 20;
@@ -726,12 +731,8 @@ body.pre-login #left-sidebar > *,
 body.pre-login #right-chat > *,
 body.pre-login #persona-status-bar > *,
 body.pre-login #info-panels > *,
-body.pre-login #displays-container,
-body.pre-login #program-maker {
-    display: none;
-}
-
-body.logging-in #program-maker {
+body.pre-login #program-maker > *,
+body.pre-login #displays-container {
     display: none;
 }
 
