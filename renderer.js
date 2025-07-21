@@ -212,14 +212,26 @@ function stopScrollSync() {
     }
 }
 
-function applyBounceAnimation(elements) {
+// Trigger a bounce-in animation on a collection of elements. When the
+// animation completes for all valid elements, the optional callback is
+// invoked. This is useful when layout measurements need to occur only
+// after the bounce effect has finished.
+function applyBounceAnimation(elements, callback) {
+    let remaining = 0;
     elements.forEach(el => {
         if (!el) return;
+        remaining++;
         el.classList.add('bounce-in');
         el.addEventListener('animationend', () => {
             el.classList.remove('bounce-in');
+            if (--remaining === 0 && typeof callback === 'function') {
+                callback();
+            }
         }, { once: true });
     });
+    if (remaining === 0 && typeof callback === 'function') {
+        callback();
+    }
 }
 
 function createInitialDeckIcons() {
@@ -928,12 +940,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         domElements.personaListContainer,
                         domElements.deckList,
                         domElements.chatLog
-                    ]);
-                    // Recalculate bounds for any active BrowserViews now that
-                    // the layout has expanded after login. Run twice to ensure
-                    // measurements occur after the DOM has fully settled.
-                    updateAllBrowserBounds();
-                    setTimeout(updateAllBrowserBounds, 50);
+                    ], () => {
+                        // Recalculate bounds for any active BrowserViews now that
+                        // the layout has expanded after login. Run twice to ensure
+                        // measurements occur after the DOM has fully settled.
+                        updateAllBrowserBounds();
+                        setTimeout(updateAllBrowserBounds, 50);
+                    });
                     if (domElements.userInput) {
                         domElements.userInput.focus();
                         domElements.userInput.select();
