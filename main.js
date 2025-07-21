@@ -365,6 +365,8 @@ async function createWindow(serverUrl) {
         } catch (err) {
             console.error('Main: Failed to update open display state:', err);
         }
+        // Notify the renderer so it can update UI state
+        sendToRenderer('clear-display', { displayId });
     });
 
     mainWindow.on('closed', () => {
