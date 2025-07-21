@@ -20,6 +20,7 @@
     --border-color: #444;
     --input-bg: #3a3a3d;
     --user-green: #7FFFD4;
+    --light-cyan: #e0ffff;
 
     /* New Size Variables */
     --primary-icon-size: 38px;
@@ -126,11 +127,11 @@ button.deck-save-btn { margin-left: 5px; background: none; border: none; color: 
 #app-title {
     margin: 10px;
     padding: 6px 8px;
-    color: var(--user-green);
+    color: var(--light-cyan);
     font-size: 1.2em;
     font-weight: bold;
-    text-shadow: 0 0 10px var(--user-green);
-    border: 2px solid var(--user-green);
+    text-shadow: 0 0 10px var(--light-cyan);
+    border: 2px solid var(--light-cyan);
     border-radius: 6px;
 }
 
