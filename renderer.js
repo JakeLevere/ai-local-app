@@ -179,18 +179,21 @@ function getCurrentSlides() {
 }
 
 function calculateVisibleBounds(elem) {
-    if (!elem) return { x: 0, y: 0, width: 0, height: 0 };
+    if (!elem) {
+        return { x: 0, y: 0, width: 0, height: 0 };
+    }
 
     const rect = elem.getBoundingClientRect();
 
-    const left = Math.max(rect.left, 0);
-    const right = Math.min(rect.right, window.innerWidth);
-    const top = Math.max(rect.top, 0);
-    const bottom = Math.min(rect.bottom, window.innerHeight);
-
-    const width = Math.max(0, right - left);
-    const height = Math.max(0, bottom - top);
-    return { x: left, y: top, width, height };
+    // Use the element's actual bounding box relative to the viewport without
+    // clamping to the window dimensions. This allows BrowserViews to slide
+    // underneath fixed panels instead of shrinking when partially off screen.
+    return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height
+    };
 }
 
 function updateBrowserBoundsForDisplay(displayId) {
