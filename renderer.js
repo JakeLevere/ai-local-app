@@ -929,6 +929,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         domElements.deckList,
                         domElements.chatLog
                     ]);
+                    // Recalculate bounds for any active BrowserViews now that
+                    // the layout has expanded after login
+                    updateAllBrowserBounds();
                     if (domElements.userInput) {
                         domElements.userInput.focus();
                         domElements.userInput.select();
