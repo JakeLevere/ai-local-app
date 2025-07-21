@@ -57,6 +57,7 @@ function cacheDomElements() {
         slideTabs: document.getElementById('slide-tabs'),
         deckContainer: document.getElementById('deck-container'),
         deckIconsContainer: document.getElementById('deck-icons'),
+        programMaker: document.getElementById('program-maker'),
         programDescription: document.getElementById('program-description'),
         programOutput: document.getElementById('program-output'),
         generateProgramBtn: document.getElementById('generate-program'),
@@ -360,6 +361,19 @@ function handleGenerateProgram() {
 
 function setupProgramMaker() {
     domElements.generateProgramBtn?.addEventListener('click', handleGenerateProgram);
+    if (domElements.programMaker) {
+        domElements.programMaker.addEventListener('click', (e) => {
+            const maker = domElements.programMaker;
+            if (!maker) return;
+            if (maker.classList.contains('collapsed')) {
+                maker.classList.remove('collapsed');
+                updateAllBrowserBounds();
+            } else if (e.target.tagName === 'H2') {
+                maker.classList.add('collapsed');
+                updateAllBrowserBounds();
+            }
+        });
+    }
     window.electronAPI.on('program-generated', (files) => {
         if (!domElements.programOutput) return;
         domElements.programOutput.innerHTML = '';
