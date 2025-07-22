@@ -135,6 +135,14 @@
         const electron = window.electron || (window.parent && window.parent.electronAPI);
         const displayId = window.frameElement ? window.frameElement.dataset.displayId : null;
 
+        const sendNavigate = (targetUrl) => {
+            if (displayId) {
+                electron.send('navigate-to-url', { displayId, url: targetUrl });
+            } else {
+                electron.send('navigate-to-url', targetUrl);
+            }
+        };
+
         let tabs = [{ url: 'https://www.google.com', id: 0 }];
         let activeTab = 0;
 
@@ -147,7 +155,7 @@
                 activeTab = Math.min(activeTab, tabs.length - 1);
             }
             if (wasActive && tabs[activeTab]) {
-                electron.send('navigate-to-url', tabs[activeTab].url);
+                sendNavigate(tabs[activeTab].url);
             }
             renderTabs();
         };
@@ -170,7 +178,7 @@
                 tab.appendChild(close);
                 tab.onclick = () => {
                     activeTab = idx;
-                    electron.send('navigate-to-url', tabs[activeTab].url);
+                    sendNavigate(tabs[activeTab].url);
                     renderTabs();
                 };
                 tabBar.appendChild(tab);
@@ -181,7 +189,7 @@
             add.onclick = () => {
                 tabs.push({ url: 'https://www.google.com', id: tabs.length });
                 activeTab = tabs.length - 1;
-                electron.send('navigate-to-url', tabs[activeTab].url);
+                sendNavigate(tabs[activeTab].url);
                 renderTabs();
             };
             tabBar.appendChild(add);
@@ -191,7 +199,7 @@
             const url = urlInput.value.trim();
             if (url) {
                 tabs[activeTab].url = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-                electron.send('navigate-to-url', tabs[activeTab].url);
+                sendNavigate(tabs[activeTab].url);
                 renderTabs();
             }
         };
@@ -234,7 +242,9 @@
             if (e.key === 'Enter') setZoom();
         });
 
-        electron.receive('page-did-finish-load', (url) => {
+        electron.receive('page-did-finish-load', (data) => {
+            const { displayId: targetId, url } = typeof data === 'string' ? { url: data } : data || {};
+            if (displayId && targetId && targetId !== displayId) return;
             tabs[activeTab].url = url;
             urlInput.value = url;
             renderTabs();

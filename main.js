@@ -209,10 +209,12 @@ async function launchBrowser() {
     });
 
     // --- IPC Communication Scoped to this Browser Window ---
-    const navigateHandler = (event, url) => {
+    const navigateHandler = (event, arg) => {
         // Ensure the event is coming from our browser window
-        if (event.sender === browserWindow.webContents) {
-            const prefixedUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+        if (event.sender !== browserWindow.webContents) return;
+        const targetUrl = typeof arg === 'string' ? arg : (arg && arg.url);
+        if (typeof targetUrl === 'string') {
+            const prefixedUrl = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
             view.webContents.loadURL(prefixedUrl);
         }
     };
@@ -435,16 +437,27 @@ function launchBrowserOverlay(bounds, displayId) {
     view.webContents.loadURL('https://www.google.com');
     view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
 
-    const navigateHandler = (event, url) => {
-        const prefixed = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-        view.webContents.loadURL(prefixed);
+    const navigateHandler = (event, arg) => {
+        let targetId = null;
+        let targetUrl = null;
+        if (typeof arg === 'string') {
+            targetUrl = arg;
+        } else if (arg && typeof arg === 'object') {
+            targetId = arg.displayId || null;
+            targetUrl = arg.url;
+        }
+        if (targetId && targetId !== displayId) return;
+        if (typeof targetUrl === 'string') {
+            const prefixed = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
+            view.webContents.loadURL(prefixed);
+        }
     };
     ipcMain.on('navigate-to-url', navigateHandler);
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
         appendWebsiteHistory(url);
-        sendToRenderer('page-did-finish-load', url);
+        sendToRenderer('page-did-finish-load', { displayId, url });
     });
 
     browserViews[displayId] = {
