@@ -789,7 +789,8 @@ function setupIpcListeners() {
                                 y: Math.round(bounds.y),
                                 width: Math.round(bounds.width),
                                 height: Math.round(bounds.height)
-                            }
+                            },
+                            url: info.url
                         });
                         activeBrowserDisplays[id] = true;
                         const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
