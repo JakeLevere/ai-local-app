@@ -146,6 +146,31 @@
         let tabs = [{ url: 'https://www.google.com', id: 0 }];
         let activeTab = 0;
 
+        const storageKey = displayId ? `browser-tabs-${displayId}` : 'browser-tabs';
+
+        const loadTabs = () => {
+            try {
+                const data = localStorage.getItem(storageKey);
+                if (data) {
+                    const state = JSON.parse(data);
+                    if (Array.isArray(state.tabs) && state.tabs.length) {
+                        tabs = state.tabs;
+                        activeTab = Math.min(Math.max(0, state.activeTab || 0), tabs.length - 1);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load saved tabs:', err);
+            }
+        };
+
+        const saveTabs = () => {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify({ tabs, activeTab }));
+            } catch (err) {
+                console.error('Failed to save tabs:', err);
+            }
+        };
+
         const removeTab = (idx) => {
             const wasActive = idx === activeTab;
             tabs.splice(idx, 1);
@@ -193,6 +218,7 @@
                 renderTabs();
             };
             tabBar.appendChild(add);
+            saveTabs();
         };
 
         const navigate = () => {
@@ -251,6 +277,7 @@
         });
 
         // initial render
+        loadTabs();
         renderTabs();
     </script>
 </body>
