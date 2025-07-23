@@ -302,9 +302,9 @@ async function createWindow(serverUrl) {
     
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
-    ipcMain.on('launch-browser', (event, { displayId, bounds }) => {
+    ipcMain.on('launch-browser', (event, { displayId, bounds, url }) => {
         console.log('[Main Process] Launching browser view...');
-        launchBrowserOverlay(bounds, displayId);
+        launchBrowserOverlay(bounds, displayId, url);
     });
 
     ipcMain.on('update-browser-bounds', (event, { displayId, bounds }) => {
@@ -385,7 +385,7 @@ async function createWindow(serverUrl) {
 }
 
 // Create a BrowserView overlayed on the main window for a given display
-function launchBrowserOverlay(bounds, displayId) {
+function launchBrowserOverlay(bounds, displayId, initialUrl) {
     if (!mainWindow || !bounds) return;
 
     const existing = browserViews[displayId];
@@ -434,7 +434,8 @@ function launchBrowserOverlay(bounds, displayId) {
     // disabled so the view stays confined to its panel size.
     view.setAutoResize({ width: false, height: false });
 
-    view.webContents.loadURL('https://www.google.com');
+    const startUrl = initialUrl || 'https://www.google.com';
+    view.webContents.loadURL(startUrl);
     view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
 
     const navigateHandler = (event, arg) => {
@@ -458,6 +459,7 @@ function launchBrowserOverlay(bounds, displayId) {
         const url = view.webContents.getURL();
         appendWebsiteHistory(url);
         sendToRenderer('page-did-finish-load', { displayId, url });
+        persistBrowserUrl(displayId, url);
     });
 
     browserViews[displayId] = {
@@ -567,5 +569,19 @@ async function appendWebsiteHistory(url) {
         await fs.appendFile(websiteHistoryFile, entry, 'utf-8');
     } catch (err) {
         console.error('Error appending website history:', err);
+    }
+}
+
+async function persistBrowserUrl(displayId, url) {
+    if (!displayId || !url) return;
+    try {
+        const current = await sharedDataService.getOpenDisplays();
+        const entry = current[displayId];
+        if (entry && entry.program === 'browser') {
+            current[displayId].url = url;
+            await sharedDataService.setOpenDisplays(current);
+        }
+    } catch (err) {
+        console.error('Error persisting browser URL:', err);
     }
 }
