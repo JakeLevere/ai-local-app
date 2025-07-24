@@ -1,5 +1,5 @@
 // main.js
-const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron'); // <--- Added BrowserView and ipcMain
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
 const extract = require('extract-zip');
@@ -166,6 +166,82 @@ async function loadInstalledExtensions() {
         }
     } catch (err) {
         console.error('Failed to read extensions directory:', err);
+    }
+}
+
+async function installExtensionViaDialog() {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ['openFile', 'openDirectory'],
+        filters: [{ name: 'Chrome Extension', extensions: ['zip'] }]
+    });
+    if (canceled || !filePaths || filePaths.length === 0) return null;
+    const source = filePaths[0];
+    return installExtensionFromSource(source);
+}
+
+async function installExtensionFromSource(source) {
+    let dest;
+    try {
+        if (source.toLowerCase().endsWith('.zip')) {
+            const name = path.basename(source, '.zip');
+            dest = path.join(extensionsPath, name);
+            await fs.rm(dest, { recursive: true, force: true });
+            await fs.mkdir(dest, { recursive: true });
+            await extract(source, { dir: dest });
+        } else {
+            const name = path.basename(source);
+            dest = path.join(extensionsPath, name);
+            await fs.rm(dest, { recursive: true, force: true });
+            await fs.mkdir(dest, { recursive: true });
+            await fs.cp(source, dest, { recursive: true });
+        }
+        const ext = await session.defaultSession.loadExtension(dest, { allowFileAccess: true });
+        return { id: ext.id, name: ext.name };
+    } catch (err) {
+        console.error('Failed to install extension:', err);
+        return null;
+    }
+}
+
+function openExtensionOptionsWindow(id) {
+    try {
+        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
+        const ext = all[id];
+        if (!ext) return;
+        const page = (ext.manifest.options_ui && ext.manifest.options_ui.page) || ext.manifest.options_page;
+        if (!page) return;
+        const url = `chrome-extension://${id}/${page}`;
+        const optWin = new BrowserWindow({
+            width: 600,
+            height: 600,
+            webPreferences: { nodeIntegration: false, contextIsolation: true }
+        });
+        optWin.removeMenu();
+        optWin.loadURL(url);
+    } catch (err) {
+        console.error('Failed to open extension options:', err);
+    }
+}
+
+async function showExtensionMenu() {
+    try {
+        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
+        const exts = Object.values(all);
+        const template = [
+            {
+                label: 'Install Extension...',
+                click: async () => { await installExtensionViaDialog(); }
+            },
+            ...exts.map(ext => ({
+                label: ext.name,
+                enabled: !!(ext.manifest.options_ui || ext.manifest.options_page),
+                click: () => openExtensionOptionsWindow(ext.id)
+            }))
+        ];
+        const menu = Menu.buildFromTemplate(template);
+        menu.popup({ window: BrowserWindow.getFocusedWindow() || mainWindow });
+    } catch (err) {
+        console.error('Failed to show extension menu:', err);
     }
 }
 
@@ -344,33 +420,7 @@ async function createWindow(serverUrl) {
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
 
     ipcMain.handle('install-extension', async () => {
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile', 'openDirectory'],
-            filters: [{ name: 'Chrome Extension', extensions: ['zip'] }]
-        });
-        if (canceled || !filePaths || filePaths.length === 0) return null;
-        const source = filePaths[0];
-        let dest;
-        try {
-            if (source.toLowerCase().endsWith('.zip')) {
-                const name = path.basename(source, '.zip');
-                dest = path.join(extensionsPath, name);
-                await fs.rm(dest, { recursive: true, force: true });
-                await fs.mkdir(dest, { recursive: true });
-                await extract(source, { dir: dest });
-            } else {
-                const name = path.basename(source);
-                dest = path.join(extensionsPath, name);
-                await fs.rm(dest, { recursive: true, force: true });
-                await fs.mkdir(dest, { recursive: true });
-                await fs.cp(source, dest, { recursive: true });
-            }
-            const ext = await session.defaultSession.loadExtension(dest, { allowFileAccess: true });
-            return { id: ext.id, name: ext.name };
-        } catch (err) {
-            console.error('Failed to install extension:', err);
-            return null;
-        }
+        return installExtensionViaDialog();
     });
 
     ipcMain.handle('get-installed-extensions', () => {
@@ -379,23 +429,11 @@ async function createWindow(serverUrl) {
     });
 
     ipcMain.on('open-extension-options', (event, id) => {
-        try {
-            const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
-            const ext = all[id];
-            if (!ext) return;
-            const page = (ext.manifest.options_ui && ext.manifest.options_ui.page) || ext.manifest.options_page;
-            if (!page) return;
-            const url = `chrome-extension://${id}/${page}`;
-            const optWin = new BrowserWindow({
-                width: 600,
-                height: 600,
-                webPreferences: { nodeIntegration: false, contextIsolation: true }
-            });
-            optWin.removeMenu();
-            optWin.loadURL(url);
-        } catch (err) {
-            console.error('Failed to open extension options:', err);
-        }
+        openExtensionOptionsWindow(id);
+    });
+
+    ipcMain.handle('show-extension-menu', async () => {
+        await showExtensionMenu();
     });
     
     // --- ADDED: IPC Listener to launch the browser ---

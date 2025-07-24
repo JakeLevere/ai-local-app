@@ -89,24 +89,6 @@
         .nav-button:hover {
             background: var(--secondary-bg);
         }
-        #extension-dropdown {
-            position: absolute;
-            background: var(--secondary-bg);
-            border: 1px solid var(--border-color);
-            padding: 4px 0;
-            min-width: 160px;
-            z-index: 1000;
-            display: none;
-        }
-        .dropdown-item {
-            padding: 4px 12px;
-            cursor: pointer;
-            color: var(--text-color);
-            font-size: 12px;
-        }
-        .dropdown-item:hover {
-            background: var(--primary-bg);
-        }
         #go-button {
             padding: 4px 12px;
             background: var(--accent-color);
@@ -146,7 +128,6 @@
         <button id="go-button">Go</button>
         <input id="zoom-input" type="number" min="50" max="200" value="55" title="Zoom %" style="width:60px;">
         <button id="extension-button" class="nav-button" title="Extensions">Ext</button>
-        <div id="extension-dropdown"></div>
     </div>
     <div id="content-placeholder"></div>
 
@@ -245,51 +226,9 @@
             }
         });
 
-        const dropdown = document.getElementById('extension-dropdown');
-
-        const populateDropdown = async () => {
-            const exts = await electron.invoke('get-installed-extensions');
-            dropdown.innerHTML = '';
-            const installItem = document.createElement('div');
-            installItem.textContent = 'Install Extension';
-            installItem.className = 'dropdown-item';
-            installItem.onclick = async () => {
-                const result = await electron.invoke('install-extension');
-                if (result && result.name) alert(`Installed: ${result.name}`);
-                dropdown.style.display = 'none';
-            };
-            dropdown.appendChild(installItem);
-            exts.forEach(ext => {
-                const item = document.createElement('div');
-                item.textContent = ext.name;
-                item.className = 'dropdown-item';
-                item.onclick = () => {
-                    if (ext.hasOptions) {
-                        electron.send('open-extension-options', ext.id);
-                    }
-                    dropdown.style.display = 'none';
-                };
-                dropdown.appendChild(item);
-            });
-        };
-
         extensionButton.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (dropdown.style.display === 'block') {
-                dropdown.style.display = 'none';
-                return;
-            }
-            await populateDropdown();
-            const rect = extensionButton.getBoundingClientRect();
-            dropdown.style.left = `${rect.left}px`;
-            dropdown.style.top = `${rect.bottom}px`;
-            dropdown.style.display = 'block';
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!extensionButton.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
+            await electron.invoke('show-extension-menu');
         });
 
         const setZoom = () => {
