@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('electron', {
         }
     },
     invoke: (channel, data) => {
-        const validChannels = ['install-extension', 'get-installed-extensions'];
+        const validChannels = ['install-extension', 'get-installed-extensions', 'show-extension-menu'];
         if (validChannels.includes(channel)) {
             return ipcRenderer.invoke(channel, data);
         }
