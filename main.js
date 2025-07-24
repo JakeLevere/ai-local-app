@@ -1,8 +1,7 @@
 // main.js
-const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, Menu } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
-const extract = require('extract-zip');
 // Load IPC handlers from the project root
 const initializeIpcHandlers = require('./ipcHandlers');
 const express = require('express');
@@ -29,7 +28,6 @@ const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
 const calendarPath = path.join(dataDir, 'Calendar');
-const extensionsPath = path.join(dataDir, 'Extensions');
 const websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
 const websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
 
@@ -136,12 +134,6 @@ async function createUserDataDirectories() {
         console.error('Error preparing calendar directory:', err);
     }
     try {
-        await fs.mkdir(extensionsPath, { recursive: true });
-        console.log('Extensions directory ensured:', extensionsPath);
-    } catch (err) {
-        console.error('Error preparing extensions directory:', err);
-    }
-    try {
         await fs.mkdir(websiteHistoryPath, { recursive: true });
         await fs.writeFile(websiteHistoryFile, '', { flag: 'a' });
         console.log('Website history ensured:', websiteHistoryFile);
@@ -150,185 +142,6 @@ async function createUserDataDirectories() {
     }
 }
 
-async function loadInstalledExtensions() {
-    try {
-        const items = await fs.readdir(extensionsPath, { withFileTypes: true });
-        for (const item of items) {
-            if (item.isDirectory()) {
-                const extDir = path.join(extensionsPath, item.name);
-                try {
-                    const ext = await session.defaultSession.loadExtension(extDir, { allowFileAccess: true });
-                    console.log('Loaded extension:', ext.name);
-                } catch (err) {
-                    console.error('Failed to load extension', item.name, err);
-                }
-            }
-        }
-    } catch (err) {
-        console.error('Failed to read extensions directory:', err);
-    }
-}
-
-async function installExtensionViaDialog(targetWebContents = null) {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        properties: ['openFile', 'openDirectory'],
-        filters: [{ name: 'Chrome Extension', extensions: ['zip', 'crx'] }]
-    });
-    if (canceled || !filePaths || filePaths.length === 0) return null;
-    const source = filePaths[0];
-    if (targetWebContents) {
-        sendToWebContents(targetWebContents, 'extension-install-start');
-    } else {
-        sendToRenderer('extension-install-start');
-    }
-    const result = await installExtensionFromSource(source);
-    if (result) {
-        if (targetWebContents) {
-            sendToWebContents(targetWebContents, 'extension-install-complete', result);
-        } else {
-            sendToRenderer('extension-install-complete', result);
-        }
-    } else {
-        if (targetWebContents) {
-            sendToWebContents(targetWebContents, 'extension-install-failed');
-        } else {
-            sendToRenderer('extension-install-failed');
-        }
-    }
-    return result;
-}
-
-async function findArchiveInDirectory(dir) {
-    try {
-        const items = await fs.readdir(dir);
-        for (const item of items) {
-            const lower = item.toLowerCase();
-            if (lower.endsWith('.zip') || lower.endsWith('.crx')) {
-                return path.join(dir, item);
-            }
-        }
-    } catch {}
-    return null;
-}
-
-async function installExtensionFromSource(source) {
-    let dest;
-    try {
-        // If a directory is provided, look inside for an extension archive
-        if (!source.toLowerCase().endsWith('.zip') && !source.toLowerCase().endsWith('.crx')) {
-            try {
-                const stat = await fs.stat(source);
-                if (stat.isDirectory()) {
-                    const found = await findArchiveInDirectory(source);
-                    if (found) source = found;
-                }
-            } catch {}
-        }
-        if (source.toLowerCase().endsWith('.zip') || source.toLowerCase().endsWith('.crx')) {
-            const name = path.basename(source, path.extname(source));
-            dest = path.join(extensionsPath, name);
-            await fs.rm(dest, { recursive: true, force: true });
-            await fs.mkdir(dest, { recursive: true });
-            await extract(source, { dir: dest });
-
-            try {
-                await fs.access(path.join(dest, 'manifest.json'));
-            } catch {
-                const items = await fs.readdir(dest);
-                if (items.length === 1) {
-                    const maybeDir = path.join(dest, items[0]);
-                    const stat = await fs.stat(maybeDir);
-                    if (stat.isDirectory()) {
-                        dest = maybeDir;
-                    }
-                }
-            }
-        } else {
-            const name = path.basename(source);
-            dest = path.join(extensionsPath, name);
-            await fs.rm(dest, { recursive: true, force: true });
-            await fs.mkdir(dest, { recursive: true });
-            await fs.cp(source, dest, { recursive: true });
-        }
-        const ext = await session.defaultSession.loadExtension(dest, { allowFileAccess: true });
-        return { id: ext.id, name: ext.name };
-    } catch (err) {
-        console.error('Failed to install extension:', err);
-        return null;
-    }
-}
-
-function openExtensionOptionsWindow(id) {
-    try {
-        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
-        const ext = all[id];
-        if (!ext) return;
-        const page = (ext.manifest.options_ui && ext.manifest.options_ui.page) || ext.manifest.options_page;
-        if (!page) return;
-        const url = `chrome-extension://${id}/${page}`;
-        const optWin = new BrowserWindow({
-            width: 600,
-            height: 600,
-            webPreferences: { nodeIntegration: false, contextIsolation: true }
-        });
-        optWin.removeMenu();
-        optWin.loadURL(url);
-    } catch (err) {
-        console.error('Failed to open extension options:', err);
-    }
-}
-
-async function uninstallExtension(id) {
-    try {
-        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
-        const ext = all[id];
-        if (!ext) return false;
-        if (session.defaultSession.removeExtension) {
-            try { session.defaultSession.removeExtension(id); } catch {}
-        }
-        if (ext.path) {
-            try { await fs.rm(ext.path, { recursive: true, force: true }); } catch {}
-        }
-        return true;
-    } catch (err) {
-        console.error('Failed to uninstall extension:', err);
-        return false;
-    }
-}
-
-async function showExtensionMenu(senderWebContents) {
-    try {
-        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
-        const exts = Object.values(all);
-        const template = [
-            {
-                label: 'Install Extension...',
-                click: async () => { await installExtensionViaDialog(senderWebContents); }
-            },
-            ...exts.map(ext => ({
-                label: ext.name,
-                submenu: [
-                    {
-                        label: 'Options',
-                        enabled: !!(ext.manifest.options_ui || ext.manifest.options_page),
-                        click: () => openExtensionOptionsWindow(ext.id)
-                    },
-                    {
-                        label: 'Uninstall',
-                        click: async () => {
-                            await uninstallExtension(ext.id);
-                            if (senderWebContents) senderWebContents.send('extension-uninstalled', ext.id);
-                        }
-                    }
-                ]
-            }))
-        ];
-        const menu = Menu.buildFromTemplate(template);
-        menu.popup({ window: BrowserWindow.getFocusedWindow() || mainWindow });
-    } catch (err) {
-        console.error('Failed to show extension menu:', err);
-    }
-}
 
 // --- NEW BROWSERVIEW FUNCTION ---
 // This function creates a new, separate window for the browser.
@@ -504,22 +317,6 @@ async function createWindow(serverUrl) {
     // Initialize your existing IPC handlers
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
 
-    ipcMain.handle('install-extension', async () => {
-        return installExtensionViaDialog();
-    });
-
-    ipcMain.handle('get-installed-extensions', () => {
-        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
-        return Object.values(all).map(e => ({ id: e.id, name: e.name, hasOptions: !!(e.manifest.options_ui || e.manifest.options_page) }));
-    });
-
-    ipcMain.on('open-extension-options', (event, id) => {
-        openExtensionOptionsWindow(id);
-    });
-
-    ipcMain.handle('show-extension-menu', async (event) => {
-        await showExtensionMenu(event.sender);
-    });
     
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
@@ -795,7 +592,6 @@ function showBrowserOverlay(displayId) {
 app.whenReady().then(async () => {
     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories();
-    await loadInstalledExtensions();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
     setupAdBlocker();
 

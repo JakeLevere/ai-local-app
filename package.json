@@ -35,7 +35,6 @@
     "node-fetch": "^3.3.2",
     "openai": "^4.91.0",
     "sharp": "^0.33.5",
-    "sqlite3": "^5.1.7",
-    "extract-zip": "^2.0.1"
+    "sqlite3": "^5.1.7"
   }
 }
