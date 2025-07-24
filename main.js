@@ -1,5 +1,5 @@
 // main.js
-const { app, BrowserWindow, BrowserView, ipcMain } = require('electron'); // <--- Added BrowserView and ipcMain
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron'); // <--- Added BrowserView and ipcMain
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
 // Load IPC handlers from the project root
@@ -28,6 +28,7 @@ const decksPath = path.join(dataDir, 'Decks');
 const imagesPath = path.join(dataDir, 'Images');
 const videosPath = path.join(dataDir, 'Videos');
 const calendarPath = path.join(dataDir, 'Calendar');
+const extensionsPath = path.join(dataDir, 'Extensions');
 const websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
 const websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
 
@@ -134,11 +135,36 @@ async function createUserDataDirectories() {
         console.error('Error preparing calendar directory:', err);
     }
     try {
+        await fs.mkdir(extensionsPath, { recursive: true });
+        console.log('Extensions directory ensured:', extensionsPath);
+    } catch (err) {
+        console.error('Error preparing extensions directory:', err);
+    }
+    try {
         await fs.mkdir(websiteHistoryPath, { recursive: true });
         await fs.writeFile(websiteHistoryFile, '', { flag: 'a' });
         console.log('Website history ensured:', websiteHistoryFile);
     } catch (err) {
         console.error('Error preparing website history directory:', err);
+    }
+}
+
+async function loadInstalledExtensions() {
+    try {
+        const items = await fs.readdir(extensionsPath, { withFileTypes: true });
+        for (const item of items) {
+            if (item.isDirectory()) {
+                const extDir = path.join(extensionsPath, item.name);
+                try {
+                    const ext = await session.defaultSession.loadExtension(extDir, { allowFileAccess: true });
+                    console.log('Loaded extension:', ext.name);
+                } catch (err) {
+                    console.error('Failed to load extension', item.name, err);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Failed to read extensions directory:', err);
     }
 }
 
@@ -315,6 +341,23 @@ async function createWindow(serverUrl) {
 
     // Initialize your existing IPC handlers
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
+
+    ipcMain.handle('install-extension', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+        if (canceled || !filePaths || filePaths.length === 0) return null;
+        const source = filePaths[0];
+        const name = path.basename(source);
+        const dest = path.join(extensionsPath, name);
+        try {
+            await fs.mkdir(dest, { recursive: true });
+            await fs.cp(source, dest, { recursive: true });
+            const ext = await session.defaultSession.loadExtension(dest, { allowFileAccess: true });
+            return { id: ext.id, name: ext.name };
+        } catch (err) {
+            console.error('Failed to install extension:', err);
+            return null;
+        }
+    });
     
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
@@ -590,6 +633,7 @@ function showBrowserOverlay(displayId) {
 app.whenReady().then(async () => {
     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories();
+    await loadInstalledExtensions();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
     setupAdBlocker();
 

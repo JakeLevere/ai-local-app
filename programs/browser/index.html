@@ -127,6 +127,7 @@
         <input id="url-input" type="text" placeholder="Enter URL...">
         <button id="go-button">Go</button>
         <input id="zoom-input" type="number" min="50" max="200" value="55" title="Zoom %" style="width:60px;">
+        <button id="extension-button" class="nav-button" title="Install Extension">Ext</button>
     </div>
     <div id="content-placeholder"></div>
 
@@ -136,6 +137,7 @@
         const zoomInput = document.getElementById('zoom-input');
         const backButton = document.getElementById('back-button');
         const forwardButton = document.getElementById('forward-button');
+        const extensionButton = document.getElementById('extension-button');
         const tabBar = document.getElementById('tab-bar');
 
         const electron = window.electron || (window.parent && window.parent.electronAPI);
@@ -221,6 +223,13 @@
                 electron.send('browser-go-forward', displayId);
             } else {
                 electron.send('browser-go-forward');
+            }
+        });
+
+        extensionButton.addEventListener('click', async () => {
+            const result = await electron.invoke('install-extension');
+            if (result && result.name) {
+                alert(`Installed extension: ${result.name}`);
             }
         });
 
