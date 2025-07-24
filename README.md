@@ -61,8 +61,9 @@ The build output will be placed in the `dist` directory.
 ## Browser Extensions
 
 The built-in browser supports installing Chrome extensions. Click the **Ext** button
-and choose a `.zip` or `.crx` file. If the archive contains a single folder, the
-installer now detects this and loads the extension correctly.
+and choose a `.zip` or `.crx` file to install a new extension. If the archive contains a
+single folder, the installer detects this and loads the extension correctly. Right click
+the **Ext** button to access options for already installed extensions.
 
 ## License
 
