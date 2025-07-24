@@ -172,7 +172,7 @@ async function loadInstalledExtensions() {
 async function installExtensionViaDialog(targetWebContents = null) {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile', 'openDirectory'],
-        filters: [{ name: 'Chrome Extension', extensions: ['zip'] }]
+        filters: [{ name: 'Chrome Extension', extensions: ['zip', 'crx'] }]
     });
     if (canceled || !filePaths || filePaths.length === 0) return null;
     const source = filePaths[0];
@@ -201,12 +201,25 @@ async function installExtensionViaDialog(targetWebContents = null) {
 async function installExtensionFromSource(source) {
     let dest;
     try {
-        if (source.toLowerCase().endsWith('.zip')) {
-            const name = path.basename(source, '.zip');
+        if (source.toLowerCase().endsWith('.zip') || source.toLowerCase().endsWith('.crx')) {
+            const name = path.basename(source, path.extname(source));
             dest = path.join(extensionsPath, name);
             await fs.rm(dest, { recursive: true, force: true });
             await fs.mkdir(dest, { recursive: true });
             await extract(source, { dir: dest });
+
+            try {
+                await fs.access(path.join(dest, 'manifest.json'));
+            } catch {
+                const items = await fs.readdir(dest);
+                if (items.length === 1) {
+                    const maybeDir = path.join(dest, items[0]);
+                    const stat = await fs.stat(maybeDir);
+                    if (stat.isDirectory()) {
+                        dest = maybeDir;
+                    }
+                }
+            }
         } else {
             const name = path.basename(source);
             dest = path.join(extensionsPath, name);
