@@ -1,0 +1,14 @@
+const { setupAdBlocker, AD_BLOCK_PATTERNS } = require('../adBlocker');
+
+describe('adBlocker', () => {
+  test('setupAdBlocker registers webRequest handler', () => {
+    const mockSession = {
+      webRequest: { onBeforeRequest: jest.fn() }
+    };
+    setupAdBlocker(mockSession);
+    expect(mockSession.webRequest.onBeforeRequest).toHaveBeenCalledWith(
+      { urls: AD_BLOCK_PATTERNS },
+      expect.any(Function)
+    );
+  });
+});
