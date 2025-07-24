@@ -165,7 +165,7 @@ async function launchBrowser() {
     // Intercept window.open calls from within the BrowserView
     view.webContents.setWindowOpenHandler(({ url }) => {
         if (!isUrlSafe(url)) {
-            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+            sendToRenderer('main-process-warning', `Blocked unsafe popup URL: ${url}`);
             return { action: 'deny' };
         }
         const popup = new BrowserWindow({
@@ -418,7 +418,7 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
     // Intercept attempts to open a new window from within the view
     view.webContents.setWindowOpenHandler(({ url }) => {
         if (!isUrlSafe(url)) {
-            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+            sendToRenderer('main-process-warning', `Blocked unsafe popup URL: ${url}`);
             return { action: 'deny' };
         }
         const popup = new BrowserWindow({
