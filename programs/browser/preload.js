@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
     // Function to receive data from main to renderer
     receive: (channel, func) => {
-        const validChannels = ['page-did-finish-load'];
+        const validChannels = ['page-did-finish-load', 'extension-install-start', 'extension-install-complete', 'extension-install-failed'];
         if (validChannels.includes(channel)) {
             // Deliberately strip event as it includes `sender`
             ipcRenderer.on(channel, (event, ...args) => func(...args));

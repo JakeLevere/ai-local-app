@@ -176,7 +176,14 @@ async function installExtensionViaDialog() {
     });
     if (canceled || !filePaths || filePaths.length === 0) return null;
     const source = filePaths[0];
-    return installExtensionFromSource(source);
+    sendToRenderer('extension-install-start');
+    const result = await installExtensionFromSource(source);
+    if (result) {
+        sendToRenderer('extension-install-complete', result);
+    } else {
+        sendToRenderer('extension-install-failed');
+    }
+    return result;
 }
 
 async function installExtensionFromSource(source) {
