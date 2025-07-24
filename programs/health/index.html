@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Health Monitor</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Health Monitor</title>
+<!-- Tailwind CSS for styling -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js for data visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
         /* Custom scrollbar for a better dark mode experience */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -19,235 +20,48 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 font-sans flex h-full overflow-hidden">
 
-    <!-- Left Sidebar for Reports and Inputs -->
-    <aside class="h-full flex-none bg-gray-800 p-4 flex flex-col space-y-4" style="width:20%">
-        <!-- Weight Input Section -->
-        <div>
-            <h2 class="text-lg font-bold mb-2 text-cyan-400">Log Daily Weight</h2>
-            <div class="flex items-center space-x-2">
-                <input type="number" id="weightInput" placeholder="Enter weight..." class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 w-full focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm">
-                <button id="logWeightBtn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-2 rounded-md transition-colors text-sm">Log</button>
-            </div>
-        </div>
-
-        <!-- Health Reports Section -->
-        <div class="flex-grow flex flex-col">
-            <h2 class="text-lg font-bold mb-2 text-cyan-400">Health Reports</h2>
-            <div class="flex-grow bg-gray-900/50 rounded-lg p-2">
-                <ul id="reportList" class="space-y-2">
-                    <!-- Report items will be dynamically inserted here -->
-                </ul>
-            </div>
-            <button id="uploadReportBtn" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors w-full">
-                Upload New Report (PDF)
-            </button>
-        </div>
-    </aside>
-
-    <!-- Main Content Area for Dashboard -->
-    <main class="flex-grow h-full p-4 flex flex-col space-y-4" style="width:80%">
-        <h1 class="text-xl font-bold text-white">Health Dashboard</h1>
-
-        <!-- Health Metrics Cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
-            <!-- Blood Pressure Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
-                <h3 class="font-bold text-rose-400 text-center">Blood Pressure</h3>
-                <input type="text" id="bpInput" placeholder="e.g., 120/80" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
-            </div>
-            <!-- Cholesterol Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
-                <h3 class="font-bold text-amber-400 text-center">Total Cholesterol</h3>
-                <input type="text" id="cholesterolInput" placeholder="e.g., 190 mg/dL" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
-            </div>
-            <!-- Blood Sugar Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
-                <h3 class="font-bold text-lime-400 text-center">Blood Sugar</h3>
-                <input type="text" id="sugarInput" placeholder="e.g., 95 mg/dL" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
-            </div>
-            <!-- Heart Rate Card -->
-            <div class="bg-gray-800 p-2 rounded-lg shadow-lg aspect-square flex flex-col items-center justify-center">
-                <h3 class="font-bold text-violet-400 text-center">Resting Heart Rate</h3>
-                <input type="text" id="hrInput" placeholder="e.g., 65 bpm" class="text-xs font-light bg-gray-700 rounded mt-1 px-1 py-0.5 w-full text-center focus:outline-none">
-            </div>
-        </div>
-
-        <!-- Weight Chart -->
-        <div class="bg-gray-800 p-4 rounded-lg shadow-lg h-40 flex-grow">
-            <canvas id="weightChart" class="w-full h-full"></canvas>
-        </div>
-    </main>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- STATE MANAGEMENT ---
-            let healthData = {
-                weightLog: [], // [{ date: 'YYYY-MM-DD', weight: 80 }, ...]
-                metrics: {
-                    bloodPressure: '',
-                    cholesterol: '',
-                    bloodSugar: '',
-                    heartRate: '',
-                }
-            };
-            let weightChartInstance = null;
-
-            // --- DOM ELEMENTS ---
-            const weightInput = document.getElementById('weightInput');
-            const logWeightBtn = document.getElementById('logWeightBtn');
-            const uploadReportBtn = document.getElementById('uploadReportBtn');
-            const reportList = document.getElementById('reportList');
-            const bpInput = document.getElementById('bpInput');
-            const cholesterolInput = document.getElementById('cholesterolInput');
-            const sugarInput = document.getElementById('sugarInput');
-            const hrInput = document.getElementById('hrInput');
-
-            // --- DATA PERSISTENCE ---
-            const saveHealthData = () => {
-                // Update state from metric inputs before saving
-                healthData.metrics.bloodPressure = bpInput.value;
-                healthData.metrics.cholesterol = cholesterolInput.value;
-                healthData.metrics.bloodSugar = sugarInput.value;
-                healthData.metrics.heartRate = hrInput.value;
-                window.electronAPI.saveHealthData(JSON.stringify(healthData, null, 2));
-            };
-
-            const loadHealthData = async () => {
-                const dataString = await window.electronAPI.loadHealthData();
-                if (dataString) {
-                    healthData = JSON.parse(dataString);
-                    // Ensure nested objects exist
-                    healthData.weightLog = healthData.weightLog || [];
-                    healthData.metrics = healthData.metrics || {};
-                }
-                updateUIAfterLoad();
-            };
-            
-            const updateUIAfterLoad = () => {
-                // Populate metric inputs
-                bpInput.value = healthData.metrics.bloodPressure || '';
-                cholesterolInput.value = healthData.metrics.cholesterol || '';
-                sugarInput.value = healthData.metrics.bloodSugar || '';
-                hrInput.value = healthData.metrics.heartRate || '';
-                // Render the chart
-                renderWeightChart();
-            };
-
-            // --- CHART RENDERING ---
-            const renderWeightChart = () => {
-                const ctx = document.getElementById('weightChart').getContext('2d');
-                
-                // Sort data by date just in case
-                const sortedData = [...healthData.weightLog].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                if (weightChartInstance) {
-                    weightChartInstance.destroy();
-                }
-                
-                weightChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: [{
-                            label: 'Weight',
-                            data: sortedData.map(entry => ({ x: entry.date, y: entry.weight })),
-                            borderColor: 'rgb(56, 189, 248)',
-                            backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                            tension: 0.1,
-                            fill: true,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: { unit: 'day' },
-                                title: { display: true, text: 'Date', color: '#d1d5db' },
-                                ticks: { color: '#9ca3af' },
-                                grid: { color: '#374151' }
-                            },
-                            y: {
-                                title: { display: true, text: 'Weight', color: '#d1d5db' },
-                                ticks: { color: '#9ca3af' },
-                                grid: { color: '#374151' }
-                            }
-                        },
-                        plugins: {
-                            legend: { labels: { color: '#d1d5db' } }
-                        }
-                    }
-                });
-            };
-
-            // --- REPORT MANAGEMENT ---
-            const refreshReportList = async () => {
-                const files = await window.electronAPI.getReportList();
-                reportList.innerHTML = ''; // Clear existing list
-                if (files.length === 0) {
-                    reportList.innerHTML = `<li class="text-gray-500 text-sm">No reports uploaded yet.</li>`;
-                } else {
-                    files.forEach(fileName => {
-                        const li = document.createElement('li');
-                        li.className = 'report-item text-gray-300 cursor-pointer bg-gray-700/50 p-2 rounded-md flex items-center justify-between';
-                        li.innerHTML = `<span class="report-name">${fileName}</span>`;
-                        li.addEventListener('click', () => {
-                            window.electronAPI.openReport(fileName);
-                        });
-                        reportList.appendChild(li);
-                    });
-                }
-            };
-
-            // --- EVENT LISTENERS ---
-            logWeightBtn.addEventListener('click', () => {
-                const weight = parseFloat(weightInput.value);
-                if (!weight || weight <= 0) {
-                    alert('Please enter a valid weight.');
-                    return;
-                }
-                const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
-                
-                // Check if an entry for today already exists and update it, otherwise add a new one.
-                const existingEntryIndex = healthData.weightLog.findIndex(entry => entry.date === today);
-                if (existingEntryIndex > -1) {
-                    healthData.weightLog[existingEntryIndex].weight = weight;
-                } else {
-                    healthData.weightLog.push({ date: today, weight: weight });
-                }
-
-                weightInput.value = '';
-                renderWeightChart();
-                saveHealthData();
-            });
-            
-            uploadReportBtn.addEventListener('click', async () => {
-                const filePath = await window.electronAPI.openFileDialog();
-                if (filePath) {
-                    const result = await window.electronAPI.uploadReport(filePath);
-                    if (result.success) {
-                        refreshReportList();
-                    } else {
-                        alert(`Failed to upload report: ${result.error}`);
-                    }
-                }
-            });
-
-            // Save metric data when user types in the input fields (on blur)
-            [bpInput, cholesterolInput, sugarInput, hrInput].forEach(input => {
-                input.addEventListener('blur', saveHealthData);
-            });
-
-            // --- INITIALIZATION ---
-            const init = async () => {
-                await loadHealthData();
-                await refreshReportList();
-            };
-
-            init();
-        });
-    </script>
+<body style="margin:0; padding:0; overflow:hidden; background-color:#111;">
+<div class="bg-gray-900 text-gray-200 font-sans p-2 space-y-2" style="width:960px; height:540px; overflow:hidden; box-sizing:border-box; transform: scale(0.92); transform-origin: top left;">
+<!-- Top Bar -->
+<div class="flex items-center justify-between gap-2 bg-gray-800 p-2 rounded text-sm">
+<input class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-sm w-24" id="weightInput" placeholder="Weight" type="number"/>
+<button class="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded" id="logWeightBtn">Log</button>
+<input class="bg-gray-700 rounded px-2 py-1 w-20 text-center" id="bpInput" placeholder="BP"/>
+<input class="bg-gray-700 rounded px-2 py-1 w-20 text-center" id="cholesterolInput" placeholder="Chol"/>
+<input class="bg-gray-700 rounded px-2 py-1 w-20 text-center" id="sugarInput" placeholder="Sugar"/>
+<input class="bg-gray-700 rounded px-2 py-1 w-20 text-center" id="hrInput" placeholder="HR"/>
+<button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded" id="uploadReportBtn">Upload PDF</button>
+</div>
+<!-- Metrics Grid -->
+<div class="grid grid-cols-2 gap-2 text-sm">
+<div class="bg-gray-800 p-2 rounded">
+<h3 class="text-red-400 font-bold text-sm">Blood Pressure</h3>
+<input class="w-full text-sm bg-gray-700 p-1 rounded mt-1" placeholder="e.g. 120/80"/>
+</div>
+<div class="bg-gray-800 p-2 rounded">
+<h3 class="text-violet-400 font-bold text-sm">Resting HR</h3>
+<input class="w-full text-sm bg-gray-700 p-1 rounded mt-1" placeholder="e.g. 65 bpm"/>
+</div>
+<div class="bg-gray-800 p-2 rounded">
+<h3 class="text-amber-400 font-bold text-sm">Cholesterol</h3>
+<input class="w-full text-sm bg-gray-700 p-1 rounded mt-1" placeholder="e.g. 190 mg/dL"/>
+</div>
+<div class="bg-gray-800 p-2 rounded">
+<h3 class="text-lime-400 font-bold text-sm">Blood Sugar</h3>
+<input class="w-full text-sm bg-gray-700 p-1 rounded mt-1" placeholder="e.g. 95 mg/dL"/>
+</div>
+</div>
+<!-- Chart -->
+<div class="bg-gray-800 p-2 rounded h-[120px]">
+<canvas class="w-full h-full" id="weightChart"></canvas>
+</div>
+<!-- Report List -->
+<div class="bg-gray-800 rounded p-2 text-sm text-white h-[80px] overflow-y-auto">
+<h4 class="font-bold text-cyan-400 mb-1">Reports</h4>
+<ul class="space-y-1 text-gray-300" id="reportList"></ul>
+</div>
+</div>
 </body>
+
 </html>
