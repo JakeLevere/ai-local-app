@@ -169,19 +169,31 @@ async function loadInstalledExtensions() {
     }
 }
 
-async function installExtensionViaDialog() {
+async function installExtensionViaDialog(targetWebContents = null) {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile', 'openDirectory'],
         filters: [{ name: 'Chrome Extension', extensions: ['zip'] }]
     });
     if (canceled || !filePaths || filePaths.length === 0) return null;
     const source = filePaths[0];
-    sendToRenderer('extension-install-start');
+    if (targetWebContents) {
+        sendToWebContents(targetWebContents, 'extension-install-start');
+    } else {
+        sendToRenderer('extension-install-start');
+    }
     const result = await installExtensionFromSource(source);
     if (result) {
-        sendToRenderer('extension-install-complete', result);
+        if (targetWebContents) {
+            sendToWebContents(targetWebContents, 'extension-install-complete', result);
+        } else {
+            sendToRenderer('extension-install-complete', result);
+        }
     } else {
-        sendToRenderer('extension-install-failed');
+        if (targetWebContents) {
+            sendToWebContents(targetWebContents, 'extension-install-failed');
+        } else {
+            sendToRenderer('extension-install-failed');
+        }
     }
     return result;
 }
@@ -230,19 +242,49 @@ function openExtensionOptionsWindow(id) {
     }
 }
 
-async function showExtensionMenu() {
+async function uninstallExtension(id) {
+    try {
+        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
+        const ext = all[id];
+        if (!ext) return false;
+        if (session.defaultSession.removeExtension) {
+            try { session.defaultSession.removeExtension(id); } catch {}
+        }
+        if (ext.path) {
+            try { await fs.rm(ext.path, { recursive: true, force: true }); } catch {}
+        }
+        return true;
+    } catch (err) {
+        console.error('Failed to uninstall extension:', err);
+        return false;
+    }
+}
+
+async function showExtensionMenu(senderWebContents) {
     try {
         const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
         const exts = Object.values(all);
         const template = [
             {
                 label: 'Install Extension...',
-                click: async () => { await installExtensionViaDialog(); }
+                click: async () => { await installExtensionViaDialog(senderWebContents); }
             },
             ...exts.map(ext => ({
                 label: ext.name,
-                enabled: !!(ext.manifest.options_ui || ext.manifest.options_page),
-                click: () => openExtensionOptionsWindow(ext.id)
+                submenu: [
+                    {
+                        label: 'Options',
+                        enabled: !!(ext.manifest.options_ui || ext.manifest.options_page),
+                        click: () => openExtensionOptionsWindow(ext.id)
+                    },
+                    {
+                        label: 'Uninstall',
+                        click: async () => {
+                            await uninstallExtension(ext.id);
+                            if (senderWebContents) senderWebContents.send('extension-uninstalled', ext.id);
+                        }
+                    }
+                ]
             }))
         ];
         const menu = Menu.buildFromTemplate(template);
@@ -439,8 +481,8 @@ async function createWindow(serverUrl) {
         openExtensionOptionsWindow(id);
     });
 
-    ipcMain.handle('show-extension-menu', async () => {
-        await showExtensionMenu();
+    ipcMain.handle('show-extension-menu', async (event) => {
+        await showExtensionMenu(event.sender);
     });
     
     // --- ADDED: IPC Listener to launch the browser ---
@@ -762,6 +804,13 @@ function sendToRenderer(channel, ...args) {
         catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
     } else {
         console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
+    }
+}
+
+function sendToWebContents(target, channel, ...args) {
+    if (target && !target.isDestroyed()) {
+        try { target.send(channel, ...args); }
+        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
     }
 }
 
