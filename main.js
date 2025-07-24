@@ -11,9 +11,11 @@ const sharedDataService = require('./sharedDataService');
 
 let mainWindow;
 // Track browser views keyed by displayId
-const browserViews = {}; // { view, navigateHandler, brightnessKey }
+// Each entry: { views: BrowserView[], activeTab, navigateHandler, switchHandler, brightnessKeys, bounds, visible }
+const browserViews = {};
 const CONTROL_AREA_HEIGHT = 60; // Height reserved for browser controls
 const DEFAULT_BROWSER_ZOOM = 0.55;
+const MAX_BROWSER_TABS = 5;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
 
@@ -335,7 +337,7 @@ async function createWindow(serverUrl) {
     ipcMain.on('set-browser-zoom', (event, { displayId, zoom }) => {
         const existing = browserViews[displayId];
         if (existing && typeof zoom === 'number') {
-            existing.view.webContents.setZoomFactor(zoom);
+            existing.views.forEach(v => v.webContents.setZoomFactor(zoom));
         }
     });
 
@@ -343,40 +345,49 @@ async function createWindow(serverUrl) {
         const existing = browserViews[displayId];
         if (!existing || typeof brightness !== 'number') return;
         const level = Math.max(0, Math.min(brightness, 100));
-        if (existing.brightnessKey) {
-            existing.view.webContents.removeInsertedCSS(existing.brightnessKey).catch(() => {});
-            existing.brightnessKey = null;
-        }
-        if (level < 100) {
-            existing.view.webContents.insertCSS(`html { filter: brightness(${level}%); }`).then(key => {
-                existing.brightnessKey = key;
-            }).catch(err => { console.error('Failed to set browser brightness:', err); });
-        }
+        existing.brightnessKeys.forEach((key, i) => {
+            if (key) {
+                try { existing.views[i].webContents.removeInsertedCSS(key); } catch {}
+                existing.brightnessKeys[i] = null;
+            }
+            if (level < 100) {
+                existing.views[i].webContents.insertCSS(`html { filter: brightness(${level}%); }`).then(k => {
+                    existing.brightnessKeys[i] = k;
+                }).catch(err => { console.error('Failed to set browser brightness:', err); });
+            }
+        });
     });
 
     ipcMain.on('browser-go-back', (event, displayId) => {
         const existing = browserViews[displayId];
-        if (existing && existing.view.webContents.canGoBack()) {
-            existing.view.webContents.goBack();
+        const view = existing ? existing.views[existing.activeTab] : null;
+        if (view && view.webContents.canGoBack()) {
+            view.webContents.goBack();
         }
     });
 
     ipcMain.on('browser-go-forward', (event, displayId) => {
         const existing = browserViews[displayId];
-        if (existing && existing.view.webContents.canGoForward()) {
-            existing.view.webContents.goForward();
+        const view = existing ? existing.views[existing.activeTab] : null;
+        if (view && view.webContents.canGoForward()) {
+            view.webContents.goForward();
         }
     });
 
     ipcMain.on('clear-display', async (event, displayId) => {
         const existing = browserViews[displayId];
         if (existing) {
-            mainWindow.removeBrowserView(existing.view);
-            ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
-            if (existing.brightnessKey) {
-                try { existing.view.webContents.removeInsertedCSS(existing.brightnessKey); } catch {}
+            if (existing.visible) {
+                try { mainWindow.removeBrowserView(existing.views[existing.activeTab]); } catch {}
             }
-            existing.view.destroy();
+            ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
+            ipcMain.removeListener('switch-browser-tab', existing.switchHandler);
+            existing.brightnessKeys.forEach((key, i) => {
+                if (key) {
+                    try { existing.views[i].webContents.removeInsertedCSS(key); } catch {}
+                }
+            });
+            existing.views.forEach(v => v.destroy());
             delete browserViews[displayId];
         }
         try {
@@ -403,97 +414,133 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
 
     const existing = browserViews[displayId];
     if (existing) {
-        mainWindow.removeBrowserView(existing.view);
+        if (existing.visible) {
+            mainWindow.removeBrowserView(existing.views[existing.activeTab]);
+        }
         ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
-        existing.view.destroy();
+        ipcMain.removeListener('switch-browser-tab', existing.switchHandler);
+        existing.views.forEach(v => v.destroy());
     }
 
-    const view = new BrowserView({
-        webPreferences: {
-            preload: path.join(__dirname, 'programs', 'browser', 'preload.js'),
-            nodeIntegration: false,
-            contextIsolation: true,
-        },
-    });
+    let activeTabIndex = 0;
 
-    // Intercept attempts to open a new window from within the view
-    view.webContents.setWindowOpenHandler(({ url }) => {
-        if (!isUrlSafe(url)) {
-            sendToRenderer('main-process-warning', `Blocked unsafe popup URL: ${url}`);
-            return { action: 'deny' };
-        }
-        const popup = new BrowserWindow({
-            width: 800,
-            height: 600,
+    const createTabView = (tabIndex) => {
+        const v = new BrowserView({
             webPreferences: {
+                preload: path.join(__dirname, 'programs', 'browser', 'preload.js'),
                 nodeIntegration: false,
                 contextIsolation: true,
+                backgroundThrottling: false,
             },
-            autoHideMenuBar: true,
         });
-        popup.removeMenu();
-        popup.loadURL(url);
-        // Ensure the window cleans itself up when closed
-        popup.on('closed', () => {
-            popup.destroy();
+
+        v.webContents.setWindowOpenHandler(({ url }) => {
+            if (!isUrlSafe(url)) {
+                sendToRenderer('main-process-warning', `Blocked unsafe popup URL: ${url}`);
+                return { action: 'deny' };
+            }
+            const popup = new BrowserWindow({
+                width: 800,
+                height: 600,
+                webPreferences: { nodeIntegration: false, contextIsolation: true },
+                autoHideMenuBar: true,
+            });
+            popup.removeMenu();
+            popup.loadURL(url);
+            popup.on('closed', () => { popup.destroy(); });
+            return { action: 'deny' };
         });
-        return { action: 'deny' };
-    });
 
-    view.webContents.on('will-navigate', (event, url) => {
-        if (!isUrlSafe(url)) {
-            event.preventDefault();
-            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
-        }
-    });
+        v.webContents.on('will-navigate', (event, url) => {
+            if (!isUrlSafe(url)) {
+                event.preventDefault();
+                sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+            }
+        });
 
-    mainWindow.addBrowserView(view);
-    view.setBounds({
-        x: bounds.x,
-        y: bounds.y + CONTROL_AREA_HEIGHT,
-        width: bounds.width,
-        height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
-    });
-    // Keep the view anchored within the specified bounds. Auto-resize is
-    // disabled so the view stays confined to its panel size.
-    view.setAutoResize({ width: false, height: false });
+        v.setBounds({
+            x: bounds.x,
+            y: bounds.y + CONTROL_AREA_HEIGHT,
+            width: bounds.width,
+            height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
+        });
+        v.setAutoResize({ width: false, height: false });
+        v.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
+
+        v.webContents.on('did-finish-load', () => {
+            const url = v.webContents.getURL();
+            const title = v.webContents.getTitle();
+            appendWebsiteHistory(url);
+            sendToRenderer('page-did-finish-load', { displayId, url, title, tabIndex });
+            persistBrowserUrl(displayId, url);
+        });
+
+        return v;
+    };
 
     const startUrl = initialUrl || 'https://www.google.com';
-    view.webContents.loadURL(startUrl);
-    view.webContents.setZoomFactor(DEFAULT_BROWSER_ZOOM);
+    const views = [];
+    for (let i = 0; i < MAX_BROWSER_TABS; i++) {
+        const v = createTabView(i);
+        views.push(v);
+        const url = i === 0 ? startUrl : 'https://www.google.com';
+        v.webContents.loadURL(url);
+    }
+
+    mainWindow.addBrowserView(views[0]);
 
     const navigateHandler = (event, arg) => {
         let targetId = null;
         let targetUrl = null;
+        let tabIndex = null;
         if (typeof arg === 'string') {
             targetUrl = arg;
         } else if (arg && typeof arg === 'object') {
             targetId = arg.displayId || null;
             targetUrl = arg.url;
+            tabIndex = typeof arg.tabIndex === 'number' ? arg.tabIndex : null;
         }
         if (targetId && targetId !== displayId) return;
-        if (typeof targetUrl === 'string') {
+        const idx = tabIndex != null ? tabIndex : activeTabIndex;
+        const view = views[idx];
+        if (view && typeof targetUrl === 'string') {
             const prefixed = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
             view.webContents.loadURL(prefixed);
         }
     };
     ipcMain.on('navigate-to-url', navigateHandler);
 
-    view.webContents.on('did-finish-load', () => {
-        const url = view.webContents.getURL();
-        const title = view.webContents.getTitle();
-        appendWebsiteHistory(url);
-        sendToRenderer('page-did-finish-load', { displayId, url, title });
-        persistBrowserUrl(displayId, url);
-    });
-
-    browserViews[displayId] = {
-        view,
+    const switchHandler = (event, { displayId: targetId, tabIndex }) => {
+        if (targetId && targetId !== displayId) return;
+        if (tabIndex < 0 || tabIndex >= views.length) return;
+        if (activeTabIndex === tabIndex) return;
+        if (existingData.visible) {
+            try { mainWindow.removeBrowserView(views[activeTabIndex]); } catch {}
+            mainWindow.addBrowserView(views[tabIndex]);
+            if (existingData.bounds) {
+                views[tabIndex].setBounds({
+                    x: existingData.bounds.x,
+                    y: existingData.bounds.y + CONTROL_AREA_HEIGHT,
+                    width: existingData.bounds.width,
+                    height: Math.max(existingData.bounds.height - CONTROL_AREA_HEIGHT, 0)
+                });
+            }
+        }
+        activeTabIndex = tabIndex;
+        existingData.activeTab = tabIndex;
+    };
+    const existingData = {
+        views,
+        activeTab: 0,
         navigateHandler,
-        brightnessKey: null,
+        switchHandler,
+        brightnessKeys: Array(MAX_BROWSER_TABS).fill(null),
         bounds,
         visible: true
     };
+    browserViews[displayId] = existingData;
+
+    ipcMain.on('switch-browser-tab', switchHandler);
 }
 
 // Update bounds of an existing BrowserView for a display
@@ -503,12 +550,13 @@ function updateBrowserOverlayBounds(bounds, displayId) {
     if (!existing) return;
     existing.bounds = bounds;
     if (existing.visible) {
-        existing.view.setBounds({
+        const rect = {
             x: bounds.x,
             y: bounds.y + CONTROL_AREA_HEIGHT,
             width: bounds.width,
             height: Math.max(bounds.height - CONTROL_AREA_HEIGHT, 0),
-        });
+        };
+        existing.views.forEach(v => v.setBounds(rect));
     }
 }
 
@@ -516,7 +564,7 @@ function hideBrowserOverlay(displayId) {
     const existing = browserViews[displayId];
     if (!existing || !existing.visible) return;
     try {
-        mainWindow.removeBrowserView(existing.view);
+        mainWindow.removeBrowserView(existing.views[existing.activeTab]);
         existing.visible = false;
     } catch (err) {
         console.error('Failed to hide browser overlay:', err);
@@ -527,7 +575,7 @@ function showBrowserOverlay(displayId) {
     const existing = browserViews[displayId];
     if (!existing || existing.visible) return;
     try {
-        mainWindow.addBrowserView(existing.view);
+        mainWindow.addBrowserView(existing.views[existing.activeTab]);
         if (existing.bounds) {
             updateBrowserOverlayBounds(existing.bounds, displayId);
         }
