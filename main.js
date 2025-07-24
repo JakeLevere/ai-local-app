@@ -2,6 +2,7 @@
 const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron'); // <--- Added BrowserView and ipcMain
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
+const extract = require('extract-zip');
 // Load IPC handlers from the project root
 const initializeIpcHandlers = require('./ipcHandlers');
 const express = require('express');
@@ -343,19 +344,57 @@ async function createWindow(serverUrl) {
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
 
     ipcMain.handle('install-extension', async () => {
-        const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            properties: ['openFile', 'openDirectory'],
+            filters: [{ name: 'Chrome Extension', extensions: ['zip'] }]
+        });
         if (canceled || !filePaths || filePaths.length === 0) return null;
         const source = filePaths[0];
-        const name = path.basename(source);
-        const dest = path.join(extensionsPath, name);
+        let dest;
         try {
-            await fs.mkdir(dest, { recursive: true });
-            await fs.cp(source, dest, { recursive: true });
+            if (source.toLowerCase().endsWith('.zip')) {
+                const name = path.basename(source, '.zip');
+                dest = path.join(extensionsPath, name);
+                await fs.rm(dest, { recursive: true, force: true });
+                await fs.mkdir(dest, { recursive: true });
+                await extract(source, { dir: dest });
+            } else {
+                const name = path.basename(source);
+                dest = path.join(extensionsPath, name);
+                await fs.rm(dest, { recursive: true, force: true });
+                await fs.mkdir(dest, { recursive: true });
+                await fs.cp(source, dest, { recursive: true });
+            }
             const ext = await session.defaultSession.loadExtension(dest, { allowFileAccess: true });
             return { id: ext.id, name: ext.name };
         } catch (err) {
             console.error('Failed to install extension:', err);
             return null;
+        }
+    });
+
+    ipcMain.handle('get-installed-extensions', () => {
+        const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
+        return Object.values(all).map(e => ({ id: e.id, name: e.name, hasOptions: !!(e.manifest.options_ui || e.manifest.options_page) }));
+    });
+
+    ipcMain.on('open-extension-options', (event, id) => {
+        try {
+            const all = session.defaultSession.getAllExtensions ? session.defaultSession.getAllExtensions() : {};
+            const ext = all[id];
+            if (!ext) return;
+            const page = (ext.manifest.options_ui && ext.manifest.options_ui.page) || ext.manifest.options_page;
+            if (!page) return;
+            const url = `chrome-extension://${id}/${page}`;
+            const optWin = new BrowserWindow({
+                width: 600,
+                height: 600,
+                webPreferences: { nodeIntegration: false, contextIsolation: true }
+            });
+            optWin.removeMenu();
+            optWin.loadURL(url);
+        } catch (err) {
+            console.error('Failed to open extension options:', err);
         }
     });
     
