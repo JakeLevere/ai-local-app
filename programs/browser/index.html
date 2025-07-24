@@ -243,8 +243,15 @@
             }
         });
 
+        // Left click installs a new extension directly
         extensionButton.addEventListener('click', async (e) => {
             e.stopPropagation();
+            await electron.invoke('install-extension');
+        });
+
+        // Right click opens the management menu for installed extensions
+        extensionButton.addEventListener('contextmenu', async (e) => {
+            e.preventDefault();
             await electron.invoke('show-extension-menu');
         });
 
