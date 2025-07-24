@@ -8,6 +8,7 @@ const express = require('express');
 const http = require('http');
 const { isUrlSafe } = require('./safeBrowsing');
 const sharedDataService = require('./sharedDataService');
+const { setupAdBlocker } = require("./adBlocker");
 
 let mainWindow;
 // Track browser views keyed by displayId
@@ -590,6 +591,7 @@ app.whenReady().then(async () => {
     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
+    setupAdBlocker();
 
     try {
         const serverUrl = await startLocalServer();
