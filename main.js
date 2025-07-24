@@ -198,9 +198,32 @@ async function installExtensionViaDialog(targetWebContents = null) {
     return result;
 }
 
+async function findArchiveInDirectory(dir) {
+    try {
+        const items = await fs.readdir(dir);
+        for (const item of items) {
+            const lower = item.toLowerCase();
+            if (lower.endsWith('.zip') || lower.endsWith('.crx')) {
+                return path.join(dir, item);
+            }
+        }
+    } catch {}
+    return null;
+}
+
 async function installExtensionFromSource(source) {
     let dest;
     try {
+        // If a directory is provided, look inside for an extension archive
+        if (!source.toLowerCase().endsWith('.zip') && !source.toLowerCase().endsWith('.crx')) {
+            try {
+                const stat = await fs.stat(source);
+                if (stat.isDirectory()) {
+                    const found = await findArchiveInDirectory(source);
+                    if (found) source = found;
+                }
+            } catch {}
+        }
         if (source.toLowerCase().endsWith('.zip') || source.toLowerCase().endsWith('.crx')) {
             const name = path.basename(source, path.extname(source));
             dest = path.join(extensionsPath, name);
