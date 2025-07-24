@@ -143,46 +143,20 @@
             }
         };
 
-        let tabs = [{ url: 'https://www.google.com', id: 0 }];
+        const MAX_TABS = 5;
+        let tabs = Array.from({ length: MAX_TABS }, (_, i) => ({
+            url: 'https://www.google.com',
+            id: i
+        }));
         let activeTab = 0;
 
-        const storageKey = displayId ? `browser-tabs-${displayId}` : 'browser-tabs';
-
-        const loadTabs = () => {
+        const getTabLabel = (tab) => {
+            if (tab.title) return tab.title;
             try {
-                const data = localStorage.getItem(storageKey);
-                if (data) {
-                    const state = JSON.parse(data);
-                    if (Array.isArray(state.tabs) && state.tabs.length) {
-                        tabs = state.tabs;
-                        activeTab = Math.min(Math.max(0, state.activeTab || 0), tabs.length - 1);
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to load saved tabs:', err);
+                return new URL(tab.url).hostname.replace(/^www\./, '') || 'New Tab';
+            } catch {
+                return 'New Tab';
             }
-        };
-
-        const saveTabs = () => {
-            try {
-                localStorage.setItem(storageKey, JSON.stringify({ tabs, activeTab }));
-            } catch (err) {
-                console.error('Failed to save tabs:', err);
-            }
-        };
-
-        const removeTab = (idx) => {
-            const wasActive = idx === activeTab;
-            tabs.splice(idx, 1);
-            if (activeTab > idx) {
-                activeTab--;
-            } else if (wasActive) {
-                activeTab = Math.min(activeTab, tabs.length - 1);
-            }
-            if (wasActive && tabs[activeTab]) {
-                sendNavigate(tabs[activeTab].url);
-            }
-            renderTabs();
         };
 
         const renderTabs = () => {
@@ -191,16 +165,8 @@
                 const tab = document.createElement('div');
                 tab.className = 'tab' + (idx === activeTab ? ' active' : '');
                 const label = document.createElement('span');
-                label.textContent = t.url.replace(/^https?:\/\//, '') || 'New Tab';
+                label.textContent = getTabLabel(t);
                 tab.appendChild(label);
-                const close = document.createElement('span');
-                close.className = 'tab-close';
-                close.textContent = 'x';
-                close.onclick = (e) => {
-                    e.stopPropagation();
-                    removeTab(idx);
-                };
-                tab.appendChild(close);
                 tab.onclick = () => {
                     activeTab = idx;
                     sendNavigate(tabs[activeTab].url);
@@ -208,23 +174,13 @@
                 };
                 tabBar.appendChild(tab);
             });
-            const add = document.createElement('div');
-            add.className = 'tab';
-            add.textContent = '+';
-            add.onclick = () => {
-                tabs.push({ url: 'https://www.google.com', id: tabs.length });
-                activeTab = tabs.length - 1;
-                sendNavigate(tabs[activeTab].url);
-                renderTabs();
-            };
-            tabBar.appendChild(add);
-            saveTabs();
         };
 
         const navigate = () => {
             const url = urlInput.value.trim();
             if (url) {
                 tabs[activeTab].url = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+                delete tabs[activeTab].title;
                 sendNavigate(tabs[activeTab].url);
                 renderTabs();
             }
@@ -269,15 +225,15 @@
         });
 
         electron.receive('page-did-finish-load', (data) => {
-            const { displayId: targetId, url } = typeof data === 'string' ? { url: data } : data || {};
+            const { displayId: targetId, url, title } = typeof data === 'string' ? { url: data } : data || {};
             if (displayId && targetId && targetId !== displayId) return;
             tabs[activeTab].url = url;
+            if (title) tabs[activeTab].title = title;
             urlInput.value = url;
             renderTabs();
         });
 
         // initial render
-        loadTabs();
         renderTabs();
     </script>
 </body>

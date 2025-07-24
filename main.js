@@ -255,8 +255,9 @@ async function launchBrowser() {
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
+        const title = view.webContents.getTitle();
         appendWebsiteHistory(url);
-        browserWindow.webContents.send('page-did-finish-load', url);
+        browserWindow.webContents.send('page-did-finish-load', { url, title });
     });
 
     // Clean up IPC listener when the browser window is closed
@@ -480,8 +481,9 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
 
     view.webContents.on('did-finish-load', () => {
         const url = view.webContents.getURL();
+        const title = view.webContents.getTitle();
         appendWebsiteHistory(url);
-        sendToRenderer('page-did-finish-load', { displayId, url });
+        sendToRenderer('page-did-finish-load', { displayId, url, title });
         persistBrowserUrl(displayId, url);
     });
 
