@@ -6,6 +6,7 @@ const fs = require('fs').promises; // Needed for initial dir creation
 const initializeIpcHandlers = require('./ipcHandlers');
 const express = require('express');
 const http = require('http');
+const { isUrlSafe } = require('./safeBrowsing');
 const sharedDataService = require('./sharedDataService');
 
 let mainWindow;
@@ -163,6 +164,10 @@ async function launchBrowser() {
 
     // Intercept window.open calls from within the BrowserView
     view.webContents.setWindowOpenHandler(({ url }) => {
+        if (!isUrlSafe(url)) {
+            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+            return { action: 'deny' };
+        }
         const popup = new BrowserWindow({
             width: 800,
             height: 600,
@@ -178,6 +183,13 @@ async function launchBrowser() {
             popup.destroy();
         });
         return { action: 'deny' };
+    });
+
+    view.webContents.on('will-navigate', (event, url) => {
+        if (!isUrlSafe(url)) {
+            event.preventDefault();
+            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+        }
     });
 
     // Position and resize the BrowserView dynamically
@@ -405,6 +417,10 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
 
     // Intercept attempts to open a new window from within the view
     view.webContents.setWindowOpenHandler(({ url }) => {
+        if (!isUrlSafe(url)) {
+            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+            return { action: 'deny' };
+        }
         const popup = new BrowserWindow({
             width: 800,
             height: 600,
@@ -421,6 +437,13 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
             popup.destroy();
         });
         return { action: 'deny' };
+    });
+
+    view.webContents.on('will-navigate', (event, url) => {
+        if (!isUrlSafe(url)) {
+            event.preventDefault();
+            sendToRenderer('main-process-error', `Blocked unsafe URL: ${url}`);
+        }
     });
 
     mainWindow.addBrowserView(view);
