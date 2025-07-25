@@ -623,10 +623,17 @@ app.on('window-all-closed', () => {
 });
 
 // Ensure server is closed when app quits
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
     if (server) {
         console.log(">>> Stopping local server...");
         server.close();
+    }
+    try {
+        const existing = await sharedDataService.getOpenDisplays();
+        const memory = gatherOpenDisplayState();
+        await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+    } catch (err) {
+        console.error('Main: Failed to persist open display state on quit:', err);
     }
 });
 
@@ -668,4 +675,17 @@ async function persistBrowserUrl(displayId, url) {
     } catch (err) {
         console.error('Error persisting browser URL:', err);
     }
+}
+
+function gatherOpenDisplayState() {
+    const state = {};
+    for (const [id, data] of Object.entries(browserViews)) {
+        if (!data) continue;
+        const active = data.views[data.activeTab];
+        state[id] = { program: 'browser' };
+        if (active && !active.webContents.isDestroyed()) {
+            state[id].url = active.webContents.getURL();
+        }
+    }
+    return state;
 }
