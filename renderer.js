@@ -763,6 +763,40 @@ function handleSlideItemClick(event) { const item = event.currentTarget; const d
 function handleDeckItemClick(event) { const item = event.currentTarget; const deckName = item.dataset.deckName; if (!deckName) return; domElements.deckList.querySelectorAll('.deck-item.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); window.electronAPI.send('load-deck', deckName); }
 
 function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteStarOverlay?.addEventListener('click', handleFavoriteStarClick); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
+function restoreOpenDisplays(displays) {
+    if (!displays) return;
+    Object.keys(displays).forEach(id => {
+        const info = displays[id];
+        if (info && info.program) {
+            window.electronAPI.send('open-program', { program: info.program, displayId: id });
+            if (info.program === 'browser') {
+                const el = domElements.displays[id]?.element;
+                if (el) {
+                    const bounds = calculateVisibleBounds(el);
+                    window.electronAPI.send('launch-browser', {
+                        displayId: id,
+                        bounds: {
+                            x: Math.round(bounds.x),
+                            y: Math.round(bounds.y),
+                            width: Math.round(bounds.width),
+                            height: Math.round(bounds.height)
+                        },
+                        url: info.url
+                    });
+                    activeBrowserDisplays[id] = true;
+                    const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
+                    if (bright3 === 100) {
+                        window.electronAPI.send('show-browser-view', id);
+                    } else {
+                        window.electronAPI.send('hide-browser-view', id);
+                    }
+                    window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: bright3 });
+                }
+            }
+        }
+    });
+}
+
 function setupIpcListeners() {
     if (ipcListenersAttached) { return; }
     console.log("Renderer: Attaching IPC listeners...");
@@ -771,39 +805,15 @@ function setupIpcListeners() {
         await fetchFavoritePersona();
         console.log("Renderer: Requesting persona list...");
         window.electronAPI.send('discover-personas');
+        try {
+            const displays = await window.electronAPI.invoke('get-open-displays');
+            restoreOpenDisplays(displays);
+        } catch (err) {
+            console.error('Renderer: Failed to retrieve open displays:', err);
+        }
     });
     window.electronAPI.on('restore-open-displays', (displays) => {
-        if (!displays) return;
-        Object.keys(displays).forEach(id => {
-            const info = displays[id];
-            if (info && info.program) {
-                window.electronAPI.send('open-program', { program: info.program, displayId: id });
-                if (info.program === 'browser') {
-                    const el = domElements.displays[id]?.element;
-                    if (el) {
-                        const bounds = calculateVisibleBounds(el);
-                        window.electronAPI.send('launch-browser', {
-                            displayId: id,
-                            bounds: {
-                                x: Math.round(bounds.x),
-                                y: Math.round(bounds.y),
-                                width: Math.round(bounds.width),
-                                height: Math.round(bounds.height)
-                            },
-                            url: info.url
-                        });
-                        activeBrowserDisplays[id] = true;
-                        const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
-                        if (bright3 === 100) {
-                            window.electronAPI.send('show-browser-view', id);
-                        } else {
-                            window.electronAPI.send('hide-browser-view', id);
-                        }
-                        window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: bright3 });
-                    }
-                }
-            }
-        });
+        restoreOpenDisplays(displays);
     });
     window.electronAPI.on('personas-loaded', (receivedData) => { console.log(`Renderer: Received 'personas-loaded' event.`); console.log(`  -> Type of receivedData: ${typeof receivedData}`); console.log(`  -> receivedData:`, receivedData); if (Array.isArray(receivedData)) { const personas = receivedData; primaryPersonaCache = {}; personas.forEach(p => { primaryPersonaCache[p.id] = p; }); renderPersonaList(personas); renderPersonaDropdown(personas);
         // *** MODIFIED DEFAULT SELECTION LOGIC ***
