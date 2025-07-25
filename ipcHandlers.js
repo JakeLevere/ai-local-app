@@ -328,6 +328,15 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.handle('get-open-displays', async () => {
+        try {
+            return await sharedDataService.getOpenDisplays();
+        } catch (err) {
+            console.error('IPC: Failed to get open displays:', err);
+            return {};
+        }
+    });
+
     sharedDataService.getOpenDisplays()
         .then(displays => {
             sendToRenderer('restore-open-displays', displays);
