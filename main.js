@@ -622,6 +622,17 @@ app.on('window-all-closed', () => {
     }
 });
 
+// Persist display state as early as possible during quit
+app.on('before-quit', async () => {
+    try {
+        const existing = await sharedDataService.getOpenDisplays();
+        const memory = gatherOpenDisplayState();
+        await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+    } catch (err) {
+        console.error('Main: Failed to persist open display state on before-quit:', err);
+    }
+});
+
 // Ensure server is closed when app quits
 app.on('will-quit', async () => {
     if (server) {
