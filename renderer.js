@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dom.userInput.focus();
                     dom.userInput.select();
                 }
+                window.electronAPI.send('discover-personas');
+                chat.fetchFavoritePersona();
             }
         });
     }
