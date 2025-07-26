@@ -37,17 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     cacheDomElements();
     const overlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
-    const loginInput = document.getElementById('login-pass');
     if (overlay && loginForm) {
         overlay.classList.add('active');
         document.body.classList.add('pre-login');
-        if (loginInput) {
-            loginInput.focus();
-            loginInput.select();
-        }
         loginForm.addEventListener('submit', e => {
             e.preventDefault();
-            const pass = loginInput?.value;
+            const pass = document.getElementById('login-pass')?.value;
             if (pass === 'password') {
                 document.body.classList.remove('pre-login');
                 overlay.classList.add('hidden');
