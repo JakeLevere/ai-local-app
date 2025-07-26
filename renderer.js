@@ -35,26 +35,6 @@ function setupIpcListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     state.isDomReady = true;
     cacheDomElements();
-    const overlay = document.getElementById('login-overlay');
-    const loginForm = document.getElementById('login-form');
-    if (overlay && loginForm) {
-        overlay.classList.add('active');
-        document.body.classList.add('pre-login');
-        loginForm.addEventListener('submit', e => {
-            e.preventDefault();
-            const pass = document.getElementById('login-pass')?.value;
-            if (pass === 'password') {
-                document.body.classList.remove('pre-login');
-                overlay.classList.add('hidden');
-                updateAllBrowserBounds(dom);
-                setTimeout(() => updateAllBrowserBounds(dom), 50);
-                if (dom.userInput) {
-                    dom.userInput.focus();
-                    dom.userInput.select();
-                }
-            }
-        });
-    }
     chat.setupTextareaAutoResize();
     deck.createInitialDeckIcons();
     setupEventListeners();
