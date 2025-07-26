@@ -100,27 +100,19 @@ export function renderPersonaDropdown(personas) {
     const dropdown = dom.personaSelect;
     if (!dropdown) return;
     dropdown.innerHTML = '';
-
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'Select Persona';
-    dropdown.appendChild(placeholder);
-
     if (!Array.isArray(personas) || personas.length === 0) {
-        placeholder.textContent = 'No Personas Found';
+        const opt = document.createElement('option');
+        opt.textContent = 'No Personas Found';
+        opt.value = '';
+        dropdown.appendChild(opt);
         return;
     }
-
     personas.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = p.name;
         dropdown.appendChild(opt);
     });
-
-    const defaultId = state.favoritePersonaId || personas[0].id;
-    dropdown.value = defaultId;
-    handlePersonaSelectChange({ target: dropdown });
 }
 
 export function handlePersonaItemClick(event) {
