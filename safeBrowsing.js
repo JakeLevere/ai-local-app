@@ -1,7 +1,11 @@
 const BLOCKED_DOMAINS = [
     'malware.com',
     'phishing.test',
-    'bad.example'
+    'bad.example',
+    'doubleclick.net',
+    'googlesyndication.com',
+    'googleadservices.com',
+    'adservice.google.com',
 ];
 
 function isUrlSafe(url) {

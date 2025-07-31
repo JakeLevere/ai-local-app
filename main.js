@@ -8,7 +8,7 @@ const express = require('express');
 const http = require('http');
 const { isUrlSafe } = require('./safeBrowsing');
 const sharedDataService = require('./sharedDataService');
-const { setupAdBlocker } = require("./adBlocker");
+const { setupAdBlocker, addAdBlockPatterns, updateAdBlockPatternsFromURL } = require("./adBlocker");
 
 let mainWindow;
 // Track browser views keyed by displayId
@@ -318,6 +318,18 @@ async function createWindow(serverUrl) {
     initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
 
     
+ipcMain.on('add-adblock-patterns', (event, patterns) => {
+        addAdBlockPatterns(patterns);
+    });
+
+ipcMain.on('update-adblock-patterns', async (event) => {
+        try {
+            await updateAdBlockPatternsFromURL('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts');
+        } catch (error) {
+            console.error('Failed to update ad block patterns on demand:', error);
+        }
+    });
+
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
     ipcMain.on('launch-browser', (event, { displayId, bounds, url }) => {
@@ -594,11 +606,17 @@ app.whenReady().then(async () => {
     await createUserDataDirectories();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
     setupAdBlocker();
-
+    
     try {
         const serverUrl = await startLocalServer();
         console.log('>>> Server started at', serverUrl);
         await createWindow(serverUrl);
+        // Now that the window is created, we can safely update the adblocker
+        try {
+            await updateAdBlockPatternsFromURL('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts');
+        } catch (error) {
+            console.error('Could not update ad block patterns from remote source:', error);
+        }
     } catch (error) {
         app.quit();
         return;
