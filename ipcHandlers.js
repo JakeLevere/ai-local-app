@@ -37,10 +37,7 @@ function initialize(windowInstance, paths) {
         appPaths.serverUrl = `http://localhost:${process.env.PORT || 3000}`;
     }
     baseDir = __dirname;
-    const sharedBase = paths.dataDir || paths.userDataPath;
-    if (sharedBase) {
-        sharedDataService.init({ basePath: sharedBase, vaultPath: paths.vaultPath });
-    }
+    // sharedDataService is now initialized in main.js
 
     ipcMain.on('discover-personas', async () => {
         try {

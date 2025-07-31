@@ -31,6 +31,9 @@ const calendarPath = path.join(dataDir, 'Calendar');
 const websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
 const websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
 
+// Initialize shared data service early
+sharedDataService.init({ basePath: dataDir, vaultPath: vaultPath });
+
 // Global error handlers for more verbose logging
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception in main process:', err);
@@ -334,6 +337,7 @@ ipcMain.on('update-adblock-patterns', async (event) => {
     // This listens for a message from your main application to open the browser.
     ipcMain.on('launch-browser', (event, { displayId, bounds, url }) => {
         console.log('[Main Process] Launching browser view...');
+        console.log('[Main Process] Launch browser params:', { displayId, bounds: !!bounds, url });
         launchBrowserOverlay(bounds, displayId, url);
     });
 
@@ -424,17 +428,52 @@ ipcMain.on('update-adblock-patterns', async (event) => {
 }
 
 // Create a BrowserView overlayed on the main window for a given display
-function launchBrowserOverlay(bounds, displayId, initialUrl) {
+async function launchBrowserOverlay(bounds, displayId, initialUrl, savedUrls = null) {
+    console.log('[Main Process] launchBrowserOverlay called with:', { displayId, initialUrl, savedUrls });
+    console.log('[Main Process] initialUrl type:', typeof initialUrl, 'value:', initialUrl);
     if (!mainWindow || !bounds) return;
+
+    // Try to get saved URLs from persistent storage if not provided
+    let tabUrls = savedUrls;
+    if (!tabUrls) {
+        try {
+            const savedDisplays = await sharedDataService.getOpenDisplays();
+            const savedDisplay = savedDisplays[displayId];
+            if (savedDisplay && savedDisplay.urls && Array.isArray(savedDisplay.urls)) {
+                tabUrls = savedDisplay.urls;
+                console.log('[Main Process] Restored saved URLs for', displayId, ':', tabUrls);
+            }
+        } catch (err) {
+            console.error('[Main Process] Failed to load saved URLs:', err);
+        }
+    }
 
     const existing = browserViews[displayId];
     if (existing) {
-        if (existing.visible) {
-            mainWindow.removeBrowserView(existing.views[existing.activeTab]);
+        if (existing.visible && existing.views && existing.views[existing.activeTab]) {
+            try {
+                mainWindow.removeBrowserView(existing.views[existing.activeTab]);
+            } catch (err) {
+                console.warn('Failed to remove browser view:', err);
+            }
         }
-        ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
-        ipcMain.removeListener('switch-browser-tab', existing.switchHandler);
-        existing.views.forEach(v => v.destroy());
+        if (existing.navigateHandler) {
+            ipcMain.removeListener('navigate-to-url', existing.navigateHandler);
+        }
+        if (existing.switchHandler) {
+            ipcMain.removeListener('switch-browser-tab', existing.switchHandler);
+        }
+        if (existing.views && Array.isArray(existing.views)) {
+            existing.views.forEach(v => {
+                try {
+                    if (v && typeof v.destroy === 'function') {
+                        v.destroy();
+                    }
+                } catch (err) {
+                    console.warn('Failed to destroy browser view:', err);
+                }
+            });
+        }
     }
 
     let activeTabIndex = 0;
@@ -487,18 +526,68 @@ function launchBrowserOverlay(bounds, displayId, initialUrl) {
             const title = v.webContents.getTitle();
             appendWebsiteHistory(url);
             sendToRenderer('page-did-finish-load', { displayId, url, title, tabIndex });
-            persistBrowserUrl(displayId, url);
+            // Persist URLs for all tabs
+            persistBrowserTabUrl(displayId, tabIndex, url);
+        });
+
+        // Also listen for navigation-finished to catch URL changes in SPAs
+        v.webContents.on('did-navigate-in-page', (event, url) => {
+            console.log(`[Main Process] Tab ${tabIndex} navigated within page to:`, url);
+            const title = v.webContents.getTitle();
+            appendWebsiteHistory(url);
+            sendToRenderer('page-did-finish-load', { displayId, url, title, tabIndex });
+            // Persist URLs for all tabs
+            persistBrowserTabUrl(displayId, tabIndex, url);
+        });
+
+        // Pause all videos when page loads or navigates
+        const pauseAllVideos = () => {
+            v.webContents.executeJavaScript(`
+                (() => {
+                    const videos = document.querySelectorAll('video');
+                    videos.forEach(video => {
+                        if (!video.paused) {
+                            console.log('Pausing video:', video.src || video.currentSrc);
+                            video.pause();
+                        }
+                    });
+                })();
+            `).catch(err => console.log('Video pause script executed (may fail if no videos found)'));
+        };
+
+        // Pause videos after page loads
+        v.webContents.on('dom-ready', () => {
+            setTimeout(pauseAllVideos, 1000); // Wait a bit for dynamic content
         });
 
         return v;
     };
 
+    // Use saved URLs if available, otherwise fall back to initialUrl or Google
     const startUrl = initialUrl || 'https://www.google.com';
+    console.log('[Main Process] Browser tab 0 will load URL:', startUrl);
+    console.log('[Main Process] Available saved URLs:', tabUrls);
+    
     const views = [];
     for (let i = 0; i < MAX_BROWSER_TABS; i++) {
         const v = createTabView(i);
         views.push(v);
-        const url = i === 0 ? startUrl : 'https://www.google.com';
+        
+        // Determine URL for this tab:
+        // 1. Use saved URL if available
+        // 2. For tab 0, use initialUrl if provided
+        // 3. Default to Google
+        let url = 'https://www.google.com';
+        if (tabUrls && tabUrls[i] && typeof tabUrls[i] === 'string' && tabUrls[i].trim() !== '') {
+            url = tabUrls[i];
+            console.log(`[Main Process] Tab ${i} using saved URL:`, url);
+        } else if (i === 0 && startUrl !== 'https://www.google.com') {
+            url = startUrl;
+            console.log(`[Main Process] Tab ${i} using initial URL:`, url);
+        } else {
+            console.log(`[Main Process] Tab ${i} using default URL:`, url);
+        }
+        
         v.webContents.loadURL(url);
     }
 
@@ -579,6 +668,21 @@ function hideBrowserOverlay(displayId) {
     const existing = browserViews[displayId];
     if (!existing || !existing.visible) return;
     try {
+        // Pause all videos before hiding
+        existing.views.forEach(view => {
+            view.webContents.executeJavaScript(`
+                (() => {
+                    const videos = document.querySelectorAll('video');
+                    videos.forEach(video => {
+                        if (!video.paused) {
+                            console.log('Pausing video on hide:', video.src || video.currentSrc);
+                            video.pause();
+                        }
+                    });
+                })();
+            `).catch(() => {}); // Ignore errors if no videos
+        });
+        
         mainWindow.removeBrowserView(existing.views[existing.activeTab]);
         existing.visible = false;
     } catch (err) {
@@ -611,6 +715,16 @@ app.whenReady().then(async () => {
         const serverUrl = await startLocalServer();
         console.log('>>> Server started at', serverUrl);
         await createWindow(serverUrl);
+        
+        // Restore open displays after window is created
+        try {
+            const savedDisplays = await sharedDataService.getOpenDisplays();
+            console.log('>>> Restoring saved displays:', savedDisplays);
+            // The restoration will be handled by the renderer after backend-ready signal
+        } catch (error) {
+            console.error('Failed to load saved displays:', error);
+        }
+        
         // Now that the window is created, we can safely update the adblocker
         try {
             await updateAdBlockPatternsFromURL('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts');
@@ -692,14 +806,19 @@ async function appendWebsiteHistory(url) {
     }
 }
 
-async function persistBrowserUrl(displayId, url) {
+async function persistBrowserTabUrl(displayId, tabIndex, url) {
     if (!displayId || !url) return;
+    console.log(`[Main Process] persistBrowserTabUrl called for ${displayId}, tab ${tabIndex}:`, url);
     try {
         const current = await sharedDataService.getOpenDisplays();
         const entry = current[displayId];
         if (entry && entry.program === 'browser') {
-            current[displayId].url = url;
+            console.log(`[Main Process] Updating URL for ${displayId} tab ${tabIndex} from '${entry.urls ? entry.urls[tabIndex] : "undefined"}' to '${url}'`);
+            entry.urls = entry.urls || [];
+            entry.urls[tabIndex] = url;
             await sharedDataService.setOpenDisplays(current);
+        } else {
+            console.log(`[Main Process] No browser entry found for ${displayId}, entry:`, entry);
         }
     } catch (err) {
         console.error('Error persisting browser URL:', err);
@@ -707,14 +826,20 @@ async function persistBrowserUrl(displayId, url) {
 }
 
 function gatherOpenDisplayState() {
+    console.log('[Main Process] gatherOpenDisplayState called, collecting browser states...');
     const state = {};
     for (const [id, data] of Object.entries(browserViews)) {
         if (!data) continue;
         const active = data.views[data.activeTab];
         state[id] = { program: 'browser' };
         if (active && !active.webContents.isDestroyed()) {
-            state[id].url = active.webContents.getURL();
+            const currentUrl = active.webContents.getURL();
+            state[id].url = currentUrl;
+            console.log(`[Main Process] Gathered ${id}: ${currentUrl}`);
+        } else {
+            console.log(`[Main Process] Skipped ${id}: view destroyed or missing`);
         }
     }
+    console.log('[Main Process] Final gathered state:', state);
     return state;
 }

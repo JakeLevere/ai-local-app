@@ -3,6 +3,8 @@ const path = require('path');
 
 let dataFilePath = null;
 let favoritePersonaFilePath = null;
+let isWriting = false;
+let writeQueue = [];
 
 function init(basePathOrOptions) {
     if (typeof basePathOrOptions === 'string') {
@@ -30,8 +32,31 @@ async function readData() {
 
 async function writeData(data) {
     if (!dataFilePath) throw new Error('SharedDataService not initialized');
-    await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
+    
+    // Queue writes to prevent concurrent file writes
+    return new Promise((resolve, reject) => {
+        writeQueue.push({ data, resolve, reject });
+        processWriteQueue();
+    });
+}
+
+async function processWriteQueue() {
+    if (isWriting || writeQueue.length === 0) return;
+    
+    isWriting = true;
+    const { data, resolve, reject } = writeQueue.shift();
+    
+    try {
+        await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
+        await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
+        resolve();
+    } catch (error) {
+        reject(error);
+    } finally {
+        isWriting = false;
+        // Process next item in queue
+        setTimeout(processWriteQueue, 10);
+    }
 }
 
 async function getCalendarEvents() {
