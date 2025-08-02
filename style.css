@@ -22,10 +22,31 @@
     --user-green: #7FFFD4;
     --light-cyan: #e0ffff;
 
-    /* New Size Variables */
-    --primary-icon-size: 38px;
-    --primary-item-padding: 8px 10px;
-    --primary-font-size: 0.95em;
+    /* Spacing Scale (4px increments) */
+    --space-0: 0;
+    --space-1: 0.25rem; /* 4px */
+    --space-2: 0.5rem;  /* 8px */
+    --space-3: 0.75rem; /* 12px */
+    --space-4: 1rem;    /* 16px */
+    --space-5: 1.25rem; /* 20px */
+    --space-6: 1.5rem;  /* 24px */
+    --space-7: 1.75rem; /* 28px */
+    --space-8: 2rem;    /* 32px */
+    --space-9: 2.25rem; /* 36px */
+    --space-10: 2.5rem; /* 40px */
+
+    /* Font Size Scale */
+    --font-size-xs: 0.75rem;   /* 12px */
+    --font-size-sm: 0.875rem;  /* 14px */
+    --font-size-md: 1rem;      /* 16px */
+    --font-size-lg: 1.25rem;   /* 20px */
+    --font-size-xl: 1.5rem;    /* 24px */
+    --font-size-2xl: 2rem;     /* 32px */
+
+    /* Component Variables */
+    --primary-icon-size: var(--space-10);
+    --primary-item-padding: var(--space-2) var(--space-3);
+    --primary-font-size: var(--font-size-md);
     --display-highlight: rgba(255, 165, 0, 0.6);
 }
 
@@ -76,10 +97,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     object-fit: contain;
     display: none;
 }
-#left-sidebar h2 { font-size: 0.75em; font-weight: 600; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 0 5px 5px; margin: 10px 0 5px 0; border: none; flex-shrink: 0; }
-#create-deck, #create-slide { width: 100%; padding: 6px 12px; margin-bottom: 10px; background-color: var(--button-primary-bg); color: var(--button-text-dark); border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: 600; text-align: center; transition: background-color 0.2s ease, opacity 0.2s ease; flex-shrink: 0; }
+#left-sidebar h2 { font-size: var(--font-size-xs); font-weight: 600; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.8px; padding: var(--space-2) 0 var(--space-1) var(--space-1); margin: var(--space-2) 0 var(--space-1) 0; border: none; flex-shrink: 0; }
+#create-deck, #create-slide { width: 100%; padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); background-color: var(--button-primary-bg); color: var(--button-text-dark); border: none; border-radius: var(--space-1); cursor: pointer; font-size: var(--font-size-sm); font-weight: 600; text-align: center; transition: background-color 0.2s ease, opacity 0.2s ease; flex-shrink: 0; }
 #create-deck:hover, #create-slide:hover { background-color: var(--button-primary-hover-bg); opacity: 0.9; }
-#deck-controls { margin-bottom: 10px; padding: 5px 0; flex-shrink: 0; }
+#deck-controls { margin-bottom: var(--space-2); padding: var(--space-1) 0; flex-shrink: 0; }
 #deck-dropdown { width: 100%; padding: 6px 8px; background-color: var(--input-bg); color: var(--text-off-white); border: 1px solid var(--border-color); border-radius: 5px; font-size: 0.85em; -webkit-appearance: none; appearance: none; }
 
 /* --- Persona List Hierarchy Styles --- */
@@ -87,7 +108,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 #persona-list-container { display: block; }
 .loading-personas { padding: 15px; text-align: center; color: var(--text-grey); font-style: italic; }
 
-.persona-item { display: flex; align-items: center; margin-bottom: 3px; cursor: pointer; border-radius: 5px; transition: background-color 0.15s ease, border-left-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
+.persona-item { display: flex; align-items: center; margin-bottom: var(--space-1); cursor: pointer; border-radius: var(--space-1); transition: background-color 0.15s ease, border-left-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
 .favorite-star { margin-left: auto; color: var(--text-grey); font-size: 1.1rem; cursor: pointer; }
 .favorite-star.active { color: gold; }
 .persona-item:hover { background-color: var(--sidebar-item-hover); }
@@ -100,7 +121,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .persona-item.primary-persona .persona-icon {
     width: var(--primary-icon-size);
     height: var(--primary-icon-size);
-    margin-right: 12px;
+    margin-right: var(--space-3);
 }
 .persona-item.primary-persona .persona-name {
     font-weight: 600;
@@ -113,12 +134,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 /* Deck List */
 .deck-list { list-style: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; }
 #deck-list { display: none; }
-.deck-item { display: flex; align-items: center; padding: 7px 8px; margin-bottom: 3px; cursor: pointer; border-radius: 5px; transition: background-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
+.deck-item { display: flex; align-items: center; padding: var(--space-2) var(--space-2); margin-bottom: var(--space-1); cursor: pointer; border-radius: var(--space-1); transition: background-color 0.15s ease; overflow: hidden; border-left: 3px solid transparent; }
 .deck-item:hover { background-color: var(--sidebar-item-hover); }
 .deck-item.selected { background-color: var(--sidebar-item-selected); border-left: 3px solid var(--sidebar-item-selected-border); }
-.slide-icon { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; margin-right: 10px; border: 1px solid var(--border-color); flex-shrink: 0; background-color: #444; }
-.slide-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; color: var(--text-off-white); line-height: 1.4; }
-button.deck-save-btn { margin-left: 5px; background: none; border: none; color: var(--text-off-white); cursor: pointer; }
+.slide-icon { width: var(--space-8); height: var(--space-8); border-radius: var(--space-1); object-fit: cover; margin-right: var(--space-3); border: 1px solid var(--border-color); flex-shrink: 0; background-color: #444; }
+.slide-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--font-size-sm); color: var(--text-off-white); line-height: 1.4; }
+button.deck-save-btn { margin-left: var(--space-1); background: none; border: none; color: var(--text-off-white); cursor: pointer; }
 
 /* Sidebar Collapse Arrow */
 #collapse-arrow { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; padding: 2px; cursor: pointer; fill: var(--text-grey); transition: transform 0.3s ease-in-out, right 0.3s ease-in-out, fill 0.2s ease; border-radius: 4px; }
@@ -652,37 +673,38 @@ textarea { width: 100%; min-height: 100px; background-color: var(--bg-very-dark)
 #login-form {
     position: relative;
     background: linear-gradient(to bottom, var(--bg-dark-grey), #222);
-    padding: 25px;
-    border-radius: 10px;
+    padding: var(--space-6);
+    border-radius: var(--space-3);
     border: 2px solid var(--baby-blue);
     box-shadow: 0 0 20px var(--baby-blue);
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: var(--space-4);
     width: 300px;
 }
 #login-form h1 {
-    margin: 0 0 10px;
+    margin: 0 0 var(--space-3);
     text-align: center;
     color: var(--baby-blue);
-    font-size: 1.6em;
+    font-size: var(--font-size-xl);
     text-shadow: 0 0 10px var(--baby-blue);
 }
 #login-form input {
-    padding: 8px;
-    border-radius: 4px;
+    padding: var(--space-2);
+    border-radius: var(--space-1);
     border: 1px solid var(--border-color);
     background: var(--input-bg);
     color: var(--text-off-white);
 }
 #login-form button {
-    padding: 8px 15px;
+    padding: var(--space-2) var(--space-4);
     border: none;
     background: var(--baby-blue);
     color: #111;
-    border-radius: 4px;
+    border-radius: var(--space-1);
     cursor: pointer;
     font-weight: 600;
+    font-size: var(--font-size-sm);
     box-shadow: 0 0 10px var(--baby-blue);
 }
 #login-form button:hover { background: var(--baby-blue-darker); }
