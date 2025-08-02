@@ -138,8 +138,18 @@
         const forwardButton = document.getElementById('forward-button');
         const tabBar = document.getElementById('tab-bar');
 
-        const electron = window.electron || (window.parent && window.parent.electronAPI);
-        const displayId = window.frameElement ? window.frameElement.dataset.displayId : null;
+        let electron, displayId;
+        try {
+            electron = window.electron || (window.parent && window.parent.electronAPI);
+            displayId = window.frameElement ? window.frameElement.dataset.displayId : null;
+        } catch (error) {
+            console.log('Cross-origin error accessing electron API, using fallback');
+            electron = {
+                send: () => console.log('Mock electron.send called'),
+                receive: () => console.log('Mock electron.receive called')
+            };
+            displayId = null;
+        }
 
         const sendNavigate = (targetUrl) => {
             if (displayId) {
@@ -224,7 +234,6 @@
             }
         });
 
-
         const setZoom = () => {
             const val = parseInt(zoomInput.value, 10);
             if (!isNaN(val)) {
@@ -242,19 +251,23 @@
             if (e.key === 'Enter') setZoom();
         });
 
-        electron.receive('page-did-finish-load', (data) => {
-            const { displayId: targetId, url, title, tabIndex } = typeof data === 'string' ? { url: data } : data || {};
-            if (displayId && targetId && targetId !== displayId) return;
-            const idx = typeof tabIndex === 'number' ? tabIndex : activeTab;
-            if (tabs[idx]) {
-                tabs[idx].url = url;
-                if (title) tabs[idx].title = title;
-            }
-            if (idx === activeTab) {
-                urlInput.value = url;
-            }
-            renderTabs();
-        });
+        try {
+            electron.receive('page-did-finish-load', (data) => {
+                const { displayId: targetId, url, title, tabIndex } = typeof data === 'string' ? { url: data } : data || {};
+                if (displayId && targetId && targetId !== displayId) return;
+                const idx = typeof tabIndex === 'number' ? tabIndex : activeTab;
+                if (tabs[idx]) {
+                    tabs[idx].url = url;
+                    if (title) tabs[idx].title = title;
+                }
+                if (idx === activeTab) {
+                    urlInput.value = url;
+                }
+                renderTabs();
+            });
+        } catch (error) {
+            console.log('Could not set up electron IPC receive handler:', error);
+        }
 
         // initial render
         renderTabs();
