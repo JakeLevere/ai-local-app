@@ -40,32 +40,19 @@
             background-color: var(--secondary-bg);
             border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
-            min-height: 32px;
-            height: 32px;
         }
         .tab {
             flex: 1;
-            padding: 8px 12px;
+            width: 20%;
+            height: 24px;
+            line-height: 24px;
+            padding: 0 6px;
             cursor: pointer;
             color: var(--text-color);
             user-select: none;
             font-size: 12px;
-            text-align: center;
-            border-right: 1px solid var(--border-color);
             overflow: hidden;
             white-space: nowrap;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 80px;
-            background-color: var(--secondary-bg);
-            transition: background-color 0.2s;
-        }
-        .tab:hover {
-            background-color: var(--primary-bg);
-        }
-        .tab:last-child {
-            border-right: none;
         }
         .tab.active {
             background-color: var(--primary-bg);
@@ -144,14 +131,12 @@
     <div id="content-placeholder"></div>
 
     <script>
-        console.log('Browser script starting...');
         const urlInput = document.getElementById('url-input');
         const goButton = document.getElementById('go-button');
         const zoomInput = document.getElementById('zoom-input');
         const backButton = document.getElementById('back-button');
         const forwardButton = document.getElementById('forward-button');
         const tabBar = document.getElementById('tab-bar');
-        console.log('Tab bar element:', tabBar);
 
         let electron, displayId;
         try {
@@ -184,6 +169,7 @@
         };
 
         const MAX_TABS = 5;
+        const MAX_LABEL_LENGTH = 20;
         let tabs = Array.from({ length: MAX_TABS }, (_, i) => ({
             url: 'https://www.google.com',
             id: i
@@ -191,28 +177,30 @@
         let activeTab = 0;
 
         const getTabLabel = (tab) => {
-            if (tab.title) return tab.title;
-            try {
-                return new URL(tab.url).hostname.replace(/^www\./, '') || 'New Tab';
-            } catch {
-                return 'New Tab';
+            let label = tab.title || '';
+            if (!label) {
+                try {
+                    label = new URL(tab.url).hostname.replace(/^www\./, '') || 'New Tab';
+                } catch {
+                    label = 'New Tab';
+                }
             }
+            return label.length > MAX_LABEL_LENGTH ? label.slice(0, MAX_LABEL_LENGTH) : label;
         };
 
         const renderTabs = () => {
-            console.log('Rendering tabs:', tabs.length);
             tabBar.innerHTML = '';
             tabs.forEach((t, idx) => {
                 const tab = document.createElement('div');
                 tab.className = 'tab' + (idx === activeTab ? ' active' : '');
-                tab.textContent = getTabLabel(t);
+                const label = document.createElement('span');
+                label.textContent = getTabLabel(t);
+                tab.appendChild(label);
                 tab.onclick = () => {
                     switchTab(idx);
                 };
                 tabBar.appendChild(tab);
-                console.log('Added tab', idx, ':', getTabLabel(t));
             });
-            console.log('Tab bar children:', tabBar.children.length);
         };
 
         const navigate = () => {
