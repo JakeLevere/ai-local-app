@@ -1,41 +1,27 @@
 module.exports = {
-  content: ["./index.html", "./**/*.js"],
   theme: {
     extend: {
-      colors: {
-        'sidebar-bg': '#1f1f23',
-        'sidebar-item-hover': 'rgba(135, 206, 250, 0.1)',
-        'sidebar-item-selected': 'rgba(135, 206, 250, 0.2)',
-        'baby-blue': '#87CEFA',
-        'baby-blue-darker': '#6495ED',
-        'bg-very-dark': '#0e0e10',
-        'bg-dark-grey': '#18181b',
-        'text-off-white': '#efeff1',
-        'text-grey': '#adadb8',
-        'text-dark-grey': '#888',
-        'border': '#444',
-        'separator': '#3a3a3d',
-        'input-bg': '#3a3a3d',
-        'button-text-dark': '#111',
-        'user-green': '#7FFFD4',
-        'light-cyan': '#e0ffff',
-        'display-highlight': 'rgba(255,165,0,0.6)'
-      },
       spacing: {
-        'scroll': '10px',
-        'primary-icon': '38px',
-        'primary-item-x': '10px',
-        'primary-item-y': '8px'
+        '0': '0',
+        '1': '0.25rem', // 4px
+        '2': '0.5rem',  // 8px
+        '3': '0.75rem', // 12px
+        '4': '1rem',    // 16px
+        '5': '1.25rem', // 20px
+        '6': '1.5rem',  // 24px
+        '7': '1.75rem', // 28px
+        '8': '2rem',    // 32px
+        '9': '2.25rem', // 36px
+        '10': '2.5rem', // 40px
       },
       fontSize: {
-        'primary': '0.95em'
+        'xs': '0.75rem',   // 12px
+        'sm': '0.875rem',  // 14px
+        'md': '1rem',      // 16px
+        'lg': '1.25rem',   // 20px
+        'xl': '1.5rem',    // 24px
+        '2xl': '2rem',     // 32px
       },
-      borderRadius: {
-        'sm': '4px',
-        'md': '5px',
-        'lg': '10px'
-      }
-    }
+    },
   },
-  plugins: []
 };
