@@ -294,6 +294,9 @@ async function createWindow(serverUrl) {
         titleBarOverlay: { color: '#333333', symbolColor: '#ffffff', height: 30 },
     });
     mainWindow.removeMenu();
+    if (mainWindow.setWindowButtonVisibility) {
+        mainWindow.setWindowButtonVisibility(false);
+    }
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {});
     mainWindow.on('unresponsive', () => {});

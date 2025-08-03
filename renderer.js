@@ -63,6 +63,9 @@ function cacheDomElements() {
         programDescription: document.getElementById('program-description'),
         programOutput: document.getElementById('program-output'),
         generateProgramBtn: document.getElementById('generate-program'),
+        minButton: document.getElementById('min-button'),
+        maxButton: document.getElementById('max-button'),
+        closeButton: document.getElementById('close-button'),
         displays: {
              'display1': { iframe: document.getElementById('iframe1'), image: document.getElementById('image1'), element: document.getElementById('display1') },
              'display2': { iframe: document.getElementById('iframe2'), image: document.getElementById('image2'), element: document.getElementById('display2') },
@@ -935,6 +938,9 @@ document.addEventListener('DOMContentLoaded', () => {
     isDomReady = true;
     cacheDomElements();
     setupTextareaAutoResize();
+    domElements.minButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'minimize'));
+    domElements.maxButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'maximize'));
+    domElements.closeButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'close'));
     const overlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
     if (overlay && loginForm) {
