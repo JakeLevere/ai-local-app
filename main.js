@@ -776,6 +776,7 @@ app.on('before-quit', async () => {
         const existing = await sharedDataService.getOpenDisplays();
         const memory = gatherOpenDisplayState();
         await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+        await sharedDataService.flushWrites();
     } catch (err) {
         console.error('Main: Failed to persist open display state on before-quit:', err);
     }
@@ -791,6 +792,7 @@ app.on('will-quit', async () => {
         const existing = await sharedDataService.getOpenDisplays();
         const memory = gatherOpenDisplayState();
         await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+        await sharedDataService.flushWrites();
     } catch (err) {
         console.error('Main: Failed to persist open display state on quit:', err);
     }
