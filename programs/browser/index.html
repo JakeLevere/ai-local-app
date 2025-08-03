@@ -29,10 +29,13 @@
         #controls {
             display: flex;
             align-items: center;
-            padding: 8px;
+            padding: 6px;
             background-color: var(--secondary-bg);
-            height: 36px; /* Reduced height for a sleeker look */
+            height: 31px; /* Slightly reduced */
+            min-height: 31px;
+            max-height: 31px;
             flex-shrink: 0;
+            overflow: hidden;
             box-sizing: border-box;
             gap: 6px;
         }
@@ -45,7 +48,11 @@
             display: flex;
             background-color: var(--secondary-bg);
             border-bottom: 1px solid var(--border-color);
+            height: 29px;
+            min-height: 29px;
+            max-height: 29px;
             flex-shrink: 0;
+            overflow: hidden;
         }
         .tab {
             flex: 1;
