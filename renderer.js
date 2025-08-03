@@ -1021,6 +1021,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('logging-in');
                 overlay.classList.add('hidden');
 
+                // --- PATCH: Force clear app-container style after animation ---
+setTimeout(() => {
+    const selectors = [
+        '.app-container',
+        '#main-content',
+        '#central-display',
+        '#displays-container',
+        '#left-sidebar',
+        '#right-chat'
+    ];
+    selectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.style.height = '';
+            el.style.marginTop = '';
+            el.style.removeProperty('height');
+            el.style.removeProperty('margin-top');
+            el.style.maxHeight = '';
+            el.style.removeProperty('max-height');
+            el.style.minHeight = '';
+            el.style.removeProperty('min-height');
+        }
+    });
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+}, 0);
+
                 applyBounceAnimation([
                     domElements.displaysContainer,
                     domElements.personaListContainer,

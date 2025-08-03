@@ -17,12 +17,13 @@
             margin: 0;
             padding: 0;
             height: 100vh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
             background-color: var(--primary-bg);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            overflow: hidden;
+            /* overflow: hidden; */ /* Allow scrolling if necessary */
         }
         /* This is the container for your browser's top bar */
         #controls {
@@ -34,6 +35,11 @@
             flex-shrink: 0;
             box-sizing: border-box;
             gap: 6px;
+        }
+        #tab-bar, #controls {
+            position: static; /* Ensure they're in normal flow */
+            z-index: auto;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         }
         #tab-bar {
             display: flex;
@@ -116,6 +122,8 @@
         #content-placeholder {
             flex: 1;
             background-color: #FFF; /* A white background for when pages are loading */
+            /* Add scrolling for overflow */
+            overflow: auto;
         }
     </style>
 </head>
