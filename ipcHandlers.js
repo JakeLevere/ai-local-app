@@ -350,16 +350,8 @@ function initialize(windowInstance, paths) {
         }
     });
 
-    sharedDataService.getOpenDisplays()
-        .then(displays => {
-            sendToRenderer('restore-open-displays', displays);
-        })
-        .catch(err => {
-            console.error('IPC: Failed to load open displays:', err);
-        })
-        .finally(() => {
-            sendToRenderer('backend-ready');
-        });
+    // Notify the renderer once backend initialization is complete
+    sendToRenderer('backend-ready');
 }
 
 module.exports = initialize;

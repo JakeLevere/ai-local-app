@@ -735,7 +735,8 @@ app.whenReady().then(async () => {
         try {
             const savedDisplays = await sharedDataService.getOpenDisplays();
             console.log('>>> Restoring saved displays:', savedDisplays);
-            // The restoration will be handled by the renderer after backend-ready signal
+            // Proactively send saved display information to the renderer
+            sendToRenderer('restore-open-displays', savedDisplays);
         } catch (error) {
             console.error('Failed to load saved displays:', error);
         }
