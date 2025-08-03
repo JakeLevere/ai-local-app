@@ -325,6 +325,22 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    ipcMain.on('window-control', (event, action) => {
+        if (!mainWindow) return;
+        switch (action) {
+            case 'minimize':
+                mainWindow.minimize();
+                break;
+            case 'maximize':
+                if (mainWindow.isMaximized()) mainWindow.unmaximize();
+                else mainWindow.maximize();
+                break;
+            case 'close':
+                mainWindow.close();
+                break;
+        }
+    });
+
     ipcMain.handle('get-open-displays', async () => {
         try {
             return await sharedDataService.getOpenDisplays();
