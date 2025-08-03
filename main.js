@@ -20,19 +20,16 @@ const MAX_BROWSER_TABS = 5;
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3000;
 let port = DEFAULT_PORT; // Choose an available port
 
-// Define user data paths (accessible to other modules if needed, e.g., passed during init)
-const userDataPath = app.getPath('userData');
-const dataDir = path.join(app.getPath('documents'), 'ai-local-data');
-const vaultPath = path.join(dataDir, 'Personas');
-const decksPath = path.join(dataDir, 'Decks');
-const imagesPath = path.join(dataDir, 'Images');
-const videosPath = path.join(dataDir, 'Videos');
-const calendarPath = path.join(dataDir, 'Calendar');
-const websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
-const websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
-
-// Initialize shared data service early
-sharedDataService.init({ basePath: dataDir, vaultPath: vaultPath });
+// Define user data paths (populated once the app is ready)
+let userDataPath;
+let dataDir;
+let vaultPath;
+let decksPath;
+let imagesPath;
+let videosPath;
+let calendarPath;
+let websiteHistoryPath;
+let websiteHistoryFile;
 
 // Global error handlers for more verbose logging
 process.on('uncaughtException', (err) => {
@@ -709,6 +706,21 @@ function showBrowserOverlay(displayId) {
 
 // App initialization (Modified)
 app.whenReady().then(async () => {
+    // Now that the app is ready, resolve all user data paths
+    userDataPath = app.getPath('userData');
+    const documentsPath = app.getPath('documents');
+    dataDir = path.join(documentsPath, 'ai-local-data');
+    vaultPath = path.join(dataDir, 'Personas');
+    decksPath = path.join(dataDir, 'Decks');
+    imagesPath = path.join(dataDir, 'Images');
+    videosPath = path.join(dataDir, 'Videos');
+    calendarPath = path.join(dataDir, 'Calendar');
+    websiteHistoryPath = path.join(dataDir, 'WebsiteHistory');
+    websiteHistoryFile = path.join(websiteHistoryPath, 'history.md');
+
+    // Initialize shared data service with resolved paths
+    sharedDataService.init({ basePath: dataDir, vaultPath });
+
     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
