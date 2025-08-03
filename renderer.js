@@ -777,7 +777,11 @@ function restoreOpenDisplays(displays) {
     Object.keys(displays).forEach(id => {
         const info = displays[id];
         if (info && info.program) {
-            window.electronAPI.send('open-program', { program: info.program, displayId: id });
+            window.electronAPI.send('open-program', {
+                program: info.program,
+                displayId: id,
+                state: { url: info.url, urls: info.urls }
+            });
             if (info.program === 'browser') {
                 const el = domElements.displays[id]?.element;
                 if (el) {

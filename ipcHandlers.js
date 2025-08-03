@@ -126,7 +126,7 @@ function initialize(windowInstance, paths) {
         sendToRenderer('load-display', { displayId, url });
     });
 
-    ipcMain.on('open-program', async (event, { program, displayId }) => {
+    ipcMain.on('open-program', async (event, { program, displayId, state = {} }) => {
         if (!program || !displayId) return;
 
         // Sanitize program name to prevent path traversal
@@ -155,7 +155,7 @@ function initialize(windowInstance, paths) {
             sendToRenderer('load-display', { displayId, url });
             try {
                 const current = await sharedDataService.getOpenDisplays();
-                current[displayId] = { program: name };
+                current[displayId] = { ...current[displayId], program: name, ...state };
                 await sharedDataService.setOpenDisplays(current);
             } catch (err) {
                 console.error('IPC: Failed to persist open display state:', err);

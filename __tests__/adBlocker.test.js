@@ -1,4 +1,9 @@
-const { setupAdBlocker, AD_BLOCK_PATTERNS } = require('../adBlocker');
+jest.mock('electron', () => ({
+  session: { defaultSession: { webRequest: { onBeforeRequest: jest.fn() } } },
+  net: { request: jest.fn() }
+}));
+
+const { setupAdBlocker, adBlockPatterns } = require('../adBlocker');
 
 describe('adBlocker', () => {
   test('setupAdBlocker registers webRequest handler', () => {
@@ -7,7 +12,7 @@ describe('adBlocker', () => {
     };
     setupAdBlocker(mockSession);
     expect(mockSession.webRequest.onBeforeRequest).toHaveBeenCalledWith(
-      { urls: AD_BLOCK_PATTERNS },
+      { urls: adBlockPatterns },
       expect.any(Function)
     );
   });
