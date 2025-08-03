@@ -161,7 +161,7 @@ async function launchBrowser() {
         show: false,
         autoHideMenuBar: true,
         titleBarStyle: 'hidden',
-        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff' },
+        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff', height: 30 },
     });
     browserWindow.removeMenu();
 
@@ -291,7 +291,7 @@ async function createWindow(serverUrl) {
         show: false,
         autoHideMenuBar: true,
         titleBarStyle: 'hidden',
-        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff' },
+        titleBarOverlay: { color: '#333333', symbolColor: '#ffffff', height: 30 },
     });
     mainWindow.removeMenu();
 

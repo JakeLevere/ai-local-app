@@ -46,13 +46,24 @@
     --primary-item-padding: var(--space-2) var(--space-3);
     --primary-font-size: var(--font-size-md);
     --display-highlight: rgba(255, 165, 0, 0.6);
+    --title-bar-height: 30px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-very-dark); color: var(--text-off-white); height: 100vh; overflow: hidden; }
 
-.app-container { display: grid; grid-template-columns: minmax(50px, 260px) 1fr minmax(50px, 340px); grid-template-rows: 1fr; height: 100vh; background-color: var(--bg-dark-grey); gap: 1px; background-color: var(--border-color); transition: grid-template-columns 0.3s ease-in-out; }
+#title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--title-bar-height);
+    background-color: #333333;
+    -webkit-app-region: drag;
+    z-index: 10000;
+}
+.app-container { display: grid; grid-template-columns: minmax(50px, 260px) 1fr minmax(50px, 340px); grid-template-rows: 1fr; height: calc(100vh - var(--title-bar-height)); margin-top: var(--title-bar-height); background-color: var(--bg-dark-grey); gap: 1px; background-color: var(--border-color); transition: grid-template-columns 0.3s ease-in-out; }
 .app-container.collapsed { grid-template-columns: 50px 1fr minmax(50px, 340px); }
 .app-container.chat-collapsed { grid-template-columns: minmax(50px, 260px) 1fr 50px; }
 .app-container.collapsed.chat-collapsed { grid-template-columns: 50px 1fr 50px; }
