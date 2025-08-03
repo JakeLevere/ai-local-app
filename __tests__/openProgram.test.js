@@ -67,8 +67,9 @@ describe('open-program handler', () => {
     const handler = handlers['open-program'];
     await handler({}, { program: 'missing', displayId: 'display1' });
     expect(mockWindow.webContents.send).toHaveBeenCalledWith(
-      'main-process-error',
-      'No program "missing" found.'
+      'append-chat-log',
+      "No program 'missing' found.",
+      true
     );
   });
 });
