@@ -818,12 +818,7 @@ function setupIpcListeners() {
         await fetchFavoritePersona();
         console.log("Renderer: Requesting persona list...");
         window.electronAPI.send('discover-personas');
-        try {
-            const displays = await window.electronAPI.invoke('get-open-displays');
-            restoreOpenDisplays(displays);
-        } catch (err) {
-            console.error('Renderer: Failed to retrieve open displays:', err);
-        }
+        // Display restoration is now handled by a dedicated event from the main process
     });
     window.electronAPI.on('restore-open-displays', (displays) => {
         restoreOpenDisplays(displays);
