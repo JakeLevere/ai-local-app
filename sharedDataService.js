@@ -5,6 +5,7 @@ let dataFilePath = null;
 let favoritePersonaFilePath = null;
 let isWriting = false;
 let writeQueue = [];
+let dataCache = null; // Cache to ensure latest data is available even if writes are pending
 
 function init(basePathOrOptions) {
     if (typeof basePathOrOptions === 'string') {
@@ -17,26 +18,46 @@ function init(basePathOrOptions) {
     } else {
         throw new Error('Invalid init parameters');
     }
+    dataCache = null; // reset cache on re-init
 }
 
 async function readData() {
     if (!dataFilePath) throw new Error('SharedDataService not initialized');
+    if (dataCache) return dataCache;
     try {
         const content = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(content);
+        dataCache = JSON.parse(content);
+        return dataCache;
     } catch (err) {
-        if (err.code === 'ENOENT') return {};
+        if (err.code === 'ENOENT') {
+            dataCache = {};
+            return dataCache;
+        }
         throw err;
     }
 }
 
 async function writeData(data) {
     if (!dataFilePath) throw new Error('SharedDataService not initialized');
-    
+    dataCache = data; // update cache immediately
     // Queue writes to prevent concurrent file writes
     return new Promise((resolve, reject) => {
         writeQueue.push({ data, resolve, reject });
         processWriteQueue();
+    });
+}
+
+// Ensure all queued writes are completed
+function flushWrites() {
+    return new Promise((resolve) => {
+        const check = () => {
+            if (!isWriting && writeQueue.length === 0) {
+                resolve();
+            } else {
+                setTimeout(check, 10);
+            }
+        };
+        check();
     });
 }
 
@@ -122,5 +143,6 @@ module.exports = {
     getFavoritePersonaId,
     setFavoritePersonaId,
     getOpenDisplays,
-    setOpenDisplays
+    setOpenDisplays,
+    flushWrites
 };
