@@ -780,7 +780,12 @@ function restoreOpenDisplays(displays) {
             window.electronAPI.send('open-program', {
                 program: info.program,
                 displayId: id,
-                state: { url: info.url, urls: info.urls }
+                state: {
+                    url: info.url,
+                    urls: info.urls,
+                    activeTabIndex: info.activeTabIndex,
+                    lastUpdated: info.lastUpdated
+                }
             });
             if (info.program === 'browser') {
                 const el = domElements.displays[id]?.element;
@@ -794,7 +799,9 @@ function restoreOpenDisplays(displays) {
                             width: Math.round(bounds.width),
                             height: Math.round(bounds.height)
                         },
-                        url: info.url
+                        url: info.url,
+                        urls: info.urls,
+                        activeTabIndex: info.activeTabIndex
                     });
                     activeBrowserDisplays[id] = true;
                     const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
