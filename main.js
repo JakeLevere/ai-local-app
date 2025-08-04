@@ -318,7 +318,16 @@ async function createWindow(serverUrl) {
     });
 
     // Initialize your existing IPC handlers
-    initializeIpcHandlers(mainWindow, { vaultPath, decksPath, userDataPath, dataDir, imagesPath, videosPath, calendarPath });
+    initializeIpcHandlers(mainWindow, {
+        vaultPath,
+        decksPath,
+        userDataPath,
+        dataDir,
+        imagesPath,
+        videosPath,
+        calendarPath,
+        serverUrl
+    });
 
     
 ipcMain.on('add-adblock-patterns', (event, patterns) => {
