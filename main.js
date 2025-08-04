@@ -344,10 +344,10 @@ ipcMain.on('update-adblock-patterns', async (event) => {
 
     // --- ADDED: IPC Listener to launch the browser ---
     // This listens for a message from your main application to open the browser.
-    ipcMain.on('launch-browser', (event, { displayId, bounds, url }) => {
+    ipcMain.on('launch-browser', (event, { displayId, bounds, url, urls, activeTabIndex }) => {
         console.log('[Main Process] Launching browser view...');
-        console.log('[Main Process] Launch browser params:', { displayId, bounds: !!bounds, url });
-        launchBrowserOverlay(bounds, displayId, url);
+        console.log('[Main Process] Launch browser params:', { displayId, bounds: !!bounds, url, urls, activeTabIndex });
+        launchBrowserOverlay(bounds, displayId, url, urls, activeTabIndex);
     });
 
     ipcMain.on('update-browser-bounds', (event, { displayId, bounds }) => {
@@ -485,7 +485,7 @@ async function launchBrowserOverlay(bounds, displayId, initialUrl, savedUrls = n
         }
     }
 
-    let activeTabIndex = 0;
+    let activeTabIndex = typeof activeTabIndexSaved === 'number' ? activeTabIndexSaved : 0;
 
     const createTabView = (tabIndex) => {
         const v = new BrowserView({
@@ -600,7 +600,7 @@ async function launchBrowserOverlay(bounds, displayId, initialUrl, savedUrls = n
         v.webContents.loadURL(url);
     }
 
-    mainWindow.addBrowserView(views[0]);
+    mainWindow.addBrowserView(views[activeTabIndex]);
 
     const navigateHandler = (event, arg) => {
         let targetId = null;
@@ -641,10 +641,11 @@ async function launchBrowserOverlay(bounds, displayId, initialUrl, savedUrls = n
         }
         activeTabIndex = tabIndex;
         existingData.activeTab = tabIndex;
+        persistBrowserActiveTab(displayId, tabIndex);
     };
     const existingData = {
         views,
-        activeTab: 0,
+        activeTab: activeTabIndex,
         navigateHandler,
         switchHandler,
         brightnessKeys: Array(MAX_BROWSER_TABS).fill(null),
@@ -782,9 +783,8 @@ app.on('window-all-closed', () => {
 // Persist display state as early as possible during quit
 app.on('before-quit', async () => {
     try {
-        const existing = await sharedDataService.getOpenDisplays();
-        const memory = gatherOpenDisplayState();
-        await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+        const memory = await gatherOpenDisplayState();
+        await sharedDataService.setOpenDisplays(memory);
         await sharedDataService.flushWrites();
     } catch (err) {
         console.error('Main: Failed to persist open display state on before-quit:', err);
@@ -798,9 +798,8 @@ app.on('will-quit', async () => {
         server.close();
     }
     try {
-        const existing = await sharedDataService.getOpenDisplays();
-        const memory = gatherOpenDisplayState();
-        await sharedDataService.setOpenDisplays({ ...existing, ...memory });
+        const memory = await gatherOpenDisplayState();
+        await sharedDataService.setOpenDisplays(memory);
         await sharedDataService.flushWrites();
     } catch (err) {
         console.error('Main: Failed to persist open display state on quit:', err);
@@ -843,6 +842,13 @@ async function persistBrowserTabUrl(displayId, tabIndex, url) {
             console.log(`[Main Process] Updating URL for ${displayId} tab ${tabIndex} from '${entry.urls ? entry.urls[tabIndex] : "undefined"}' to '${url}'`);
             entry.urls = entry.urls || [];
             entry.urls[tabIndex] = url;
+            if (entry.activeTabIndex === undefined) {
+                entry.activeTabIndex = tabIndex;
+            }
+            if (entry.activeTabIndex === tabIndex) {
+                entry.url = url;
+            }
+            entry.lastUpdated = Date.now();
             await sharedDataService.setOpenDisplays(current);
         } else {
             console.log(`[Main Process] No browser entry found for ${displayId}, entry:`, entry);
@@ -852,20 +858,38 @@ async function persistBrowserTabUrl(displayId, tabIndex, url) {
     }
 }
 
-function gatherOpenDisplayState() {
+async function persistBrowserActiveTab(displayId, tabIndex) {
+    try {
+        const current = await sharedDataService.getOpenDisplays();
+        const entry = current[displayId];
+        if (entry && entry.program === 'browser') {
+            entry.activeTabIndex = tabIndex;
+            if (entry.urls && entry.urls[tabIndex]) {
+                entry.url = entry.urls[tabIndex];
+            }
+            entry.lastUpdated = Date.now();
+            await sharedDataService.setOpenDisplays(current);
+        }
+    } catch (err) {
+        console.error('Error persisting active tab index:', err);
+    }
+}
+
+async function gatherOpenDisplayState() {
     console.log('[Main Process] gatherOpenDisplayState called, collecting browser states...');
-    const state = {};
+    const state = await sharedDataService.getOpenDisplays();
     for (const [id, data] of Object.entries(browserViews)) {
         if (!data) continue;
-        const active = data.views[data.activeTab];
-        state[id] = { program: 'browser' };
-        if (active && !active.webContents.isDestroyed()) {
-            const currentUrl = active.webContents.getURL();
-            state[id].url = currentUrl;
-            console.log(`[Main Process] Gathered ${id}: ${currentUrl}`);
-        } else {
-            console.log(`[Main Process] Skipped ${id}: view destroyed or missing`);
-        }
+        const urls = data.views.map(v => (v && !v.webContents.isDestroyed()) ? v.webContents.getURL() : '');
+        const activeIndex = data.activeTab;
+        state[id] = {
+            program: 'browser',
+            urls,
+            activeTabIndex: activeIndex,
+            url: urls[activeIndex],
+            lastUpdated: Date.now()
+        };
+        console.log(`[Main Process] Gathered ${id}:`, state[id]);
     }
     console.log('[Main Process] Final gathered state:', state);
     return state;
