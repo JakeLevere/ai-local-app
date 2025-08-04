@@ -72,4 +72,19 @@ describe('open-program handler', () => {
       true
     );
   });
+
+  test('uses provided serverUrl when constructing program URL', async () => {
+    fs.access = jest.fn().mockResolvedValue();
+    mockWindow.webContents.send.mockClear();
+    initialize(mockWindow, { serverUrl: 'http://localhost:4000', userDataPath: '/tmp' });
+    const handler = handlers['open-program'];
+    await handler({}, { program: 'test', displayId: 'display1' });
+    expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+      'load-display',
+      expect.objectContaining({
+        displayId: 'display1',
+        url: 'http://localhost:4000/programs/test/index.html'
+      })
+    );
+  });
 });
