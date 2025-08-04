@@ -4,7 +4,8 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const dataFilePath = path.join(__dirname, '..', 'ai-local-data', 'sharedData.json');
+const dataDir = path.join(__dirname, '..', 'ai-local-data');
+const dataFilePath = path.join(dataDir, 'sharedData.json');
 const testResults = {
     passed: 0,
     failed: 0,
@@ -30,8 +31,16 @@ function addTestResult(testName, passed, message) {
 async function testEnhancedPersistence() {
     console.log('🧪 Testing Enhanced Browser Persistence System\n');
     console.log('='.repeat(60));
-    
+
     try {
+        // Ensure data file exists
+        await fs.mkdir(dataDir, { recursive: true });
+        try {
+            await fs.access(dataFilePath);
+        } catch {
+            await fs.writeFile(dataFilePath, JSON.stringify({ openDisplays: {} }, null, 2), 'utf-8');
+        }
+
         // Test 1: Verify data file exists and is readable
         console.log('\n📁 Testing Data File Integrity...');
         const content = await fs.readFile(dataFilePath, 'utf-8');

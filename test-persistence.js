@@ -4,12 +4,25 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const dataFilePath = path.join(__dirname, '..', 'ai-local-data', 'sharedData.json');
+const dataDir = path.join(__dirname, '..', 'ai-local-data');
+const dataFilePath = path.join(dataDir, 'sharedData.json');
+
+async function ensureDataFile() {
+    await fs.mkdir(dataDir, { recursive: true });
+    try {
+        await fs.access(dataFilePath);
+    } catch {
+        await fs.writeFile(dataFilePath, JSON.stringify({ openDisplays: {} }, null, 2), 'utf-8');
+    }
+}
 
 async function testPersistence() {
     console.log('Testing Persistence System\n');
-    
+
     try {
+        // Ensure data file exists
+        await ensureDataFile();
+
         // Read current state
         console.log('1. Reading current state...');
         const content = await fs.readFile(dataFilePath, 'utf-8');

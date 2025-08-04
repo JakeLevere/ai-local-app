@@ -41,6 +41,7 @@ process.on('unhandledRejection', (reason) => {
 
 // --- Express Local Server Setup ---
 let server;
+let isQuitting = false; // Track quit state to avoid race conditions
 const MAX_PORT_RETRIES = 10;
 
 function startLocalServer() {
@@ -780,23 +781,11 @@ app.on('window-all-closed', () => {
     }
 });
 
-// Persist display state as early as possible during quit
-app.on('before-quit', async () => {
-    try {
-        const memory = await gatherOpenDisplayState();
-        await sharedDataService.setOpenDisplays(memory);
-        await sharedDataService.flushWrites();
-    } catch (err) {
-        console.error('Main: Failed to persist open display state on before-quit:', err);
-    }
-});
-
-// Ensure server is closed when app quits
-app.on('will-quit', async () => {
-    if (server) {
-        console.log(">>> Stopping local server...");
-        server.close();
-    }
+// Persist display state and stop server before quitting
+app.on('before-quit', async (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    isQuitting = true;
     try {
         const memory = await gatherOpenDisplayState();
         await sharedDataService.setOpenDisplays(memory);
@@ -804,6 +793,11 @@ app.on('will-quit', async () => {
     } catch (err) {
         console.error('Main: Failed to persist open display state on quit:', err);
     }
+    if (server) {
+        console.log('>>> Stopping local server...');
+        server.close();
+    }
+    app.quit();
 });
 
 function sendToRenderer(channel, ...args) {
