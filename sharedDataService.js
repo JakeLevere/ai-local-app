@@ -26,6 +26,11 @@ async function readData() {
     if (dataCache) return dataCache;
     try {
         const content = await fs.readFile(dataFilePath, 'utf-8');
+        // PATCH: handle empty file as empty object
+        if (!content.trim()) {
+            dataCache = {};
+            return dataCache;
+        }
         dataCache = JSON.parse(content);
         return dataCache;
     } catch (err) {
