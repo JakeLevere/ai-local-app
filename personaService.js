@@ -9,6 +9,7 @@ const PRE_PROMPT_FILE = 'Pre-Prompt.md';
 const MEMORY_PROMPT_FILE = 'Memory-Prompt.md';
 const MEMORY_FILE = 'Memory.md';
 const ICON_DIR_RELATIVE = 'images';
+const PERSONA_DATA_FILE = 'persona.json';
 
 // --- Helper Functions ---
 function sanitizeFolderName(name) { return name?.toLowerCase().replace(/[^a-z0-9_-]/gi, '_') ?? ''; } // Added nullish check
@@ -26,6 +27,36 @@ function getPrimaryPersonaFolderPath(primaryName, vaultPath) {
 async function ensureDirectoryExists(dirPath) { try { await fs.mkdir(dirPath, { recursive: true }); } catch (error) { console.error(`Error ensuring directory exists at ${dirPath}:`, error); throw error; } }
 async function readFileSafe(filePath, defaultContent = '') { try { return await fs.readFile(filePath, 'utf-8'); } catch (error) { if (error.code === 'ENOENT') { return defaultContent; } console.error(`Error reading file ${filePath}:`, error); throw error; } }
 
+async function loadPersonaData(identifier, vaultPath) {
+    const filePath = path.join(getPersonaFolderPath(identifier, vaultPath), PERSONA_DATA_FILE);
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const data = JSON.parse(content);
+        return {
+            shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
+            midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
+            longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] }
+        };
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error(`[Persona Service] Error loading persona data for ${identifier}:`, err);
+        }
+        return { shortTermHistory: [], midTermSlots: [], longTermStore: { items: [] } };
+    }
+}
+
+async function savePersonaData(identifier, data, vaultPath) {
+    const folder = getPersonaFolderPath(identifier, vaultPath);
+    await ensureDirectoryExists(folder);
+    const filePath = path.join(folder, PERSONA_DATA_FILE);
+    const payload = {
+        shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
+        midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
+        longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] }
+    };
+    await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+}
+
 // --- Persona Discovery ---
 async function discoverPersonas(vaultPath, baseDir) {
     console.log(`[Persona Service - Discovery] Starting in: ${vaultPath}`);
@@ -41,12 +72,14 @@ async function discoverPersonas(vaultPath, baseDir) {
 
             const primaryIconPath = path.join(baseDir, ICON_DIR_RELATIVE, `${primarySanitizedId}.png`);
             const primaryIconExists = await fs.access(primaryIconPath).then(() => true).catch(() => false);
+            const memoryData = await loadPersonaData(primarySanitizedId, vaultPath);
 
             const primaryPersona = {
                 id: primarySanitizedId,
                 name: primaryName,
                 type: 'primary',
-                icon: primaryIconExists ? `${ICON_DIR_RELATIVE}/${primarySanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`
+                icon: primaryIconExists ? `${ICON_DIR_RELATIVE}/${primarySanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`,
+                ...memoryData
             };
            personas.push(primaryPersona);
         }
@@ -238,6 +271,8 @@ module.exports = {
     deleteDeck,
     duplicateDeck,
     savePersonaFileContent, // Keep basic save here
+    loadPersonaData,
+    savePersonaData,
     getCalendarEvents,
     saveCalendarEvents,
     getHealthMetrics,
