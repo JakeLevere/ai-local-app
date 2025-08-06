@@ -70,15 +70,27 @@ async function discoverPersonas(vaultPath, baseDir) {
             const primarySanitizedId = sanitizeFolderName(primaryName);
             if (!primarySanitizedId) continue; // Skip if name leads to empty ID
 
-            const primaryIconPath = path.join(baseDir, ICON_DIR_RELATIVE, `${primarySanitizedId}.png`);
-            const primaryIconExists = await fs.access(primaryIconPath).then(() => true).catch(() => false);
+            // Check for image in the Images directory (alongside Personas directory)
+            const imagesDir = path.join(path.dirname(vaultPath), 'Images');
+            // Check for both .png and .PNG extensions
+            let primaryIconExists = false;
+            let iconFileName = null;
+            for (const ext of ['.png', '.PNG', '.jpg', '.JPG']) {
+                const testPath = path.join(imagesDir, `${primaryName}${ext}`);
+                if (await fs.access(testPath).then(() => true).catch(() => false)) {
+                    primaryIconExists = true;
+                    iconFileName = `${primaryName}${ext}`;
+                    break;
+                }
+            }
+            
             const memoryData = await loadPersonaData(primarySanitizedId, vaultPath);
 
             const primaryPersona = {
                 id: primarySanitizedId,
                 name: primaryName,
                 type: 'primary',
-                icon: primaryIconExists ? `${ICON_DIR_RELATIVE}/${primarySanitizedId}.png` : `${ICON_DIR_RELATIVE}/placeholder.png`,
+                icon: primaryIconExists ? `/images/${iconFileName}` : `/images/placeholder_icon.png`,
                 ...memoryData
             };
            personas.push(primaryPersona);

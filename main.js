@@ -275,7 +275,102 @@ async function launchBrowser() {
 }
 // --- END NEW BROWSERVIEW FUNCTION ---
 
+// Helper functions - moved up to be available when needed
+function sendToRenderer(channel, ...args) {
+    if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        try { mainWindow.webContents.send(channel, ...args); }
+        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
+    } else {
+        console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
+    }
+}
+
+function sendToWebContents(target, channel, ...args) {
+    if (target && !target.isDestroyed()) {
+        try { target.send(channel, ...args); }
+        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
+    }
+}
+
+async function appendWebsiteHistory(url) {
+    if (!websiteHistoryFile) {
+        console.warn('websiteHistoryFile not yet initialized, skipping history append');
+        return;
+    }
+    const timestamp = new Date().toLocaleString();
+    const entry = `${timestamp} - ${url}\n`;
+    try {
+        await fs.appendFile(websiteHistoryFile, entry, 'utf-8');
+    } catch (err) {
+        console.error('Error appending website history:', err);
+    }
+}
+
+async function persistBrowserTabUrl(displayId, tabIndex, url) {
+    if (!displayId || !url) return;
+    console.log(`[Main Process] persistBrowserTabUrl called for ${displayId}, tab ${tabIndex}:`, url);
+    try {
+        const current = await sharedDataService.getOpenDisplays();
+        const entry = current[displayId];
+        if (entry && entry.program === 'browser') {
+            console.log(`[Main Process] Updating URL for ${displayId} tab ${tabIndex} from '${entry.urls ? entry.urls[tabIndex] : "undefined"}' to '${url}'`);
+            entry.urls = entry.urls || [];
+            entry.urls[tabIndex] = url;
+            if (entry.activeTabIndex === undefined) {
+                entry.activeTabIndex = tabIndex;
+            }
+            if (entry.activeTabIndex === tabIndex) {
+                entry.url = url;
+            }
+            entry.lastUpdated = Date.now();
+            await sharedDataService.setOpenDisplays(current);
+        } else {
+            console.log(`[Main Process] No browser entry found for ${displayId}, entry:`, entry);
+        }
+    } catch (err) {
+        console.error('Error persisting browser URL:', err);
+    }
+}
+
+async function persistBrowserActiveTab(displayId, tabIndex) {
+    try {
+        const current = await sharedDataService.getOpenDisplays();
+        const entry = current[displayId];
+        if (entry && entry.program === 'browser') {
+            entry.activeTabIndex = tabIndex;
+            if (entry.urls && entry.urls[tabIndex]) {
+                entry.url = entry.urls[tabIndex];
+            }
+            entry.lastUpdated = Date.now();
+            await sharedDataService.setOpenDisplays(current);
+        }
+    } catch (err) {
+        console.error('Error persisting active tab index:', err);
+    }
+}
+
+async function gatherOpenDisplayState() {
+    console.log('[Main Process] gatherOpenDisplayState called, collecting browser states...');
+    const state = await sharedDataService.getOpenDisplays();
+    for (const [id, data] of Object.entries(browserViews)) {
+        if (!data) continue;
+        const urls = data.views.map(v => (v && !v.webContents.isDestroyed()) ? v.webContents.getURL() : '');
+        const activeIndex = data.activeTab;
+        state[id] = {
+            program: 'browser',
+            urls,
+            activeTabIndex: activeIndex,
+            url: urls[activeIndex],
+            lastUpdated: Date.now()
+        };
+        console.log(`[Main Process] Gathered ${id}:`, state[id]);
+    }
+    console.log('[Main Process] Final gathered state:', state);
+    return state;
+}
+
 async function createWindow(serverUrl) {
+    console.log('>>> createWindow called with serverUrl:', serverUrl);
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -312,30 +407,48 @@ async function createWindow(serverUrl) {
         mainWindow.show();
     });
 
-    await mainWindow.loadURL(targetUrl);
-    mainWindow.webContents.on('did-finish-load', () => {
-        const url = mainWindow.webContents.getURL();
-        appendWebsiteHistory(url);
-    });
+    // Define IPC handler initialization function
+    const initializeIpcHandlersNow = () => {
+        // Initialize your existing IPC handlers
+        try {
+        console.log('>>> About to initialize IPC handlers...');
+        console.log('>>> Type of initializeIpcHandlers:', typeof initializeIpcHandlers);
+        console.log('>>> mainWindow exists:', !!mainWindow);
+        console.log('>>> Initializing IPC handlers with paths:', {
+            vaultPath,
+            decksPath,
+            userDataPath,
+            dataDir,
+            imagesPath,
+            videosPath,
+            calendarPath,
+            serverUrl
+        });
+        
+        // Call the initialization function
+        const result = initializeIpcHandlers(mainWindow, {
+            vaultPath,
+            decksPath,
+            userDataPath,
+            dataDir,
+            imagesPath,
+            videosPath,
+            calendarPath,
+            serverUrl
+        });
+        
+        console.log('>>> IPC handlers function returned:', result);
+        console.log('>>> IPC handlers initialized successfully');
+    } catch (error) {
+        console.error('>>> ERROR initializing IPC handlers:', error);
+        console.error('>>> Error stack:', error.stack);
+    }
 
-    // Initialize your existing IPC handlers
-    initializeIpcHandlers(mainWindow, {
-        vaultPath,
-        decksPath,
-        userDataPath,
-        dataDir,
-        imagesPath,
-        videosPath,
-        calendarPath,
-        serverUrl
-    });
-
-    
-ipcMain.on('add-adblock-patterns', (event, patterns) => {
+    ipcMain.on('add-adblock-patterns', (event, patterns) => {
         addAdBlockPatterns(patterns);
     });
 
-ipcMain.on('update-adblock-patterns', async (event) => {
+    ipcMain.on('update-adblock-patterns', async (event) => {
         try {
             await updateAdBlockPatternsFromURL('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts');
         } catch (error) {
@@ -432,6 +545,28 @@ ipcMain.on('update-adblock-patterns', async (event) => {
         sendToRenderer('clear-display', { displayId });
     });
 
+    }; // End of initializeIpcHandlersNow function
+
+    // Initialize IPC handlers immediately - don't wait for page load
+    console.log('>>> Initializing IPC handlers immediately...');
+    initializeIpcHandlersNow();
+    
+    // Set up listener for when page loads  
+    mainWindow.webContents.once('did-finish-load', () => {
+        console.log('>>> did-finish-load event fired for initial load');
+        const url = mainWindow.webContents.getURL();
+        appendWebsiteHistory(url);
+    });
+    
+    console.log('>>> About to load URL:', targetUrl);
+    
+    // Load the URL
+    mainWindow.loadURL(targetUrl).then(() => {
+        console.log('>>> URL loaded successfully');
+    }).catch(err => {
+        console.error('>>> Error loading URL:', err);
+    });
+    
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
@@ -799,92 +934,3 @@ app.on('before-quit', async (event) => {
     }
     app.quit();
 });
-
-function sendToRenderer(channel, ...args) {
-    if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
-        try { mainWindow.webContents.send(channel, ...args); }
-        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
-    } else {
-        console.warn(`Main Process: Attempted to send on channel '${channel}' but mainWindow is not available.`);
-    }
-}
-
-function sendToWebContents(target, channel, ...args) {
-    if (target && !target.isDestroyed()) {
-        try { target.send(channel, ...args); }
-        catch (error) { console.error(`Main Process: Error sending on channel ${channel}:`, error); }
-    }
-}
-
-async function appendWebsiteHistory(url) {
-    const timestamp = new Date().toLocaleString();
-    const entry = `${timestamp} - ${url}\n`;
-    try {
-        await fs.appendFile(websiteHistoryFile, entry, 'utf-8');
-    } catch (err) {
-        console.error('Error appending website history:', err);
-    }
-}
-
-async function persistBrowserTabUrl(displayId, tabIndex, url) {
-    if (!displayId || !url) return;
-    console.log(`[Main Process] persistBrowserTabUrl called for ${displayId}, tab ${tabIndex}:`, url);
-    try {
-        const current = await sharedDataService.getOpenDisplays();
-        const entry = current[displayId];
-        if (entry && entry.program === 'browser') {
-            console.log(`[Main Process] Updating URL for ${displayId} tab ${tabIndex} from '${entry.urls ? entry.urls[tabIndex] : "undefined"}' to '${url}'`);
-            entry.urls = entry.urls || [];
-            entry.urls[tabIndex] = url;
-            if (entry.activeTabIndex === undefined) {
-                entry.activeTabIndex = tabIndex;
-            }
-            if (entry.activeTabIndex === tabIndex) {
-                entry.url = url;
-            }
-            entry.lastUpdated = Date.now();
-            await sharedDataService.setOpenDisplays(current);
-        } else {
-            console.log(`[Main Process] No browser entry found for ${displayId}, entry:`, entry);
-        }
-    } catch (err) {
-        console.error('Error persisting browser URL:', err);
-    }
-}
-
-async function persistBrowserActiveTab(displayId, tabIndex) {
-    try {
-        const current = await sharedDataService.getOpenDisplays();
-        const entry = current[displayId];
-        if (entry && entry.program === 'browser') {
-            entry.activeTabIndex = tabIndex;
-            if (entry.urls && entry.urls[tabIndex]) {
-                entry.url = entry.urls[tabIndex];
-            }
-            entry.lastUpdated = Date.now();
-            await sharedDataService.setOpenDisplays(current);
-        }
-    } catch (err) {
-        console.error('Error persisting active tab index:', err);
-    }
-}
-
-async function gatherOpenDisplayState() {
-    console.log('[Main Process] gatherOpenDisplayState called, collecting browser states...');
-    const state = await sharedDataService.getOpenDisplays();
-    for (const [id, data] of Object.entries(browserViews)) {
-        if (!data) continue;
-        const urls = data.views.map(v => (v && !v.webContents.isDestroyed()) ? v.webContents.getURL() : '');
-        const activeIndex = data.activeTab;
-        state[id] = {
-            program: 'browser',
-            urls,
-            activeTabIndex: activeIndex,
-            url: urls[activeIndex],
-            lastUpdated: Date.now()
-        };
-        console.log(`[Main Process] Gathered ${id}:`, state[id]);
-    }
-    console.log('[Main Process] Final gathered state:', state);
-    return state;
-}

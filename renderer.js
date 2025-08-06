@@ -832,6 +832,21 @@ function setupIpcListeners() {
             console.error('Renderer: Failed to restore displays:', err);
         }
     });
+    
+    // Fallback: If backend-ready doesn't fire within 2 seconds, manually trigger persona discovery
+    setTimeout(async () => {
+        if (Object.keys(primaryPersonaCache).length === 0) {
+            console.log("Renderer: Backend-ready not received, manually triggering persona discovery...");
+            await fetchFavoritePersona();
+            window.electronAPI.send('discover-personas');
+            try {
+                const displays = await window.electronAPI.invoke('get-open-displays');
+                restoreOpenDisplays(displays);
+            } catch (err) {
+                console.error('Renderer: Failed to restore displays:', err);
+            }
+        }
+    }, 2000);
     window.electronAPI.on('restore-open-displays', (displays) => {
         restoreOpenDisplays(displays);
     });

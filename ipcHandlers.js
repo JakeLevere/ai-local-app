@@ -351,7 +351,11 @@ function initialize(windowInstance, paths) {
     });
 
     // Notify the renderer once backend initialization is complete
-    sendToRenderer('backend-ready');
+    // Add a small delay to ensure renderer is ready to receive the signal
+    setTimeout(() => {
+        console.log('[IPC Handlers] Sending backend-ready signal to renderer');
+        sendToRenderer('backend-ready');
+    }, 1000);
 }
 
 module.exports = initialize;
