@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const personaService = require('./personaService.js');
 const sharedDataService = require('./sharedDataService.js');
+const { addToShortTerm } = require('./utils/memory.js');
 let aiService = null;
 let isAIServiceInitialized = false;
 let mainWindow = null;
@@ -83,8 +84,28 @@ function initialize(windowInstance, paths) {
         let finalIdentifier = personaIdentifier;
 
         try {
+            // Load persona data to update short-term history
+            const primaryOnly = personaIdentifier.split('/')[0];
+            let personaData = await personaService.loadPersonaData(primaryOnly, appPaths.vaultPath);
+            
+            // Add user message to short-term history
+            addToShortTerm(personaData, {
+                role: 'user',
+                content: userContent,
+                ts: Date.now()
+            });
+            
             const currentAIService = await ensureAIService();
-            const aiResult = await currentAIService.getChatResponse(personaIdentifier, userContent, appPaths.vaultPath);
+            // Use retrieval-augmented generation with debug enabled via environment variable
+            const enableDebug = process.env.RAG_DEBUG === 'true';
+            const aiResult = await currentAIService.getChatResponseWithRAG(
+                personaIdentifier, 
+                userContent, 
+                personaData,
+                appPaths.vaultPath,
+                true, // Enable RAG
+                enableDebug // Debug based on env var
+            );
 
             if (!aiResult || typeof aiResult !== 'object') throw new Error('AI routing returned invalid result.');
             finalIdentifier = aiResult.identifier;
@@ -94,11 +115,26 @@ function initialize(windowInstance, paths) {
             finalChatResponse = commandResult.chatResponse ?? finalChatResponse;
 
             appendChatLog(finalChatResponse, false);
+            
+            // Add AI response to short-term history
+            addToShortTerm(personaData, {
+                role: 'assistant',
+                content: finalChatResponse,
+                ts: Date.now()
+            });
+            
+            // Process all memory tiers (mid-term and long-term) with summarization and embeddings
+            personaData = await currentAIService.processAllMemoryTiers(
+                personaData,
+                personaData.shortTermHistory || []
+            );
+            
+            // Save updated persona data with all memory tiers
+            await personaService.savePersonaData(primaryOnly, personaData, appPaths.vaultPath);
 
             await currentAIService.appendToConversation(finalIdentifier, userContent, finalChatResponse, appPaths.vaultPath, commandResult.action === 'error');
 
             // Always also log into the primary persona
-            const primaryOnly = personaIdentifier.split('/')[0];
             if (finalIdentifier !== primaryOnly) {
                 await currentAIService.appendToConversation(primaryOnly, userContent, finalChatResponse, appPaths.vaultPath);
             }

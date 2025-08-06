@@ -9,6 +9,9 @@ const http = require('http');
 const { isUrlSafe } = require('./safeBrowsing');
 const sharedDataService = require('./sharedDataService');
 const { setupAdBlocker, addAdBlockPatterns, updateAdBlockPatternsFromURL } = require("./adBlocker");
+const memoryDecayService = require('./memoryDecayService');
+const audioStreamService = require('./services/audioStream');
+const ttsCache = require('./services/ttsCache');
 
 let mainWindow;
 // Track browser views keyed by displayId
@@ -31,13 +34,20 @@ let calendarPath;
 let websiteHistoryPath;
 let websiteHistoryFile;
 
-// Global error handlers for more verbose logging
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception in main process:', err);
-});
-process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled Rejection in main process:', reason);
-});
+    // Global error handlers for more verbose logging
+    process.on('uncaughtException', (err) => {
+        console.error('Uncaught Exception in main process:', err);
+    });
+    process.on('unhandledRejection', (reason) => {
+        console.error('Unhandled Rejection in main process:', reason);
+    });
+
+    // Clean up on exit
+    process.on('exit', () => {
+        if (memoryDecayService) {
+            memoryDecayService.stop();
+        }
+    });
 
 // --- Express Local Server Setup ---
 let server;
@@ -46,12 +56,22 @@ const MAX_PORT_RETRIES = 10;
 
 function startLocalServer() {
     const expressApp = express();
+    expressApp.use(express.json()); // Add JSON body parser
+    
     // Serve static files from the project directory
     expressApp.use(express.static(path.join(__dirname)));
     // Serve user images from the persistent data directory
     expressApp.use('/images', express.static(imagesPath));
     // Serve user videos from the persistent data directory
     expressApp.use('/videos', express.static(videosPath));
+    
+    // Add debug endpoints if in development mode
+    if (process.env.NODE_ENV !== 'production') {
+        const { initializeDebugEndpoints } = require('./services/debugEndpoints');
+        const debugRouter = initializeDebugEndpoints(vaultPath);
+        expressApp.use(debugRouter);
+        console.log('>>> Debug endpoints enabled at /debug/*');
+    }
 
     return new Promise((resolve, reject) => {
         const attempt = (retries) => {
@@ -70,6 +90,15 @@ function startLocalServer() {
 
             server.once('listening', () => {
                 console.log(`>>> Local server listening on http://localhost:${port}`);
+                
+                // Initialize WebSocket audio streaming
+                try {
+                    audioStreamService.initialize(server);
+                    console.log(`>>> WebSocket audio streaming initialized on ws://localhost:${port}/ws/audio`);
+                } catch (wsError) {
+                    console.error('Failed to initialize WebSocket audio streaming:', wsError);
+                }
+                
                 resolve(`http://localhost:${port}`);
             });
 
@@ -866,11 +895,39 @@ app.whenReady().then(async () => {
 
     // Initialize shared data service with resolved paths
     sharedDataService.init({ basePath: dataDir, vaultPath });
+    
+    // Store paths globally for memory decay service
+    global.appPaths = {
+        vaultPath,
+        decksPath,
+        userDataPath,
+        dataDir,
+        imagesPath,
+        videosPath,
+        calendarPath
+    };
 
     console.log('>>> Preparing user data directories...');
     await createUserDataDirectories();
     console.log('>>> Directories ready. Images:', imagesPath, 'Videos:', videosPath);
     setupAdBlocker();
+    
+    // Initialize TTS cache
+    console.log('>>> Initializing TTS cache...');
+    try {
+        await ttsCache.initialize(dataDir);
+    } catch (error) {
+        console.error('Failed to initialize TTS cache:', error);
+    }
+    
+    // Start memory decay service
+    console.log('>>> Starting memory decay service...');
+    memoryDecayService.start({
+        intervalMinutes: 2,      // Run every 2 minutes
+        decayRate: 0.98,        // 2% decay per minute
+        minPriority: 0.2,       // Remove slots below 0.2 priority
+        maxAgeMinutes: 30       // Remove old slots after 30 minutes
+    });
     
     try {
         const serverUrl = await startLocalServer();

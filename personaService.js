@@ -35,13 +35,33 @@ async function loadPersonaData(identifier, vaultPath) {
         return {
             shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
             midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
-            longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] }
+            longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
+            voice: data.voice || {
+                provider: 'elevenlabs',
+                voiceId: process.env.ELEVEN_VOICE_ID || null,
+                speed: 1.0,
+                stability: 0.5,
+                similarityBoost: 0.75,
+                style: 0.5
+            }
         };
     } catch (err) {
         if (err.code !== 'ENOENT') {
             console.error(`[Persona Service] Error loading persona data for ${identifier}:`, err);
         }
-        return { shortTermHistory: [], midTermSlots: [], longTermStore: { items: [] } };
+        return { 
+            shortTermHistory: [], 
+            midTermSlots: [], 
+            longTermStore: { items: [] },
+            voice: {
+                provider: 'elevenlabs',
+                voiceId: process.env.ELEVEN_VOICE_ID || null,
+                speed: 1.0,
+                stability: 0.5,
+                similarityBoost: 0.75,
+                style: 0.5
+            }
+        };
     }
 }
 
@@ -52,7 +72,15 @@ async function savePersonaData(identifier, data, vaultPath) {
     const payload = {
         shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
         midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
-        longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] }
+        longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
+        voice: data.voice || {
+            provider: 'elevenlabs',
+            voiceId: process.env.ELEVEN_VOICE_ID || null,
+            speed: 1.0,
+            stability: 0.5,
+            similarityBoost: 0.75,
+            style: 0.5
+        }
     };
     await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
 }

@@ -120,6 +120,25 @@
          </aside>
     </div>
 
-    <script defer src="renderer.js"></script>
+    <script src="renderer.js"></script>
+    <script src="components/diagnosticsPanel.js"></script>
+    <script>
+        // Initialize diagnostics panel if in dev mode
+        if (localStorage.getItem('devMode') === 'true') {
+            diagnosticsPanel.init();
+        }
+        
+        // Add dev mode toggle to settings (if settings exist)
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add keyboard shortcut for dev mode toggle (Ctrl+Shift+M)
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.shiftKey && e.key === 'M') {
+                    const currentMode = localStorage.getItem('devMode') === 'true';
+                    diagnosticsPanel.setDevMode(!currentMode);
+                    console.log(`Dev mode ${!currentMode ? 'enabled' : 'disabled'}`);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
