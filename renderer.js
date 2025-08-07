@@ -1030,260 +1030,77 @@ document.addEventListener('DOMContentLoaded', () => {
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
             const program = domElements.programMakerSection;
-
-            [left, right, status, info, program].forEach(el => {
-                if (el) el.classList.add('vault-open', 'center-glow');
-            });
-
-            const startLeft = left.getBoundingClientRect().width;
-            const startRight = right.getBoundingClientRect().width;
-            const startStatus = status.getBoundingClientRect().height;
-            const startInfo = info.getBoundingClientRect().height;
-            const startProgram = program ? program.getBoundingClientRect().height : 0;
-            const defaultProgramMax = 400;
-
-            // Lock initial dimensions before layout changes when the logging-in
-            // class is applied. This prevents panels from jumping to their final
-            // sizes prior to the animation starting.
-            left.style.width = `${startLeft}px`;
-            right.style.width = `${startRight}px`;
-            status.style.height = `${startStatus}px`;
-            info.style.height = `${startInfo}px`;
-            if (program) {
-                program.style.height = `${startProgram}px`;
-                program.style.maxHeight = `${startProgram}px`;
-            }
-
-            document.body.classList.add('logging-in');
-
-            const revealedChildren = [];
-            info.style.height = 'auto';
-            Array.from(info.children).forEach(child => {
-                if (getComputedStyle(child).display === 'none') {
-                    child.style.display = 'block';
-                    child.style.visibility = 'hidden';
-                    revealedChildren.push(child);
-                }
-            });
-            const endInfo = info.getBoundingClientRect().height;
-            revealedChildren.forEach(child => {
-                child.style.display = '';
-                child.style.visibility = '';
-            });
-            info.style.height = `${startInfo}px`;
-
             const container = domElements.appContainer;
-            const containerWidth = container.getBoundingClientRect().width;
-            const endLeft = 260;
-            const endRight = 340;
-            const endStatus = 100;
-            const endProgram = defaultProgramMax;
 
-            const durationSide = 300;
-            const durationTB = 300;
+            // Start overlay close and prepare content reveal
+            requestAnimationFrame(() => {
+                overlay.classList.add('closing');
+                document.body.classList.add('logging-in');
 
-            let completed = 0;
-            const finish = () => {
-                if (++completed < 2) return;
-                
-                // Remove inline styles to allow CSS to take over
-                left.style.width = '';
-                right.style.width = '';
-                container.style.gridTemplateColumns = '';
-                status.style.height = '';
-                info.style.height = '';
-                if (program) {
-                    program.style.height = '';
-                    program.style.maxHeight = '';
+                // Crossfade app container back to full clarity during overlay fade
+                if (container) {
+                    container.style.transition = 'opacity 220ms ease, filter 220ms ease';
+                    container.style.opacity = '1';
+                    container.style.filter = 'none';
                 }
-                
-                // Remove animation classes
-                [left, right, status, info, program].forEach(el => {
-                    if (el) el.classList.remove('vault-open', 'center-glow');
-                });
 
-                // Hide login overlay
-                document.body.classList.remove('pre-login');
-                document.body.classList.remove('logging-in');
-                overlay.classList.add('hidden');
-
-                // Clean up any leftover styles
-                setTimeout(() => {
-                    const selectors = [
-                        '.app-container',
-                        '#main-content',
-                        '#central-display',
-                        '#displays-container',
-                        '#left-sidebar',
-                        '#right-chat'
-                    ];
-                    selectors.forEach(sel => {
-                        const el = document.querySelector(sel);
-                        if (el) {
-                            el.style.height = '';
-                            el.style.marginTop = '';
-                            el.style.maxHeight = '';
-                            el.style.minHeight = '';
-                        }
-                    });
-                    document.body.style.overflow = '';
-                    document.documentElement.style.overflow = '';
-                }, 0);
-
-                // Crisp post-login reveal sequence
-                // Step 1: Collapse sidebar instantly (no animation)
-                if (domElements.leftSidebar && !domElements.leftSidebar.classList.contains('collapsed')) {
-                    domElements.leftSidebar.style.transition = 'none';
-                    domElements.leftSidebar.classList.add('collapsed');
+                // Smoothly collapse sidebar using existing CSS transition
+                if (left && !left.classList.contains('collapsed')) {
+                    left.classList.add('collapsed');
                     domElements.appContainer?.classList.add('collapsed');
-                    // Force reflow
-                    void domElements.leftSidebar.offsetHeight;
-                    domElements.leftSidebar.style.transition = '';
                 }
-                
-                // Step 2: Set all content to be invisible initially
-                const contentElements = [
-                    domElements.displaysContainer,
-                    domElements.personaListContainer,
-                    domElements.deckList,
-                    domElements.chatLog
-                ].filter(el => el);
-                
-                contentElements.forEach(el => {
-                    el.style.opacity = '0';
-                });
-                
-                // Step 3: Immediately position first display (no animation)
-                const firstDisplay = domElements.displays?.display1?.element;
-                if (firstDisplay && domElements.displaysContainer) {
-                    const displayWrapper = firstDisplay.closest('.display-wrapper');
-                    if (displayWrapper) {
-                        // Position with the same 10px gap as when clicking tabs
-                        const scrollPosition = Math.max(0, displayWrapper.offsetTop - 10);
-                        domElements.displaysContainer.scrollTop = scrollPosition;
-                    }
-                }
-                
-                // Step 4: Quick fade-in of all content (250ms, all at once)
-                requestAnimationFrame(() => {
-                    contentElements.forEach(el => {
-                        el.style.transition = 'opacity 0.25s ease-out';
-                    });
-                    
-                    requestAnimationFrame(() => {
-                        contentElements.forEach(el => {
-                            el.style.opacity = '1';
-                        });
-                    });
-                    
-                    // Step 5: Clean up and finalize
-                    setTimeout(() => {
-                        contentElements.forEach(el => {
-                            el.style.transition = '';
-                            el.style.opacity = '';
-                        });
-                        
-                        // Wait for layout to fully settle before updating browser bounds
-                        // This ensures the collapsed sidebar state is fully applied
-                        setTimeout(() => {
-                            // Force recalculation of all browser bounds with current layout
-                            Object.keys(activeBrowserDisplays).forEach(displayId => {
-                                const elem = domElements.displays?.[displayId]?.element;
-                                if (elem) {
-                                    // Get fresh bounds after layout has settled
-                                    const bounds = calculateVisibleBounds(elem);
-                                    const roundedBounds = {
-                                        x: Math.round(bounds.x),
-                                        y: Math.round(bounds.y),
-                                        width: Math.round(bounds.width),
-                                        height: Math.round(bounds.height)
-                                    };
-                                    
-                                    // Send updated bounds to main process
-                                    window.electronAPI.send('update-browser-bounds', { 
-                                        displayId, 
-                                        bounds: roundedBounds 
-                                    });
-                                    
-                                    // The element itself IS the display, check its visibility
-                                    // If it's display1 (first display), it should be visible after login
-                                    if (elem.classList.contains('fully-visible') || displayId === 'display1') {
-                                        window.electronAPI.send('show-browser-view', displayId);
-                                        window.electronAPI.send('set-browser-brightness', { 
-                                            displayId, 
-                                            brightness: 100 
-                                        });
-                                    }
-                                }
-                            });
-                            
-                            // Additional updates to ensure proper positioning
-                            requestAnimationFrame(() => {
-                                updateAllBrowserBounds();
-                                
-                                // After next frame, do one more check
-                                requestAnimationFrame(() => {
-                                    updateAllBrowserBounds();
-                                });
-                            });
-                        }, 150);
-                        
-                        // Focus input field
-                        if (domElements.userInput) {
-                            domElements.userInput.focus();
-                        }
-                        
-                        // Execute callback
-                        if (callback && typeof callback === 'function') {
-                            callback();
-                        }
-                    }, 260);
-                });
-            };
 
-            const animateTopBottom = () => {
-                const startTimeTB = performance.now();
-                const stepTB = (now) => {
-                    const progress = Math.min((now - startTimeTB) / durationTB, 1);
-                    const statusHeight = startStatus + (endStatus - startStatus) * progress;
-                    const infoHeight = startInfo + (endInfo - startInfo) * progress;
-                    const programHeight = startProgram + (endProgram - startProgram) * progress;
-                    status.style.height = `${statusHeight}px`;
-                    info.style.height = `${infoHeight}px`;
-                    if (program) {
-                        program.style.height = `${programHeight}px`;
-                        program.style.maxHeight = `${programHeight}px`;
+                const finish = () => {
+                    // Remove pre-login states and hide overlay
+                    document.body.classList.remove('pre-login');
+                    document.body.classList.remove('logging-in');
+                    overlay.classList.remove('active', 'closing');
+                    overlay.classList.add('hidden');
+
+                    // Clean up any inline styles
+                    if (container) {
+                        container.style.opacity = '';
+                        container.style.transition = '';
+                        container.style.filter = '';
                     }
-                    if (progress < 1) {
-                        requestAnimationFrame(stepTB);
-                    } else {
-                        finish();
+
+                    // Ensure first display is positioned
+                    const firstDisplay = domElements.displays?.display1?.element;
+                    if (firstDisplay && domElements.displaysContainer) {
+                        const displayWrapper = firstDisplay.closest('.display-wrapper');
+                        if (displayWrapper) {
+                            const scrollPosition = Math.max(0, displayWrapper.offsetTop - 10);
+                            domElements.displaysContainer.scrollTop = scrollPosition;
+                        }
+                    }
+
+                    // Focus input
+                    if (domElements.userInput) {
+                        domElements.userInput.focus();
+                    }
+
+                    // Update browser bounds after layout settles
+                    setTimeout(() => {
+                        updateAllBrowserBounds();
+                        setTimeout(updateAllBrowserBounds, 100);
+                    }, 250);
+
+                    if (typeof callback === 'function') {
+                        callback();
                     }
                 };
-                requestAnimationFrame(stepTB);
-            };
 
-            const startTime = performance.now();
-            const stepSide = (now) => {
-                const progress = Math.min((now - startTime) / durationSide, 1);
-                const leftWidth = startLeft + (endLeft - startLeft) * progress;
-                const rightWidth = startRight + (endRight - startRight) * progress;
-                left.style.width = `${leftWidth}px`;
-                right.style.width = `${rightWidth}px`;
-                const middleWidth = containerWidth - leftWidth - rightWidth;
-                container.style.gridTemplateColumns = `${leftWidth}px ${middleWidth}px ${rightWidth}px`;
-
-                if (progress < 1) {
-                    requestAnimationFrame(stepSide);
-                } else {
+                const onEnd = () => {
+                    overlay.removeEventListener('transitionend', onEnd);
                     finish();
-                }
-            };
+                };
+                overlay.addEventListener('transitionend', onEnd, { once: true });
 
-            animateTopBottom();
-            requestAnimationFrame(stepSide);
+                // Fallback if transitionend does not fire
+                setTimeout(finish, 320);
+            });
         };
-
+        
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const pass = document.getElementById('login-pass').value;
