@@ -22,6 +22,9 @@
       "!dist/**/*"
     ]
   },
+  "jest": {
+    "testPathIgnorePatterns": ["<rootDir>/tests/"]
+  },
   "devDependencies": {
     "electron": "^35.1.2",
     "electron-builder": "^24.11.0",

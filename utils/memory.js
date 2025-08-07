@@ -125,7 +125,8 @@ function addOrUpdateMidTermSlot(persona, slotData, similarSlot = null) {
         persona.midTermSlots[similarSlot.index] = {
             summary: slotData.summary,
             embedding: slotData.embedding,
-            priority: existingSlot.priority || 1.0,
+            // Bump priority slightly on update to reflect reinforcement
+            priority: Math.max(1.05, (existingSlot.priority || 1.0) + 0.1),
             baseRelevance: existingSlot.baseRelevance || 1.0,
             accessCount: (existingSlot.accessCount || 0) + 1,
             lastAccessed: Date.now(),
@@ -394,6 +395,9 @@ function promoteToLongTerm(persona, itemsToPromote) {
 function runMemoryMaintenance(persona) {
     if (!persona) return persona;
     
+    // First, apply decay/removal/promotion based on age and priority
+    persona = decayMidTermSlots(persona);
+
     // Evaluate memories for promotion based on access patterns
     persona = evaluateMemoriesForPromotion(persona);
     
@@ -516,6 +520,59 @@ function batchDecayMidTermSlots(personas, decayRate = 0.98, minPriority = 0.2, m
     return updatedPersonas;
 }
 
+/**
+ * Decay, remove or promote mid-term slots based on age and priority
+ * @param {Object} persona
+ * @param {number} decayRate - Multiplicative decay per minute (default 0.98)
+ * @param {number} minPriority - Threshold below which old items are promoted (default 0.2)
+ * @param {number} maxAgeMinutes - Age in minutes after which low priority items are promoted (default 30)
+ * @returns {Object} Updated persona
+ */
+function decayMidTermSlots(persona, decayRate = 0.98, minPriority = 0.2, maxAgeMinutes = 30) {
+    if (!persona) return persona;
+    const now = Date.now();
+    const kept = [];
+    const toPromote = [];
+
+    (persona.midTermSlots || []).forEach(slot => {
+        const createdTs = slot.createdAt || slot.ts || now;
+        const ageMinutes = Math.max(0, (now - createdTs) / (60 * 1000));
+        const effectiveDecay = Math.pow(decayRate, ageMinutes);
+        const newPriority = Math.min(10.0, (slot.priority || 1.0) * effectiveDecay);
+
+        // Update slot priority for consideration
+        slot.priority = newPriority;
+
+        const isOld = ageMinutes > maxAgeMinutes;
+        if (isOld && newPriority < minPriority) {
+            // Promote old low-priority items to long-term
+            toPromote.push({
+                summary: slot.summary,
+                embedding: slot.embedding,
+                category: slot.category || 'general',
+                createdAt: createdTs,
+                promotedAt: now,
+                originalPriority: newPriority
+            });
+            return; // do not keep in mid-term
+        }
+
+        if (!isOld && newPriority < PROMOTION_THRESHOLD) {
+            // Remove recent very low-priority items (no promotion)
+            return;
+        }
+
+        kept.push(slot);
+    });
+
+    persona.midTermSlots = kept;
+    if (toPromote.length > 0) {
+        persona.longTermStore = addToLongTermStore(persona.longTermStore || { items: [] }, toPromote);
+    }
+
+    return persona;
+}
+
 module.exports = {
     // Cosine similarity
     cosineSimilarity,
@@ -543,5 +600,7 @@ module.exports = {
     LONG_TERM_MAX_ITEMS,
     MIN_ACCESS_COUNT_FOR_PROMOTION,
     SEMANTIC_CLUSTER_THRESHOLD,
-    MEMORY_IMPORTANCE_WEIGHTS
+    MEMORY_IMPORTANCE_WEIGHTS,
+    // Newly exported decay function
+    decayMidTermSlots
 };

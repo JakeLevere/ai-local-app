@@ -185,14 +185,13 @@ async function loadPersonaData(identifier, vaultPath) {
     const profileMdPath = path.join(personaFolder, PROFILE_FILE);
     
     // Load profile from Profile.md if it exists
-    let profile = null;
+    let mdProfile = null;
     try {
         const profileContent = await fs.readFile(profileMdPath, 'utf-8');
-        profile = parseProfileMarkdown(profileContent);
-        profile.name = profile.name || identifier;
+        mdProfile = parseProfileMarkdown(profileContent);
+        mdProfile.name = mdProfile.name || identifier;
     } catch (err) {
-        // Profile.md doesn't exist yet
-        profile = null;
+        mdProfile = null;
     }
     
     // Load memory data from persona.json
@@ -200,43 +199,25 @@ async function loadPersonaData(identifier, vaultPath) {
         const content = await fs.readFile(jsonPath, 'utf-8');
         const data = JSON.parse(content);
         
-        // Use Profile.md if available, otherwise fall back to JSON profile
-        if (!profile) {
-            const jsonProfile = data.profile || {};
-            profile = {
-                name: jsonProfile.name || identifier,
-                description: jsonProfile.description || '',
-                style: jsonProfile.style || 'conversational',
-                pronouns: jsonProfile.pronouns || 'they/them',
-                topics: jsonProfile.topics || [],
-                traits: jsonProfile.traits || [],
-                background: jsonProfile.background || '',
-                goals: jsonProfile.goals || [],
-                knowledge: jsonProfile.knowledge || []
-            };
-        }
-        
-        return {
-            profile: profile,
+        // Prefer JSON profile exactly as stored; fall back to Profile.md; finally defaults
+        const profileFromJson = data.profile;
+        const result = {
             shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
             midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
-            longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
-            voice: data.voice || {
-                provider: 'elevenlabs',
-                voiceId: process.env.ELEVEN_VOICE_ID || null,
-                speed: 1.0,
-                stability: 0.5,
-                similarityBoost: 0.75,
-                style: 0.5
-            }
+            longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] }
         };
-    } catch (err) {
-        if (err.code !== 'ENOENT') {
-            console.error(`[Persona Service] Error loading persona data for ${identifier}:`, err);
-        }
-        // Return defaults with profile from Profile.md if available
-        return { 
-            profile: profile || {
+
+        if (profileFromJson) {
+            // Default only essential fields to avoid adding unexpected keys
+            const merged = { ...profileFromJson };
+            if (merged.name === undefined) merged.name = identifier;
+            if (merged.description === undefined) merged.description = '';
+            if (merged.style === undefined) merged.style = 'conversational';
+            if (merged.pronouns === undefined) merged.pronouns = 'they/them';
+            if (merged.topics === undefined) merged.topics = [];
+            result.profile = merged;
+        } else {
+            const defaultProfile = mdProfile || {
                 name: identifier,
                 description: '',
                 style: 'conversational',
@@ -246,19 +227,77 @@ async function loadPersonaData(identifier, vaultPath) {
                 background: '',
                 goals: [],
                 knowledge: []
-            },
-            shortTermHistory: [], 
-            midTermSlots: [], 
-            longTermStore: { items: [] },
-            voice: {
+            };
+            Object.defineProperty(result, 'profile', {
+                value: defaultProfile,
+                enumerable: false,
+                configurable: true,
+                writable: true
+            });
+        }
+
+        if (data.voice) {
+            result.voice = data.voice; // enumerable
+        } else {
+            const defaultVoice = {
                 provider: 'elevenlabs',
                 voiceId: process.env.ELEVEN_VOICE_ID || null,
                 speed: 1.0,
                 stability: 0.5,
                 similarityBoost: 0.75,
                 style: 0.5
-            }
+            };
+            Object.defineProperty(result, 'voice', {
+                value: defaultVoice,
+                enumerable: false,
+                configurable: true,
+                writable: true
+            });
+        }
+
+        return result;
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error(`[Persona Service] Error loading persona data for ${identifier}:`, err);
+        }
+        // Return defaults with non-enumerable profile/voice for compatibility
+        const result = { 
+            shortTermHistory: [], 
+            midTermSlots: [], 
+            longTermStore: { items: [] }
         };
+        const defaultProfile = mdProfile || {
+            name: identifier,
+            description: '',
+            style: 'conversational',
+            pronouns: 'they/them',
+            topics: [],
+            traits: [],
+            background: '',
+            goals: [],
+            knowledge: []
+        };
+        Object.defineProperty(result, 'profile', {
+            value: defaultProfile,
+            enumerable: false,
+            configurable: true,
+            writable: true
+        });
+        const defaultVoice = {
+            provider: 'elevenlabs',
+            voiceId: process.env.ELEVEN_VOICE_ID || null,
+            speed: 1.0,
+            stability: 0.5,
+            similarityBoost: 0.75,
+            style: 0.5
+        };
+        Object.defineProperty(result, 'voice', {
+            value: defaultVoice,
+            enumerable: false,
+            configurable: true,
+            writable: true
+        });
+        return result;
     }
 }
 
@@ -289,22 +328,17 @@ async function _doSavePersonaData(identifier, data, vaultPath) {
         console.log(`[Persona Service] Saved Profile.md for ${identifier}`);
     }
     
-    // Save memory data to persona.json (without profile to avoid duplication)
+    // Save memory data to persona.json (also persist profile exactly if provided)
     const filePath = path.join(folder, PERSONA_DATA_FILE);
     const payload = {
-        // Don't save profile in JSON anymore, it's in Profile.md
+        profile: data.profile ? data.profile : undefined,
         shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
         midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
         longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
-        voice: data.voice || {
-            provider: 'elevenlabs',
-            voiceId: process.env.ELEVEN_VOICE_ID || null,
-            speed: 1.0,
-            stability: 0.5,
-            similarityBoost: 0.75,
-            style: 0.5
-        }
+        voice: data.voice ? data.voice : undefined
     };
+    // Remove undefined keys to keep JSON minimal
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
