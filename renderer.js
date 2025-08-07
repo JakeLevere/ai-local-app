@@ -37,6 +37,8 @@ function cacheDomElements() {
         personaImage: document.getElementById('persona-image'),
         personaPreviewVideo: document.getElementById('persona-preview-video'),
         personaPreviewImage: document.getElementById('persona-preview-image'),
+        personaVideoOverlay: document.getElementById('persona-video-overlay'),
+        videoMinimizeArrow: document.getElementById('video-minimize-arrow'),
         statusTitle: document.getElementById('status-title'),
         convCountSpan: document.getElementById('conv-count'),
         lastInteractionSpan: document.getElementById('last-interaction'),
@@ -61,7 +63,7 @@ function cacheDomElements() {
         slideTabs: document.getElementById('slide-tabs'),
         deckContainer: document.getElementById('deck-container'),
         deckIconsContainer: document.getElementById('deck-icons'),
-        programMaker: document.getElementById('program-maker'),
+        programMakerSection: document.getElementById('program-maker-section'),
         programDescription: document.getElementById('program-description'),
         programOutput: document.getElementById('program-output'),
         generateProgramBtn: document.getElementById('generate-program'),
@@ -766,7 +768,41 @@ function handlePersonaSelectChange(event) {
     });
     updateFavoriteCheckbox();
 }
-function handleSlideItemClick(event) { const item = event.currentTarget; const displayId = item.dataset.displayId; console.log('Renderer: Slide item clicked:', displayId); document.querySelectorAll('.slide-tab.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); const displayElement = domElements.displays[displayId]?.element; if (displayElement?.scrollIntoView) { displayElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });  } else { console.warn(`Renderer Warning: Could not find display element for ${displayId} to scroll.`); } }
+function handleSlideItemClick(event) { 
+    const item = event.currentTarget; 
+    const displayId = item.dataset.displayId; 
+    console.log('Renderer: Slide item clicked:', displayId); 
+    document.querySelectorAll('.slide-tab.selected').forEach(i => i.classList.remove('selected')); 
+    item.classList.add('selected'); 
+    
+    // Scroll the display into view within the displays container only
+    const displayElement = domElements.displays[displayId]?.element;
+    const container = domElements.displaysContainer;
+    if (displayElement && container) {
+        // Find the parent display-wrapper element
+        const displayWrapper = displayElement.closest('.display-wrapper');
+        if (displayWrapper) {
+            // When the status bar is collapsed, the container has padding-top: 70px
+            // We want to scroll so the display sits at the top of the visible area
+            // offsetTop gives position from the start of the container's content (after padding)
+            // But scrollTop=0 shows the content starting after the padding
+            // So we just use offsetTop directly
+            const wrapperTop = displayWrapper.offsetTop;
+            
+            // However, we want the first 10px of padding to remain visible
+            // This provides a small gap between the status bar and the display
+            const scrollPosition = Math.max(0, wrapperTop - 10);
+            
+            container.scrollTo({
+                top: scrollPosition,
+                behavior: 'smooth'
+            });
+            console.log(`Scrolling to display ${displayId} at position ${scrollPosition}`);
+        }
+    } else { 
+        console.warn(`Renderer Warning: Could not find display element for ${displayId} to scroll.`); 
+    } 
+}
 function handleDeckItemClick(event) { const item = event.currentTarget; const deckName = item.dataset.deckName; if (!deckName) return; domElements.deckList.querySelectorAll('.deck-item.selected').forEach(i => i.classList.remove('selected')); item.classList.add('selected'); window.electronAPI.send('load-deck', deckName); }
 
 function setupEventListeners() { if (eventListenersAttached) { return; } console.log("Renderer: Attaching event listeners..."); const els = domElements; els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteStarOverlay?.addEventListener('click', handleFavoriteStarClick); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
@@ -984,15 +1020,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const right = domElements.rightChat;
             const status = domElements.statusBar;
             const info = domElements.infoPanels;
-            const program = domElements.programMaker;
+            const program = domElements.programMakerSection;
 
-            [left, right, status, info, program].forEach(el => el.classList.add('vault-open', 'center-glow'));
+            [left, right, status, info, program].forEach(el => {
+                if (el) el.classList.add('vault-open', 'center-glow');
+            });
 
             const startLeft = left.getBoundingClientRect().width;
             const startRight = right.getBoundingClientRect().width;
             const startStatus = status.getBoundingClientRect().height;
             const startInfo = info.getBoundingClientRect().height;
-            const startProgram = program.getBoundingClientRect().height;
+            const startProgram = program ? program.getBoundingClientRect().height : 0;
             const defaultProgramMax = 400;
 
             // Lock initial dimensions before layout changes when the logging-in
@@ -1002,8 +1040,10 @@ document.addEventListener('DOMContentLoaded', () => {
             right.style.width = `${startRight}px`;
             status.style.height = `${startStatus}px`;
             info.style.height = `${startInfo}px`;
-            program.style.height = `${startProgram}px`;
-            program.style.maxHeight = `${startProgram}px`;
+            if (program) {
+                program.style.height = `${startProgram}px`;
+                program.style.maxHeight = `${startProgram}px`;
+            }
 
             document.body.classList.add('logging-in');
 
@@ -1036,52 +1076,160 @@ document.addEventListener('DOMContentLoaded', () => {
             let completed = 0;
             const finish = () => {
                 if (++completed < 2) return;
+                
+                // Remove inline styles to allow CSS to take over
                 left.style.width = '';
                 right.style.width = '';
                 container.style.gridTemplateColumns = '';
                 status.style.height = '';
                 info.style.height = '';
-                program.style.height = '';
-                program.style.maxHeight = '';
-                [left, right, status, info, program].forEach(el => el.classList.remove('vault-open', 'center-glow'));
+                if (program) {
+                    program.style.height = '';
+                    program.style.maxHeight = '';
+                }
+                
+                // Remove animation classes
+                [left, right, status, info, program].forEach(el => {
+                    if (el) el.classList.remove('vault-open', 'center-glow');
+                });
 
+                // Hide login overlay
                 document.body.classList.remove('pre-login');
                 document.body.classList.remove('logging-in');
                 overlay.classList.add('hidden');
 
-                // --- PATCH: Force clear app-container style after animation ---
-setTimeout(() => {
-    const selectors = [
-        '.app-container',
-        '#main-content',
-        '#central-display',
-        '#displays-container',
-        '#left-sidebar',
-        '#right-chat'
-    ];
-    selectors.forEach(sel => {
-        const el = document.querySelector(sel);
-        if (el) {
-            el.style.height = '';
-            el.style.marginTop = '';
-            el.style.removeProperty('height');
-            el.style.removeProperty('margin-top');
-            el.style.maxHeight = '';
-            el.style.removeProperty('max-height');
-            el.style.minHeight = '';
-            el.style.removeProperty('min-height');
-        }
-    });
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
-}, 0);
+                // Clean up any leftover styles
+                setTimeout(() => {
+                    const selectors = [
+                        '.app-container',
+                        '#main-content',
+                        '#central-display',
+                        '#displays-container',
+                        '#left-sidebar',
+                        '#right-chat'
+                    ];
+                    selectors.forEach(sel => {
+                        const el = document.querySelector(sel);
+                        if (el) {
+                            el.style.height = '';
+                            el.style.marginTop = '';
+                            el.style.maxHeight = '';
+                            el.style.minHeight = '';
+                        }
+                    });
+                    document.body.style.overflow = '';
+                    document.documentElement.style.overflow = '';
+                }, 0);
 
-                applyBounceAnimation([
+                // Crisp post-login reveal sequence
+                // Step 1: Collapse sidebar instantly (no animation)
+                if (domElements.leftSidebar && !domElements.leftSidebar.classList.contains('collapsed')) {
+                    domElements.leftSidebar.style.transition = 'none';
+                    domElements.leftSidebar.classList.add('collapsed');
+                    domElements.appContainer?.classList.add('collapsed');
+                    // Force reflow
+                    void domElements.leftSidebar.offsetHeight;
+                    domElements.leftSidebar.style.transition = '';
+                }
+                
+                // Step 2: Set all content to be invisible initially
+                const contentElements = [
                     domElements.displaysContainer,
                     domElements.personaListContainer,
                     domElements.deckList,
                     domElements.chatLog
-                ], callback);
+                ].filter(el => el);
+                
+                contentElements.forEach(el => {
+                    el.style.opacity = '0';
+                });
+                
+                // Step 3: Immediately position first display (no animation)
+                const firstDisplay = domElements.displays?.display1?.element;
+                if (firstDisplay && domElements.displaysContainer) {
+                    const displayWrapper = firstDisplay.closest('.display-wrapper');
+                    if (displayWrapper) {
+                        // Position with the same 10px gap as when clicking tabs
+                        const scrollPosition = Math.max(0, displayWrapper.offsetTop - 10);
+                        domElements.displaysContainer.scrollTop = scrollPosition;
+                    }
+                }
+                
+                // Step 4: Quick fade-in of all content (250ms, all at once)
+                requestAnimationFrame(() => {
+                    contentElements.forEach(el => {
+                        el.style.transition = 'opacity 0.25s ease-out';
+                    });
+                    
+                    requestAnimationFrame(() => {
+                        contentElements.forEach(el => {
+                            el.style.opacity = '1';
+                        });
+                    });
+                    
+                    // Step 5: Clean up and finalize
+                    setTimeout(() => {
+                        contentElements.forEach(el => {
+                            el.style.transition = '';
+                            el.style.opacity = '';
+                        });
+                        
+                        // Wait for layout to fully settle before updating browser bounds
+                        // This ensures the collapsed sidebar state is fully applied
+                        setTimeout(() => {
+                            // Force recalculation of all browser bounds with current layout
+                            Object.keys(activeBrowserDisplays).forEach(displayId => {
+                                const elem = domElements.displays?.[displayId]?.element;
+                                if (elem) {
+                                    // Get fresh bounds after layout has settled
+                                    const bounds = calculateVisibleBounds(elem);
+                                    const roundedBounds = {
+                                        x: Math.round(bounds.x),
+                                        y: Math.round(bounds.y),
+                                        width: Math.round(bounds.width),
+                                        height: Math.round(bounds.height)
+                                    };
+                                    
+                                    // Send updated bounds to main process
+                                    window.electronAPI.send('update-browser-bounds', { 
+                                        displayId, 
+                                        bounds: roundedBounds 
+                                    });
+                                    
+                                    // The element itself IS the display, check its visibility
+                                    // If it's display1 (first display), it should be visible after login
+                                    if (elem.classList.contains('fully-visible') || displayId === 'display1') {
+                                        window.electronAPI.send('show-browser-view', displayId);
+                                        window.electronAPI.send('set-browser-brightness', { 
+                                            displayId, 
+                                            brightness: 100 
+                                        });
+                                    }
+                                }
+                            });
+                            
+                            // Additional updates to ensure proper positioning
+                            requestAnimationFrame(() => {
+                                updateAllBrowserBounds();
+                                
+                                // After next frame, do one more check
+                                requestAnimationFrame(() => {
+                                    updateAllBrowserBounds();
+                                });
+                            });
+                        }, 150);
+                        
+                        // Focus input field
+                        if (domElements.userInput) {
+                            domElements.userInput.focus();
+                        }
+                        
+                        // Execute callback
+                        if (callback && typeof callback === 'function') {
+                            callback();
+                        }
+                    }, 260);
+                });
             };
 
             const animateTopBottom = () => {
@@ -1093,8 +1241,10 @@ setTimeout(() => {
                     const programHeight = startProgram + (endProgram - startProgram) * progress;
                     status.style.height = `${statusHeight}px`;
                     info.style.height = `${infoHeight}px`;
-                    program.style.height = `${programHeight}px`;
-                    program.style.maxHeight = `${programHeight}px`;
+                    if (program) {
+                        program.style.height = `${programHeight}px`;
+                        program.style.maxHeight = `${programHeight}px`;
+                    }
                     if (progress < 1) {
                         requestAnimationFrame(stepTB);
                     } else {
@@ -1210,7 +1360,10 @@ setTimeout(() => {
     domElements.displaysContainer?.addEventListener('scroll', startScrollSync);
     domElements.collapseArrow?.addEventListener('click', updateAllBrowserBounds);
     domElements.chatCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
-    domElements.statusCollapseArrow?.addEventListener('click', updateAllBrowserBounds);
+    /* domElements.statusCollapseArrow?.addEventListener('click', updateAllBrowserBounds) */ // Removed - panel stays collapsed
+    domElements.videoMinimizeArrow?.addEventListener('click', () => {
+        domElements.personaVideoOverlay?.classList.toggle('minimized');
+    });
     domElements.appContainer?.addEventListener('transitionend', (e) => {
         if (e.propertyName === 'grid-template-columns') updateAllBrowserBounds();
     });

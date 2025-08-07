@@ -439,9 +439,21 @@ async function createWindow(serverUrl) {
     console.log('>>> Loading renderer from', targetUrl);
 
     mainWindow.once('ready-to-show', () => {
-        mainWindow.maximize();
+        console.log('>>> Window ready-to-show event fired');
         mainWindow.show();
+        mainWindow.focus();
+        mainWindow.maximize();
+        console.log('>>> Window should now be visible');
     });
+    
+    // Force show after a timeout as fallback
+    setTimeout(() => {
+        if (mainWindow && !mainWindow.isVisible()) {
+            console.log('>>> Force showing window after timeout');
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    }, 2000);
 
     // Define IPC handler initialization function
     const initializeIpcHandlersNow = () => {
