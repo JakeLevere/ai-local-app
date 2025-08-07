@@ -40,9 +40,20 @@ let websiteHistoryFile;
     // Global error handlers for more verbose logging
     process.on('uncaughtException', (err) => {
         console.error('Uncaught Exception in main process:', err);
+        // Don't exit the process abruptly in production - attempt graceful shutdown
+        if (process.env.NODE_ENV === 'production' && !isQuitting) {
+            console.error('Attempting graceful shutdown due to uncaught exception...');
+            isQuitting = true;
+            app.quit();
+        }
     });
-    process.on('unhandledRejection', (reason) => {
+    process.on('unhandledRejection', (reason, promise) => {
         console.error('Unhandled Rejection in main process:', reason);
+        console.error('Promise that rejected:', promise);
+        // Log stack trace if available
+        if (reason && reason.stack) {
+            console.error('Stack trace:', reason.stack);
+        }
     });
 
     // Clean up on exit
@@ -81,13 +92,15 @@ function startLocalServer() {
     }
 
     return new Promise((resolve, reject) => {
+        let currentPort = port; // Use local copy to avoid race conditions
+        
         const attempt = (retries) => {
             server = http.createServer(expressApp);
 
             server.once('error', (err) => {
                 if (err.code === 'EADDRINUSE' && retries < MAX_PORT_RETRIES) {
-                    console.error(`Port ${port} in use, trying ${port + 1}...`);
-                    port += 1;
+                    console.error(`Port ${currentPort} in use, trying ${currentPort + 1}...`);
+                    currentPort += 1;
                     attempt(retries + 1);
                 } else {
                     console.error('!!! Failed to start local server:', err);
@@ -96,6 +109,8 @@ function startLocalServer() {
             });
 
             server.once('listening', () => {
+                // Update global port variable only on successful listen
+                port = currentPort;
                 console.log(`>>> Local server listening on http://localhost:${port}`);
                 
                 // Initialize WebSocket audio streaming
@@ -109,7 +124,7 @@ function startLocalServer() {
                 resolve(`http://localhost:${port}`);
             });
 
-            server.listen(port, 'localhost');
+            server.listen(currentPort, 'localhost');
         };
 
         attempt(0);
