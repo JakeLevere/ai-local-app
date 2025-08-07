@@ -24,7 +24,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Calendar specific helpers used by programs loaded in iframes
     loadState: () => ipcRenderer.invoke('calendar-load-state'),
     saveState: (state) => ipcRenderer.invoke('calendar-save-state', state),
-    saveHistory: (markdown) => ipcRenderer.invoke('calendar-save-history', markdown)
+    saveHistory: (markdown) => ipcRenderer.invoke('calendar-save-history', markdown),
+    
+    // Memory management API
+    memory: {
+        getPersonaMemory: (personaId) => ipcRenderer.invoke('get-persona-memory', personaId),
+        updateProfile: (personaId, profile) => ipcRenderer.invoke('update-persona-profile', { personaId, profile }),
+        clearShortTermHistory: (personaId) => ipcRenderer.invoke('clear-short-term-history', personaId),
+        pruneMidTermMemory: (personaId) => ipcRenderer.invoke('prune-mid-term-memory', personaId),
+        runMemoryMaintenance: (personaId) => ipcRenderer.invoke('run-memory-maintenance', personaId)
+    },
+    
+    // TTS API
+    tts: {
+        speak: (text, options) => ipcRenderer.invoke('tts-speak', { text, options }),
+        setVoice: (voice) => ipcRenderer.invoke('tts-set-voice', voice),
+        setSpeed: (speed) => ipcRenderer.invoke('tts-set-speed', speed),
+        getVoices: () => ipcRenderer.invoke('tts-get-voices'),
+        test: () => ipcRenderer.invoke('tts-test')
+    }
 });
 
 // Provide the same API under the legacy 'electron' name

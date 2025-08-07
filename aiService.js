@@ -61,20 +61,51 @@ async function initializeOpenAI() {
 async function getChatResponse(identifier, messages, vaultPath) {
     await initializeOpenAI();
 
+    // Load persona data to get profile
+    const { loadPersonaData } = require('./personaService');
+    const personaData = await loadPersonaData(identifier, vaultPath);
+    
     const prePrompt = await readFileSafe(
         path.join(getPersonaFolderPath(identifier, vaultPath), PRE_PROMPT_FILE),
         'Respond appropriately.'
     );
 
+    // Build identity text from profile
+    let identityText = '';
+    if (personaData.profile) {
+        const p = personaData.profile;
+        identityText = `Identity: ${p.name || identifier}\n`;
+        if (p.description) identityText += `Description: ${p.description}\n`;
+        if (p.pronouns) identityText += `Pronouns: ${p.pronouns}\n`;
+        if (p.style) identityText += `Communication Style: ${p.style}\n`;
+        if (p.traits && p.traits.length > 0) {
+            identityText += `Personality Traits: ${p.traits.join('; ')}\n`;
+        }
+        if (p.background) identityText += `Background: ${p.background}\n`;
+        if (p.topics && p.topics.length > 0) {
+            identityText += `Topics of Interest: ${p.topics.join(', ')}\n`;
+        }
+        if (p.goals && p.goals.length > 0) {
+            identityText += `Goals: ${p.goals.join('; ')}\n`;
+        }
+        if (p.knowledge && p.knowledge.length > 0) {
+            identityText += `Expertise: ${p.knowledge.join(', ')}\n`;
+        }
+        identityText += '\n';
+    }
+
+    // Combine identity + pre-prompt
+    const systemMessage = identityText + prePrompt;
+
     const history = Array.isArray(messages)
         ? messages
         : [{ role: 'user', content: messages }];
-    const finalMessages = [{ role: 'system', content: prePrompt }, ...history];
+    const finalMessages = [{ role: 'system', content: systemMessage }, ...history];
 
     const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: selectModel(messages[0]?.content || ''),
         messages: finalMessages,
-        max_tokens: 500,
+        max_tokens: 350,
         temperature: 0.7
     });
 
@@ -156,6 +187,30 @@ async function buildAugmentedPrompt(identifier, userMessage, personaData, vaultP
         'Respond appropriately.'
     );
 
+    // Build identity text from profile
+    let identityText = '';
+    if (personaData.profile) {
+        const p = personaData.profile;
+        identityText = `Identity: ${p.name || identifier}\n`;
+        if (p.description) identityText += `Description: ${p.description}\n`;
+        if (p.pronouns) identityText += `Pronouns: ${p.pronouns}\n`;
+        if (p.style) identityText += `Communication Style: ${p.style}\n`;
+        if (p.traits && p.traits.length > 0) {
+            identityText += `Personality Traits: ${p.traits.join('; ')}\n`;
+        }
+        if (p.background) identityText += `Background: ${p.background}\n`;
+        if (p.topics && p.topics.length > 0) {
+            identityText += `Topics of Interest: ${p.topics.join(', ')}\n`;
+        }
+        if (p.goals && p.goals.length > 0) {
+            identityText += `Goals: ${p.goals.join('; ')}\n`;
+        }
+        if (p.knowledge && p.knowledge.length > 0) {
+            identityText += `Expertise: ${p.knowledge.join(', ')}\n`;
+        }
+        identityText += '\n';
+    }
+
     // Start with system message
     const messages = [];
     
@@ -167,24 +222,30 @@ async function buildAugmentedPrompt(identifier, userMessage, personaData, vaultP
     try {
         userEmbedding = await computeEmbedding(userMessage);
         
-        // Retrieve top 3 from midTermSlots
-        if (personaData.midTermSlots && personaData.midTermSlots.length > 0) {
-            retrievedMidTerm = topK(userEmbedding, personaData.midTermSlots, 3);
-            if (debug) {
+        // Use findRelevantMemories which updates access counts
+        const { findRelevantMemories } = require('./utils/memory');
+        const relevantMemories = findRelevantMemories(
+            userEmbedding,
+            personaData.midTermSlots,
+            personaData.longTermStore,
+            3,
+            personaData // Pass persona to update access counts
+        );
+        
+        retrievedMidTerm = relevantMemories.midTerm;
+        retrievedLongTerm = relevantMemories.longTerm;
+        
+        if (debug) {
+            if (retrievedMidTerm.length > 0) {
                 console.log('\n[RAG] Retrieved Mid-Term Slots:');
                 retrievedMidTerm.forEach((slot, idx) => {
-                    console.log(`  ${idx + 1}. (score: ${slot.score.toFixed(3)}) ${slot.summary.substring(0, 60)}...`);
+                    console.log(`  ${idx + 1}. (score: ${slot.relevanceScore.toFixed(3)}) ${slot.summary.substring(0, 60)}...`);
                 });
             }
-        }
-        
-        // Retrieve top 3 from longTermStore
-        if (personaData.longTermStore?.items && personaData.longTermStore.items.length > 0) {
-            retrievedLongTerm = topK(userEmbedding, personaData.longTermStore.items, 3);
-            if (debug) {
+            if (retrievedLongTerm.length > 0) {
                 console.log('\n[RAG] Retrieved Long-Term Items:');
                 retrievedLongTerm.forEach((item, idx) => {
-                    console.log(`  ${idx + 1}. (score: ${item.score.toFixed(3)}) ${item.summary.substring(0, 60)}...`);
+                    console.log(`  ${idx + 1}. (score: ${item.relevanceScore.toFixed(3)}) ${item.summary.substring(0, 60)}...`);
                 });
             }
         }
@@ -192,15 +253,15 @@ async function buildAugmentedPrompt(identifier, userMessage, personaData, vaultP
         console.error('[RAG] Error during retrieval:', error);
     }
     
-    // Build augmented system prompt with retrieved context
-    let augmentedSystemPrompt = prePrompt;
+    // Build augmented system prompt with identity and retrieved context
+    let augmentedSystemPrompt = identityText + prePrompt;
     
     // Add retrieved context if available
     const contextParts = [];
     
     if (retrievedMidTerm.length > 0) {
         const midTermContext = retrievedMidTerm
-            .filter(slot => slot.score > 0.5) // Only include relevant context (threshold 0.5)
+            .filter(slot => slot.relevanceScore > 0.5) // Only include relevant context (threshold 0.5)
             .map(slot => `- ${slot.summary}`)
             .join('\n');
         if (midTermContext) {
@@ -210,7 +271,7 @@ async function buildAugmentedPrompt(identifier, userMessage, personaData, vaultP
     
     if (retrievedLongTerm.length > 0) {
         const longTermContext = retrievedLongTerm
-            .filter(item => item.score > 0.5) // Only include relevant context (threshold 0.5)
+            .filter(item => item.relevanceScore > 0.5) // Only include relevant context (threshold 0.5)
             .map(item => `- ${item.summary}`)
             .join('\n');
         if (longTermContext) {
@@ -298,9 +359,9 @@ async function getChatResponseWithRAG(identifier, userMessage, personaData, vaul
     }
     
     const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: selectModel(userMessage),
         messages: messages,
-        max_tokens: 500,
+        max_tokens: 350,
         temperature: 0.7
     });
     
@@ -389,6 +450,66 @@ async function updateMemorySummary(identifier, vaultPath, options = {}) {
     let summary = response.choices?.[0]?.message?.content?.trim() ?? '';
     if (truncateLength && summary.length > truncateLength) summary = summary.slice(0, truncateLength);
     await fs.writeFile(memoryPath, summary, 'utf-8');
+    
+    // Integrate with tiered memory system
+    try {
+        const { loadPersonaData, savePersonaData } = require('./personaService');
+        const { findSimilarSlot, addOrUpdateMidTermSlot } = require('./utils/memory');
+        
+        // Load persona data
+        const personaData = await loadPersonaData(identifier, vaultPath);
+        
+        // Create a condensed version for mid-term slot
+        const condensedSummary = summary.substring(0, 400).replace(/\n+/g, ' ').trim();
+        
+        // Compute embedding for the summary
+        const embedding = await computeEmbedding(condensedSummary);
+        
+        // Check for similar existing slot named "Conversation summary"
+        let similarSlot = null;
+        personaData.midTermSlots = personaData.midTermSlots || [];
+        personaData.midTermSlots.forEach((slot, index) => {
+            if (slot.summary && slot.summary.includes('Conversation summary')) {
+                similarSlot = { slot, index, similarity: 1.0 };
+            }
+        });
+        
+        // Add or update mid-term slot
+        addOrUpdateMidTermSlot(personaData, {
+            summary: `Conversation summary: ${condensedSummary}`,
+            embedding,
+            priority: 2.0, // Higher priority for manual summaries
+            ts: Date.now()
+        }, similarSlot);
+        
+        // If Memory.md exceeds size threshold, add to long-term
+        if (summary.length > 1500) {
+            personaData.longTermStore = personaData.longTermStore || { items: [] };
+            personaData.longTermStore.items.push({
+                id: `memory_${Date.now()}`,
+                summary: `Memory snapshot: ${condensedSummary}`,
+                embedding,
+                createdAt: new Date().toISOString(),
+                source: 'memory_update'
+            });
+            
+            // Keep only last 50 long-term items from memory updates
+            const memoryItems = personaData.longTermStore.items.filter(i => i.source === 'memory_update');
+            if (memoryItems.length > 50) {
+                const toKeep = memoryItems.slice(-50);
+                const otherItems = personaData.longTermStore.items.filter(i => i.source !== 'memory_update');
+                personaData.longTermStore.items = [...otherItems, ...toKeep];
+            }
+        }
+        
+        // Save updated persona data
+        await savePersonaData(identifier, personaData, vaultPath);
+        console.log('[Memory] Updated mid-term and long-term memory from summary');
+        
+    } catch (error) {
+        console.error('[Memory] Error integrating summary with tiered memory:', error);
+    }
+    
     return summary;
 }
 
@@ -441,7 +562,7 @@ Summary:`;
 
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini', // Use mini model for cost-effective summarization
+            model: 'gpt-4o-mini', // Always use mini model for summarization (fast & effective)
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 150,
             temperature: 0.3
@@ -624,3 +745,38 @@ module.exports = {
     generateProgramFiles,
     summarizeConversation
 };
+
+/**
+ * Select the appropriate model based on message complexity
+ * Simple queries use gpt-4o-mini (much faster)
+ * Complex queries use gpt-4o (more capable)
+ */
+function selectModel(message) {
+    if (!message) return 'gpt-4o';
+    
+    const msg = message.toLowerCase();
+    
+    // Simple patterns that don't need advanced reasoning
+    const simplePatterns = [
+        /^(hi|hello|hey|howdy|greetings)/,
+        /^(thanks|thank you|thx|ty)/,
+        /^(bye|goodbye|see you|later)/,
+        /^(ok|okay|sure|yes|no|yeah|nope)/,
+        /^(what time|what's the time|what day)/,
+        /^(how are you|how's it going|what's up)/
+    ];
+    
+    // Check if it's a simple greeting or acknowledgment
+    const isSimple = simplePatterns.some(pattern => pattern.test(msg)) || 
+                     (msg.length < 30 && !msg.includes('?'));
+    
+    // Use fast model for simple queries
+    if (isSimple) {
+        console.log('[AI] Using fast model (gpt-4o-mini) for simple query');
+        return 'gpt-4o-mini';
+    }
+    
+    // Use powerful model for complex queries
+    console.log('[AI] Using powerful model (gpt-4o) for complex query');
+    return 'gpt-4o';
+}

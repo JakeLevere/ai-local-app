@@ -3,6 +3,10 @@ const fs = require('fs').promises;
 const path = require('path'); // Ensure path is required
 const sharedDataService = require('./sharedDataService.js');
 
+// Write queue to prevent concurrent writes
+const writeQueue = [];
+let isProcessingQueue = false;
+
 // --- Constants ---
 const PRIMARY_CONVO_FILE = 'Stored_Conversations_Aggregated.md';
 const PRE_PROMPT_FILE = 'Pre-Prompt.md';
@@ -10,9 +14,157 @@ const MEMORY_PROMPT_FILE = 'Memory-Prompt.md';
 const MEMORY_FILE = 'Memory.md';
 const ICON_DIR_RELATIVE = 'images';
 const PERSONA_DATA_FILE = 'persona.json';
+const PROFILE_FILE = 'Profile.md';
 
 // --- Helper Functions ---
 function sanitizeFolderName(name) { return name?.toLowerCase().replace(/[^a-z0-9_-]/gi, '_') ?? ''; } // Added nullish check
+
+/**
+ * Parse Profile.md content into profile object
+ */
+function parseProfileMarkdown(content) {
+    const profile = {
+        name: '',
+        description: '',
+        style: 'conversational',
+        pronouns: 'they/them',
+        topics: [],
+        traits: [],
+        background: '',
+        goals: [],
+        knowledge: []
+    };
+    
+    if (!content) return profile;
+    
+    const lines = content.split('\n');
+    let currentSection = null;
+    let sectionContent = [];
+    
+    for (const line of lines) {
+        // Check for headers
+        if (line.startsWith('# ')) {
+            // Main name header
+            profile.name = line.substring(2).trim();
+        } else if (line.startsWith('## ')) {
+            // Process previous section if exists
+            if (currentSection && sectionContent.length > 0) {
+                processSectionContent(profile, currentSection, sectionContent);
+                sectionContent = [];
+            }
+            currentSection = line.substring(3).trim().toLowerCase();
+        } else if (currentSection && line.trim()) {
+            sectionContent.push(line.trim());
+        }
+    }
+    
+    // Process last section
+    if (currentSection && sectionContent.length > 0) {
+        processSectionContent(profile, currentSection, sectionContent);
+    }
+    
+    return profile;
+}
+
+function processSectionContent(profile, section, content) {
+    switch(section) {
+        case 'description':
+        case 'overview':
+            profile.description = content.join(' ');
+            break;
+        case 'style':
+        case 'communication style':
+            profile.style = content.join(' ');
+            break;
+        case 'pronouns':
+            profile.pronouns = content[0] || 'they/them';
+            break;
+        case 'topics':
+        case 'interests':
+        case 'topics of interest':
+            profile.topics = content.filter(line => line.startsWith('- '))
+                .map(line => line.substring(2).trim());
+            break;
+        case 'traits':
+        case 'personality traits':
+            profile.traits = content.filter(line => line.startsWith('- '))
+                .map(line => line.substring(2).trim());
+            break;
+        case 'background':
+        case 'backstory':
+            profile.background = content.join(' ');
+            break;
+        case 'goals':
+        case 'objectives':
+            profile.goals = content.filter(line => line.startsWith('- '))
+                .map(line => line.substring(2).trim());
+            break;
+        case 'knowledge':
+        case 'expertise':
+        case 'knowledge & expertise':
+        case 'knowledge and expertise':
+            profile.knowledge = content.filter(line => line.startsWith('- '))
+                .map(line => line.substring(2).trim());
+            break;
+    }
+}
+
+/**
+ * Generate Profile.md content from profile object
+ */
+function generateProfileMarkdown(profile) {
+    let content = `# ${profile.name || 'Unnamed Persona'}\n\n`;
+    
+    if (profile.description) {
+        content += `## Description\n${profile.description}\n\n`;
+    }
+    
+    if (profile.pronouns) {
+        content += `## Pronouns\n${profile.pronouns}\n\n`;
+    }
+    
+    if (profile.style) {
+        content += `## Communication Style\n${profile.style}\n\n`;
+    }
+    
+    if (profile.traits && profile.traits.length > 0) {
+        content += `## Personality Traits\n`;
+        profile.traits.forEach(trait => {
+            content += `- ${trait}\n`;
+        });
+        content += `\n`;
+    }
+    
+    if (profile.background) {
+        content += `## Background\n${profile.background}\n\n`;
+    }
+    
+    if (profile.topics && profile.topics.length > 0) {
+        content += `## Topics of Interest\n`;
+        profile.topics.forEach(topic => {
+            content += `- ${topic}\n`;
+        });
+        content += `\n`;
+    }
+    
+    if (profile.goals && profile.goals.length > 0) {
+        content += `## Goals\n`;
+        profile.goals.forEach(goal => {
+            content += `- ${goal}\n`;
+        });
+        content += `\n`;
+    }
+    
+    if (profile.knowledge && profile.knowledge.length > 0) {
+        content += `## Knowledge & Expertise\n`;
+        profile.knowledge.forEach(item => {
+            content += `- ${item}\n`;
+        });
+        content += `\n`;
+    }
+    
+    return content;
+}
 function getPersonaFolderPath(identifier, vaultPath) {
     if (!identifier || !vaultPath) {
         throw new Error('Persona identifier and vaultPath cannot be empty.');
@@ -28,11 +180,44 @@ async function ensureDirectoryExists(dirPath) { try { await fs.mkdir(dirPath, { 
 async function readFileSafe(filePath, defaultContent = '') { try { return await fs.readFile(filePath, 'utf-8'); } catch (error) { if (error.code === 'ENOENT') { return defaultContent; } console.error(`Error reading file ${filePath}:`, error); throw error; } }
 
 async function loadPersonaData(identifier, vaultPath) {
-    const filePath = path.join(getPersonaFolderPath(identifier, vaultPath), PERSONA_DATA_FILE);
+    const personaFolder = getPersonaFolderPath(identifier, vaultPath);
+    const jsonPath = path.join(personaFolder, PERSONA_DATA_FILE);
+    const profileMdPath = path.join(personaFolder, PROFILE_FILE);
+    
+    // Load profile from Profile.md if it exists
+    let profile = null;
     try {
-        const content = await fs.readFile(filePath, 'utf-8');
+        const profileContent = await fs.readFile(profileMdPath, 'utf-8');
+        profile = parseProfileMarkdown(profileContent);
+        profile.name = profile.name || identifier;
+    } catch (err) {
+        // Profile.md doesn't exist yet
+        profile = null;
+    }
+    
+    // Load memory data from persona.json
+    try {
+        const content = await fs.readFile(jsonPath, 'utf-8');
         const data = JSON.parse(content);
+        
+        // Use Profile.md if available, otherwise fall back to JSON profile
+        if (!profile) {
+            const jsonProfile = data.profile || {};
+            profile = {
+                name: jsonProfile.name || identifier,
+                description: jsonProfile.description || '',
+                style: jsonProfile.style || 'conversational',
+                pronouns: jsonProfile.pronouns || 'they/them',
+                topics: jsonProfile.topics || [],
+                traits: jsonProfile.traits || [],
+                background: jsonProfile.background || '',
+                goals: jsonProfile.goals || [],
+                knowledge: jsonProfile.knowledge || []
+            };
+        }
+        
         return {
+            profile: profile,
             shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
             midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
             longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
@@ -49,7 +234,19 @@ async function loadPersonaData(identifier, vaultPath) {
         if (err.code !== 'ENOENT') {
             console.error(`[Persona Service] Error loading persona data for ${identifier}:`, err);
         }
+        // Return defaults with profile from Profile.md if available
         return { 
+            profile: profile || {
+                name: identifier,
+                description: '',
+                style: 'conversational',
+                pronouns: 'they/them',
+                topics: [],
+                traits: [],
+                background: '',
+                goals: [],
+                knowledge: []
+            },
             shortTermHistory: [], 
             midTermSlots: [], 
             longTermStore: { items: [] },
@@ -66,10 +263,36 @@ async function loadPersonaData(identifier, vaultPath) {
 }
 
 async function savePersonaData(identifier, data, vaultPath) {
+    // Queue the write operation
+    return new Promise((resolve, reject) => {
+        writeQueue.push({
+            type: 'persona',
+            identifier,
+            data,
+            vaultPath,
+            resolve,
+            reject
+        });
+        processWriteQueue();
+    });
+}
+
+async function _doSavePersonaData(identifier, data, vaultPath) {
     const folder = getPersonaFolderPath(identifier, vaultPath);
     await ensureDirectoryExists(folder);
+    
+    // Save Profile.md if profile exists
+    if (data.profile) {
+        const profilePath = path.join(folder, PROFILE_FILE);
+        const profileContent = generateProfileMarkdown(data.profile);
+        await fs.writeFile(profilePath, profileContent, 'utf-8');
+        console.log(`[Persona Service] Saved Profile.md for ${identifier}`);
+    }
+    
+    // Save memory data to persona.json (without profile to avoid duplication)
     const filePath = path.join(folder, PERSONA_DATA_FILE);
     const payload = {
+        // Don't save profile in JSON anymore, it's in Profile.md
         shortTermHistory: Array.isArray(data.shortTermHistory) ? data.shortTermHistory : [],
         midTermSlots: Array.isArray(data.midTermSlots) ? data.midTermSlots : [],
         longTermStore: data.longTermStore && Array.isArray(data.longTermStore.items) ? data.longTermStore : { items: [] },
@@ -274,11 +497,63 @@ async function duplicateDeck(originalName, newName, decksPath) {
 }
 
 async function savePersonaFileContent(identifier, fileName, content, vaultPath) {
+    // Queue the write operation
+    return new Promise((resolve, reject) => {
+        writeQueue.push({
+            type: 'file',
+            identifier,
+            fileName,
+            content,
+            vaultPath,
+            resolve,
+            reject
+        });
+        processWriteQueue();
+    });
+}
+
+async function _doSavePersonaFileContent(identifier, fileName, content, vaultPath) {
     const folder = getPersonaFolderPath(identifier, vaultPath);
     await ensureDirectoryExists(folder);
     const filePath = path.join(folder, fileName);
     await fs.writeFile(filePath, content, 'utf-8');
     console.log(`[Persona Service] Saved ${fileName} for ${identifier}`);
+}
+
+// Process write queue sequentially
+async function processWriteQueue() {
+    if (isProcessingQueue || writeQueue.length === 0) {
+        return;
+    }
+    
+    isProcessingQueue = true;
+    
+    while (writeQueue.length > 0) {
+        const operation = writeQueue.shift();
+        
+        try {
+            if (operation.type === 'persona') {
+                await _doSavePersonaData(
+                    operation.identifier,
+                    operation.data,
+                    operation.vaultPath
+                );
+            } else if (operation.type === 'file') {
+                await _doSavePersonaFileContent(
+                    operation.identifier,
+                    operation.fileName,
+                    operation.content,
+                    operation.vaultPath
+                );
+            }
+            operation.resolve();
+        } catch (error) {
+            console.error(`[Write Queue] Error processing ${operation.type}:`, error);
+            operation.reject(error);
+        }
+    }
+    
+    isProcessingQueue = false;
 }
 
 // --- Shared Data Access ---

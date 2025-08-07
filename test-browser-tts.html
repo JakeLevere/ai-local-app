@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser TTS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        select {
+            padding: 5px;
+            margin: 10px;
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Browser TTS Test</h1>
+    <div class="status" id="status">Ready to test browser TTS...</div>
+    
+    <div>
+        <label>Voice: 
+            <select id="voiceSelect">
+                <option value="">Default</option>
+            </select>
+        </label>
+    </div>
+    
+    <div>
+        <button onclick="testBasicTTS()">Test Basic TTS</button>
+        <button onclick="testAutoPlay()">Test Auto-Play Simulation</button>
+        <button onclick="stopTTS()">Stop</button>
+    </div>
+    
+    <script>
+        let currentUtterance = null;
+        
+        // Load available voices
+        function loadVoices() {
+            const voices = speechSynthesis.getVoices();
+            const select = document.getElementById('voiceSelect');
+            select.innerHTML = '<option value="">Default</option>';
+            
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                select.appendChild(option);
+            });
+            
+            updateStatus(`Loaded ${voices.length} voices`);
+        }
+        
+        // Load voices when ready
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        loadVoices();
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log('[Browser TTS Test]', message);
+        }
+        
+        function testBasicTTS() {
+            const text = "Hello! This is a test of the browser's text-to-speech system. If you can hear this, browser TTS is working correctly.";
+            
+            if (!window.speechSynthesis) {
+                updateStatus('Error: Browser TTS not supported!');
+                return;
+            }
+            
+            stopTTS();
+            
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            
+            // Set voice if selected
+            const voiceName = document.getElementById('voiceSelect').value;
+            if (voiceName) {
+                const voices = speechSynthesis.getVoices();
+                const voice = voices.find(v => v.name === voiceName);
+                if (voice) currentUtterance.voice = voice;
+            }
+            
+            currentUtterance.onstart = () => updateStatus('Speaking...');
+            currentUtterance.onend = () => updateStatus('Finished speaking');
+            currentUtterance.onerror = (e) => updateStatus(`Error: ${e.error}`);
+            
+            speechSynthesis.speak(currentUtterance);
+        }
+        
+        function testAutoPlay() {
+            updateStatus('Simulating auto-play (like persona response)...');
+            
+            // Simulate a delay like receiving a response
+            setTimeout(() => {
+                const text = "This simulates the persona automatically speaking when responding to your message.";
+                
+                stopTTS();
+                
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                currentUtterance.onstart = () => updateStatus('Auto-playing response...');
+                currentUtterance.onend = () => updateStatus('Auto-play complete');
+                currentUtterance.onerror = (e) => updateStatus(`Auto-play error: ${e.error}`);
+                
+                speechSynthesis.speak(currentUtterance);
+            }, 1000);
+        }
+        
+        function stopTTS() {
+            if (window.speechSynthesis) {
+                speechSynthesis.cancel();
+                updateStatus('Stopped');
+            }
+        }
+        
+        // Test on load
+        window.addEventListener('load', () => {
+            if (window.speechSynthesis) {
+                updateStatus('Browser TTS is available and ready');
+            } else {
+                updateStatus('Browser TTS is NOT available');
+            }
+        });
+    </script>
+</body>
+</html>

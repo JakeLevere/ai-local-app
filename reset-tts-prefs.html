@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset TTS Preferences</title>
+</head>
+<body>
+    <h1>Reset TTS Preferences</h1>
+    <p>This page will reset your TTS preferences to enable auto-speak by default.</p>
+    
+    <button onclick="resetPrefs()">Reset TTS Preferences</button>
+    <button onclick="checkPrefs()">Check Current Preferences</button>
+    
+    <div id="output"></div>
+    
+    <script>
+        function resetPrefs() {
+            const defaultPrefs = {
+                enabled: true,
+                autoSpeak: true,
+                voice: 'rachel',
+                settings: {
+                    stability: 0.5,
+                    similarityBoost: 0.75
+                }
+            };
+            
+            localStorage.setItem('tts-preferences', JSON.stringify(defaultPrefs));
+            document.getElementById('output').innerHTML = '<p style="color: green;">TTS preferences reset! Auto-speak is now enabled.</p>';
+            checkPrefs();
+        }
+        
+        function checkPrefs() {
+            const prefs = localStorage.getItem('tts-preferences');
+            if (prefs) {
+                const parsed = JSON.parse(prefs);
+                document.getElementById('output').innerHTML += '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+            } else {
+                document.getElementById('output').innerHTML = '<p>No TTS preferences found in localStorage.</p>';
+            }
+        }
+    </script>
+</body>
+</html>

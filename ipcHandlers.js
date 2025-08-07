@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const personaService = require('./personaService.js');
 const sharedDataService = require('./sharedDataService.js');
-const { addToShortTerm } = require('./utils/memory.js');
+const { addToShortTerm, runMemoryMaintenance } = require('./utils/memory.js');
 let aiService = null;
 let isAIServiceInitialized = false;
 let mainWindow = null;
@@ -123,11 +123,27 @@ function initialize(windowInstance, paths) {
                 ts: Date.now()
             });
             
+            // Auto-play TTS for AI response
+            try {
+                console.log('[IPC] Generating TTS for AI response...');
+                const ttsService = require('./services/ttsService');
+                const ttsResult = await ttsService.speak(finalChatResponse);
+                console.log('[IPC] TTS Result:', ttsResult);
+                // Send TTS result to renderer for playback
+                sendToRenderer('auto-play-tts', ttsResult);
+                console.log('[IPC] Sent auto-play-tts event to renderer');
+            } catch (ttsError) {
+                console.error('[IPC] Failed to generate TTS for response:', ttsError);
+            }
+            
             // Process all memory tiers (mid-term and long-term) with summarization and embeddings
             personaData = await currentAIService.processAllMemoryTiers(
                 personaData,
                 personaData.shortTermHistory || []
             );
+            
+            // Run memory maintenance (decay and promotion)
+            personaData = runMemoryMaintenance(personaData);
             
             // Save updated persona data with all memory tiers
             await personaService.savePersonaData(primaryOnly, personaData, appPaths.vaultPath);
@@ -383,6 +399,125 @@ function initialize(windowInstance, paths) {
         } catch (err) {
             console.error('IPC: Failed to get open displays:', err);
             return {};
+        }
+    });
+
+    // Memory UI handlers
+    ipcMain.handle('get-persona-memory', async (event, personaId) => {
+        try {
+            const data = await personaService.loadPersonaData(personaId, appPaths.vaultPath);
+            return data;
+        } catch (err) {
+            console.error('Failed to get persona memory:', err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('update-persona-profile', async (event, { personaId, profile }) => {
+        try {
+            const data = await personaService.loadPersonaData(personaId, appPaths.vaultPath);
+            data.profile = profile;
+            await personaService.savePersonaData(personaId, data, appPaths.vaultPath);
+            return true;
+        } catch (err) {
+            console.error('Failed to update persona profile:', err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('clear-short-term-history', async (event, personaId) => {
+        try {
+            const data = await personaService.loadPersonaData(personaId, appPaths.vaultPath);
+            data.shortTermHistory = [];
+            await personaService.savePersonaData(personaId, data, appPaths.vaultPath);
+            return true;
+        } catch (err) {
+            console.error('Failed to clear short-term history:', err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('prune-mid-term-memory', async (event, personaId) => {
+        try {
+            const data = await personaService.loadPersonaData(personaId, appPaths.vaultPath);
+            // Keep only high priority recent slots
+            const now = Date.now();
+            data.midTermSlots = (data.midTermSlots || []).filter(slot => {
+                const age = now - (slot.ts || 0);
+                const ageMinutes = age / (60 * 1000);
+                return slot.priority > 0.5 && ageMinutes < 20;
+            });
+            await personaService.savePersonaData(personaId, data, appPaths.vaultPath);
+            return true;
+        } catch (err) {
+            console.error('Failed to prune mid-term memory:', err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('run-memory-maintenance', async (event, personaId) => {
+        try {
+            let data = await personaService.loadPersonaData(personaId, appPaths.vaultPath);
+            data = runMemoryMaintenance(data);
+            await personaService.savePersonaData(personaId, data, appPaths.vaultPath);
+            return true;
+        } catch (err) {
+            console.error('Failed to run memory maintenance:', err);
+            throw err;
+        }
+    });
+
+    // TTS handlers
+    ipcMain.handle('tts-speak', async (event, { text, options }) => {
+        try {
+            const ttsService = require('./services/ttsService');
+            const result = await ttsService.speak(text, options);
+            return result;
+        } catch (err) {
+            console.error('Failed to speak text:', err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('tts-set-voice', async (event, voice) => {
+        try {
+            const ttsService = require('./services/ttsService');
+            ttsService.setVoice(voice);
+            return true;
+        } catch (err) {
+            console.error('Failed to set voice:', err);
+            return false;
+        }
+    });
+
+    ipcMain.handle('tts-set-speed', async (event, speed) => {
+        try {
+            const ttsService = require('./services/ttsService');
+            ttsService.setSpeed(speed);
+            return true;
+        } catch (err) {
+            console.error('Failed to set speed:', err);
+            return false;
+        }
+    });
+
+    ipcMain.handle('tts-get-voices', async () => {
+        try {
+            const ttsService = require('./services/ttsService');
+            return ttsService.getAvailableVoices();
+        } catch (err) {
+            console.error('Failed to get voices:', err);
+            return [];
+        }
+    });
+
+    ipcMain.handle('tts-test', async () => {
+        try {
+            const ttsService = require('./services/ttsService');
+            return await ttsService.testConnection();
+        } catch (err) {
+            console.error('Failed to test TTS:', err);
+            return { success: false, error: err.message };
         }
     });
 

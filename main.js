@@ -1,4 +1,7 @@
 // main.js
+// Load environment variables first, before any other modules
+require('dotenv').config();
+
 const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises; // Needed for initial dir creation
@@ -64,6 +67,10 @@ function startLocalServer() {
     expressApp.use('/images', express.static(imagesPath));
     // Serve user videos from the persistent data directory
     expressApp.use('/videos', express.static(videosPath));
+    // Serve TTS audio files from temp directory
+    const os = require('os');
+    const ttsAudioPath = path.join(os.tmpdir(), 'tts-audio');
+    expressApp.use('/tts-audio', express.static(ttsAudioPath));
     
     // Add debug endpoints if in development mode
     if (process.env.NODE_ENV !== 'production') {

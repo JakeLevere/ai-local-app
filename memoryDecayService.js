@@ -1,73 +1,61 @@
-// memoryDecayService.js - Service for periodic memory decay and maintenance
+// memoryDecayService.js - Service for periodic memory evaluation and maintenance using access patterns
 const personaService = require('./personaService');
-const { decayMidTermSlots, getMidTermDecayStats } = require('./utils/memory');
+const { runMemoryMaintenance, getMidTermDecayStats } = require('./utils/memory');
 const path = require('path');
 const fs = require('fs').promises;
 
 class MemoryDecayService {
     constructor() {
         this.intervalId = null;
-        this.decayIntervalMs = 2 * 60 * 1000; // 2 minutes
-        this.decayRate = 0.98; // 2% decay per minute
-        this.minPriority = 0.2; // Remove slots below this priority
-        this.maxAgeMinutes = 30; // Remove slots older than 30 minutes with low priority
+        this.evaluationIntervalMs = 10 * 60 * 1000; // 10 minutes (less frequent since access-based)
         this.isRunning = false;
-        this.lastDecayTime = null;
+        this.lastEvaluationTime = null;
         this.stats = {
-            totalDecayRuns: 0,
+            totalEvaluationRuns: 0,
+            totalSlotsPromoted: 0,
             totalSlotsRemoved: 0,
             lastRunTime: null
         };
     }
 
     /**
-     * Start the periodic decay process
+     * Start the periodic memory evaluation process
      * @param {Object} config - Configuration options
      */
     start(config = {}) {
         if (this.isRunning) {
-            console.log('[Memory Decay Service] Already running');
+            console.log('[Memory Evaluation Service] Already running');
             return;
         }
 
         // Apply configuration
         if (config.intervalMinutes) {
-            this.decayIntervalMs = config.intervalMinutes * 60 * 1000;
-        }
-        if (config.decayRate !== undefined) {
-            this.decayRate = config.decayRate;
-        }
-        if (config.minPriority !== undefined) {
-            this.minPriority = config.minPriority;
-        }
-        if (config.maxAgeMinutes !== undefined) {
-            this.maxAgeMinutes = config.maxAgeMinutes;
+            this.evaluationIntervalMs = config.intervalMinutes * 60 * 1000;
         }
 
-        console.log('[Memory Decay Service] Starting with configuration:');
-        console.log(`  - Interval: ${this.decayIntervalMs / 60000} minutes`);
-        console.log(`  - Decay rate: ${this.decayRate} per minute`);
-        console.log(`  - Min priority: ${this.minPriority}`);
-        console.log(`  - Max age: ${this.maxAgeMinutes} minutes`);
+        console.log('[Memory Evaluation Service] Starting with configuration:');
+        console.log(`  - Evaluation interval: ${this.evaluationIntervalMs / 60000} minutes`);
+        console.log(`  - Access-based promotion threshold: 5 accesses`);
+        console.log(`  - Semantic cluster threshold: 3 related memories`);
 
-        // Run initial decay
-        this.runDecay();
+        // Run initial evaluation
+        this.runEvaluation();
 
-        // Set up periodic decay
+        // Set up periodic evaluation
         this.intervalId = setInterval(() => {
-            this.runDecay();
-        }, this.decayIntervalMs);
+            this.runEvaluation();
+        }, this.evaluationIntervalMs);
 
         this.isRunning = true;
-        console.log('[Memory Decay Service] Started successfully');
+        console.log('[Memory Evaluation Service] Started successfully');
     }
 
     /**
-     * Stop the periodic decay process
+     * Stop the periodic evaluation process
      */
     stop() {
         if (!this.isRunning) {
-            console.log('[Memory Decay Service] Not running');
+            console.log('[Memory Evaluation Service] Not running');
             return;
         }
 
@@ -77,33 +65,35 @@ class MemoryDecayService {
         }
 
         this.isRunning = false;
-        console.log('[Memory Decay Service] Stopped');
-        console.log(`  - Total runs: ${this.stats.totalDecayRuns}`);
+        console.log('[Memory Evaluation Service] Stopped');
+        console.log(`  - Total runs: ${this.stats.totalEvaluationRuns}`);
+        console.log(`  - Total slots promoted: ${this.stats.totalSlotsPromoted}`);
         console.log(`  - Total slots removed: ${this.stats.totalSlotsRemoved}`);
     }
 
     /**
-     * Run a single decay operation
+     * Run a single evaluation operation
      */
-    async runDecay() {
+    async runEvaluation() {
         const startTime = Date.now();
-        console.log(`[Memory Decay Service] Running decay cycle #${this.stats.totalDecayRuns + 1}`);
+        console.log(`[Memory Evaluation Service] Running evaluation cycle #${this.stats.totalEvaluationRuns + 1}`);
 
         try {
             // Get vault path from app configuration
             const vaultPath = global.appPaths?.vaultPath;
             if (!vaultPath) {
-                console.log('[Memory Decay Service] Vault path not available, skipping decay');
+                console.log('[Memory Evaluation Service] Vault path not available, skipping evaluation');
                 return;
             }
 
             // Discover all personas
             const personas = await personaService.discoverPersonas(vaultPath, __dirname);
             if (!personas || personas.length === 0) {
-                console.log('[Memory Decay Service] No personas found');
+                console.log('[Memory Evaluation Service] No personas found');
                 return;
             }
 
+            let totalSlotsPromoted = 0;
             let totalSlotsRemoved = 0;
             let personasProcessed = 0;
 
@@ -122,20 +112,20 @@ class MemoryDecayService {
 
                     const beforeCount = personaData.midTermSlots.length;
                     const beforeStats = getMidTermDecayStats(personaData);
+                    const beforeLongTermCount = personaData.longTermStore?.items?.length || 0;
 
-                    // Apply decay
-                    decayMidTermSlots(
-                        personaData,
-                        this.decayRate,
-                        this.minPriority,
-                        this.maxAgeMinutes
-                    );
+                    // Apply access-based evaluation and promotion via runMemoryMaintenance
+                    const updatedPersona = runMemoryMaintenance(personaData);
+                    // Update the personaData reference
+                    Object.assign(personaData, updatedPersona);
 
                     const afterCount = personaData.midTermSlots.length;
                     const afterStats = getMidTermDecayStats(personaData);
-                    const slotsRemoved = beforeCount - afterCount;
+                    const afterLongTermCount = personaData.longTermStore?.items?.length || 0;
+                    const slotsChanged = beforeCount - afterCount;
+                    const itemsPromoted = afterLongTermCount - beforeLongTermCount;
 
-                    if (slotsRemoved > 0 || beforeStats.avgPriority !== afterStats.avgPriority) {
+                    if (slotsChanged > 0 || itemsPromoted > 0) {
                         // Save updated persona data
                         await personaService.savePersonaData(
                             persona.id,
@@ -143,32 +133,37 @@ class MemoryDecayService {
                             vaultPath
                         );
 
-                        console.log(`[Memory Decay Service] ${persona.name}:`);
-                        console.log(`  - Slots: ${beforeCount} → ${afterCount} (removed: ${slotsRemoved})`);
+                        console.log(`[Memory Evaluation Service] ${persona.name}:`);
+                        console.log(`  - Mid-term slots: ${beforeCount} → ${afterCount}`);
+                        console.log(`  - Items promoted to long-term: ${itemsPromoted}`);
+                        console.log(`  - Items removed (low priority): ${slotsChanged - itemsPromoted}`);
                         console.log(`  - Avg priority: ${beforeStats.avgPriority.toFixed(3)} → ${afterStats.avgPriority.toFixed(3)}`);
                         
-                        totalSlotsRemoved += slotsRemoved;
+                        totalSlotsPromoted += itemsPromoted;
+                        totalSlotsRemoved += Math.max(0, slotsChanged - itemsPromoted);
                         personasProcessed++;
                     }
                 } catch (error) {
-                    console.error(`[Memory Decay Service] Error processing persona ${persona.id}:`, error);
+                    console.error(`[Memory Evaluation Service] Error processing persona ${persona.id}:`, error);
                 }
             }
 
             const elapsedMs = Date.now() - startTime;
-            this.stats.totalDecayRuns++;
+            this.stats.totalEvaluationRuns++;
+            this.stats.totalSlotsPromoted += totalSlotsPromoted;
             this.stats.totalSlotsRemoved += totalSlotsRemoved;
             this.stats.lastRunTime = new Date().toISOString();
-            this.lastDecayTime = Date.now();
+            this.lastEvaluationTime = Date.now();
 
-            if (personasProcessed > 0 || totalSlotsRemoved > 0) {
-                console.log(`[Memory Decay Service] Decay cycle completed:`);
+            if (personasProcessed > 0) {
+                console.log(`[Memory Evaluation Service] Evaluation cycle completed:`);
                 console.log(`  - Personas processed: ${personasProcessed}`);
+                console.log(`  - Slots promoted: ${totalSlotsPromoted}`);
                 console.log(`  - Slots removed: ${totalSlotsRemoved}`);
                 console.log(`  - Time taken: ${elapsedMs}ms`);
             }
         } catch (error) {
-            console.error('[Memory Decay Service] Error during decay cycle:', error);
+            console.error('[Memory Evaluation Service] Error during evaluation cycle:', error);
         }
     }
 
@@ -180,23 +175,22 @@ class MemoryDecayService {
             ...this.stats,
             isRunning: this.isRunning,
             config: {
-                intervalMinutes: this.decayIntervalMs / 60000,
-                decayRate: this.decayRate,
-                minPriority: this.minPriority,
-                maxAgeMinutes: this.maxAgeMinutes
+                intervalMinutes: this.evaluationIntervalMs / 60000,
+                accessPromotionThreshold: 5,
+                semanticClusterThreshold: 3
             },
-            lastDecayTime: this.lastDecayTime ? new Date(this.lastDecayTime).toISOString() : null,
-            nextDecayTime: this.lastDecayTime ? 
-                new Date(this.lastDecayTime + this.decayIntervalMs).toISOString() : null
+            lastEvaluationTime: this.lastEvaluationTime ? new Date(this.lastEvaluationTime).toISOString() : null,
+            nextEvaluationTime: this.lastEvaluationTime ? 
+                new Date(this.lastEvaluationTime + this.evaluationIntervalMs).toISOString() : null
         };
     }
 
     /**
-     * Manually trigger a decay cycle
+     * Manually trigger an evaluation cycle
      */
-    async triggerDecay() {
-        console.log('[Memory Decay Service] Manual decay triggered');
-        await this.runDecay();
+    async triggerEvaluation() {
+        console.log('[Memory Evaluation Service] Manual evaluation triggered');
+        await this.runEvaluation();
     }
 }
 

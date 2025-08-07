@@ -54,6 +54,74 @@
                     <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-prompt-header">Memory Prompt</div> <div class="dropdown-content" id="memory-prompt-content"> <textarea id="memory-prompt-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory-prompt">Save</button> </div> </div> </div>
                     <div class="dropdown config-sub-only"> <div class="dropdown-header" id="memory-header">Memory</div> <div class="dropdown-content" id="memory-content"> <textarea id="memory-text"></textarea> <div class="dropdown-buttons"> <button id="save-memory">Save</button> <button id="update-memory">Update</button> </div> </div> </div>
                     <div class="dropdown"> <div class="dropdown-header" id="conversations-header">Stored Conversations</div> <div class="dropdown-content" id="conversations-content"> <textarea id="conversations-text" readonly></textarea> <div class="dropdown-buttons"> </div> </div> </div>
+                    <div class="dropdown"> 
+                        <div class="dropdown-header" id="profile-header">Identity Profile</div> 
+                        <div class="dropdown-content" id="profile-content"> 
+                            <div class="profile-field">
+                                <label for="profile-name">Name:</label>
+                                <input type="text" id="profile-name" placeholder="Persona name">
+                            </div>
+                            <div class="profile-field">
+                                <label for="profile-description">Description:</label>
+                                <textarea id="profile-description" placeholder="Describe this persona's role and personality"></textarea>
+                            </div>
+                            <div class="profile-field">
+                                <label for="profile-style">Style:</label>
+                                <select id="profile-style">
+                                    <option value="conversational">Conversational</option>
+                                    <option value="professional">Professional</option>
+                                    <option value="casual">Casual</option>
+                                    <option value="formal">Formal</option>
+                                    <option value="technical">Technical</option>
+                                    <option value="creative">Creative</option>
+                                </select>
+                            </div>
+                            <div class="profile-field">
+                                <label for="profile-pronouns">Pronouns:</label>
+                                <input type="text" id="profile-pronouns" placeholder="e.g., they/them">
+                            </div>
+                            <div class="profile-field">
+                                <label for="profile-topics">Topics of Interest:</label>
+                                <input type="text" id="profile-topics" placeholder="Comma-separated topics">
+                            </div>
+                            <div class="dropdown-buttons"> 
+                                <button id="save-profile">Save Profile</button> 
+                            </div> 
+                        </div> 
+                    </div>
+                    <div class="dropdown"> 
+                        <div class="dropdown-header" id="memory-tiers-header">Memory System</div> 
+                        <div class="dropdown-content" id="memory-tiers-content"> 
+                            <div class="memory-tier">
+                                <h4>Short-term History</h4>
+                                <div class="memory-stats">
+                                    <span>Messages: <span id="short-term-count">0</span>/10</span>
+                                    <button id="clear-short-term" class="small-button">Clear</button>
+                                </div>
+                                <div id="short-term-list" class="memory-list"></div>
+                            </div>
+                            <div class="memory-tier">
+                                <h4>Mid-term Memory</h4>
+                                <div class="memory-stats">
+                                    <span>Slots: <span id="mid-term-count">0</span>/20</span>
+                                    <button id="prune-mid-term" class="small-button">Prune Old</button>
+                                </div>
+                                <div id="mid-term-list" class="memory-list"></div>
+                            </div>
+                            <div class="memory-tier">
+                                <h4>Long-term Store</h4>
+                                <div class="memory-stats">
+                                    <span>Items: <span id="long-term-count">0</span></span>
+                                    <button id="view-long-term" class="small-button">View Details</button>
+                                </div>
+                                <div id="long-term-list" class="memory-list" style="display:none;"></div>
+                            </div>
+                            <div class="dropdown-buttons"> 
+                                <button id="run-maintenance">Run Maintenance</button> 
+                                <button id="export-memory">Export Memory</button>
+                            </div> 
+                        </div> 
+                    </div>
                 </div>
             </div>
             </div>

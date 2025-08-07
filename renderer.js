@@ -14,6 +14,8 @@ let scrollAnimationFrame = null;
 let scrollStopTimer = null;
 let pendingOpenDisplays = null;
 let isDomReady = false;
+let ttsHandler = null;
+let memoryHandler = null;
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
@@ -1143,6 +1145,48 @@ setTimeout(() => {
     setupProgramIconListeners();
     setupProgramMaker();
     setupDisplayVisibilityObserver();
+    
+    // Initialize TTS handler
+    try {
+        if (typeof TTSUIHandler !== 'undefined') {
+            ttsHandler = new TTSUIHandler();
+            console.log('TTS handler initialized');
+        } else {
+            // Load TTS handler script dynamically
+            const ttsScript = document.createElement('script');
+            ttsScript.src = './ttsUIHandler.js';
+            ttsScript.onload = () => {
+                if (typeof TTSUIHandler !== 'undefined') {
+                    ttsHandler = new TTSUIHandler();
+                    console.log('TTS handler initialized from script');
+                }
+            };
+            document.head.appendChild(ttsScript);
+        }
+    } catch (err) {
+        console.error('Failed to initialize TTS handler:', err);
+    }
+    
+    // Initialize Memory handler
+    try {
+        if (typeof MemoryUIHandler !== 'undefined') {
+            memoryHandler = new MemoryUIHandler();
+            console.log('Memory handler initialized');
+        } else {
+            // Load Memory handler script dynamically
+            const memoryScript = document.createElement('script');
+            memoryScript.src = './memoryUIHandler.js';
+            memoryScript.onload = () => {
+                if (typeof MemoryUIHandler !== 'undefined') {
+                    memoryHandler = new MemoryUIHandler();
+                    console.log('Memory handler initialized from script');
+                }
+            };
+            document.head.appendChild(memoryScript);
+        }
+    } catch (err) {
+        console.error('Failed to initialize Memory handler:', err);
+    }
     const mainIcon = document.getElementById('deck-main');
     if (mainIcon) {
         mainIcon.style.backgroundColor = deckColors[0];
