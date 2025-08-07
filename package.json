@@ -23,7 +23,9 @@
     ]
   },
   "jest": {
-    "testPathIgnorePatterns": ["<rootDir>/tests/"]
+    "testPathIgnorePatterns": [
+      "<rootDir>/tests/"
+    ]
   },
   "devDependencies": {
     "electron": "^35.1.2",
