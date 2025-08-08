@@ -24,6 +24,7 @@
         mode: 'idle',
         startedAt: 0,
         speechStartCtxTime: null,
+        lastAmp: 0,
       };
 
       this._config = {
@@ -31,7 +32,7 @@
         downsampleSize: 256,
         baseSize: 2.0,
         edgeGain: 2.5,
-        ampGain: 6.0,
+        ampGain: 10.0,
         shadeLevels: new Float32Array([0.15, 0.35, 0.6, 0.85]),
         styleIntensityBias: 0.0,
       };
@@ -174,20 +175,29 @@
       this._log(`[Visualizer] persona-config sampleCount=${conf.sampleCount} baseSize=${conf.baseSize} edgeGain=${conf.edgeGain} ampGain=${conf.ampGain}`);
     }
 
-    speechStart(offsetMs = 0) {
+    async speechStart(offsetMs = 0) {
+      this._log(`[Visualizer] speechStart(offsetMs=${offsetMs})`);
       this._state.mode = 'speech';
       this._state.startedAt = performance.now() - offsetMs;
-    if (this._audio && this._audio.ctx) {
-      this._state.speechStartCtxTime = this._audio.ctx.currentTime - (offsetMs / 1000);
-    } else {
-      this._state.speechStartCtxTime = null;
-    }
+      // If we have no samples yet, initialize from placeholder to avoid blank screen
+      try {
+        if (!this._samples || !this._samples.N || this._samples.N === 0) {
+          this._log('[Visualizer] No samples at speechStart; initializing from placeholder');
+          await this.initFromImage('/images/placeholder.png');
+        }
+      } catch(_){}
+      if (this._audio && this._audio.ctx) {
+        this._state.speechStartCtxTime = this._audio.ctx.currentTime - (offsetMs / 1000);
+      } else {
+        this._state.speechStartCtxTime = null;
+      }
       this._ensureLoop();
     }
 
     speechStop() {
+      this._log('[Visualizer] speechStop()');
       this._state.mode = 'idle';
-    this._state.speechStartCtxTime = null;
+      this._state.speechStartCtxTime = null;
       this._ensureLoop();
     }
 
@@ -502,7 +512,7 @@
       const tMsCtx = this._state.speechStartCtxTime != null && this._audio?.ctx
         ? (this._audio.ctx.currentTime - this._state.speechStartCtxTime) * 1000
         : (performance.now() - this._state.startedAt);
-      const params = this._getCurrentParams(tMsCtx);
+      const params = this._getCurrentParams(tMsCtx, amp || 0);
       this._updateDevOverlay(tMsCtx);
       gl.useProgram(this._gpu.program);
       gl.bindVertexArray(this._gpu.vao);
@@ -533,7 +543,7 @@
       const tMsCtx = this._state.speechStartCtxTime != null && this._audio?.ctx
         ? (this._audio.ctx.currentTime - this._state.speechStartCtxTime) * 1000
         : (performance.now() - this._state.startedAt);
-      const params = this._getCurrentParams(tMsCtx);
+      const params = this._getCurrentParams(tMsCtx, amp || 0);
       this._updateDevOverlay(tMsCtx);
       const base = this._config.baseSize;
       const edgeGain = this._config.edgeGain;
@@ -563,13 +573,13 @@
     }
 
     // ---------- Plan sampling ----------
-    _getCurrentParams(tMs) {
+    _getCurrentParams(tMs, amp=0) {
       const tracks = this._plan?.tracks || {};
-      const mouth = this._sampleMouth(tracks.mouth || [], tMs);
-      const browsY = this._sampleScalar(tracks.brows || [], 'y', tMs);
-      const eyeBlink = this._sampleBlink(tracks.eyes || [], tMs);
-      const headTiltDeg = this._sampleScalar(tracks.headTilt || [], 'deg', tMs);
-      const shouldersY = this._sampleScalar(tracks.shoulders || [], 'y', tMs);
+      let mouth = this._sampleMouth(tracks.mouth || [], tMs);
+      let browsYTrack = this._sampleScalar(tracks.brows || [], 'y', tMs);
+      let eyeBlinkTrack = this._sampleBlink(tracks.eyes || [], tMs);
+      let headTiltDegTrack = this._sampleScalar(tracks.headTilt || [], 'deg', tMs);
+      let shouldersYTrack = this._sampleScalar(tracks.shoulders || [], 'y', tMs);
       const styleIntensityPlan = typeof tracks.style?.intensity === 'number' ? tracks.style.intensity : 0.0;
       const styleIntensity = styleIntensityPlan + (this._config.styleIntensityBias||0);
       if (this._state.mode !== 'speech') {
@@ -578,7 +588,36 @@
         const breath = (Math.sin(t * 0.8) * 0.5 + 0.5) * 0.05;
         return { mouth: { open: 0, width: 0, round: 0 }, browsY: sway * 0.5, eyeBlink: 0, headTilt: sway, shouldersY: breath * 0.3, styleIntensity };
       }
-      return { mouth, browsY: browsY * 0.05, eyeBlink, headTilt: (headTiltDeg * Math.PI) / 180, shouldersY: shouldersY * 0.05, styleIntensity };
+      // Speech mode fallback: if no explicit mouth track, modulate by audio amplitude (more pronounced)
+      if (!tracks.mouth || tracks.mouth.length === 0) {
+        const a = Math.min(1, Math.max(0, amp));
+        mouth = { open: a * 3.0, width: a * 1.2, round: a * 0.9 };
+      }
+      // Procedural body motion during speech if tracks are missing
+      const t = (this._state.speechStartCtxTime != null && this._audio?.ctx) ? ((this._audio.ctx.currentTime - this._state.speechStartCtxTime)) : ((performance.now() - this._state.startedAt) * 0.001);
+      const a = Math.min(1, Math.max(0, amp));
+      if (!tracks.brows || tracks.brows.length === 0) {
+        browsYTrack = 0.01 + 0.03 * Math.sin(t * 2.0) + 0.03 * a;
+      }
+      if (!tracks.eyes || tracks.eyes.length === 0) {
+        // Quick procedural blink roughly every ~1.5-2.2s
+        const blinkPhase = (t % 1.8);
+        eyeBlinkTrack = blinkPhase < 0.12 ? (1.0 - blinkPhase/0.12) : 0.0;
+      }
+      if (!tracks.headTilt || tracks.headTilt.length === 0) {
+        headTiltDegTrack = (Math.sin(t * 0.9) * (3 + 7 * a));
+      }
+      if (!tracks.shoulders || tracks.shoulders.length === 0) {
+        shouldersYTrack = 0.02 * Math.sin(t * 1.1) + 0.03 * a;
+      }
+      return {
+        mouth,
+        browsY: browsYTrack * 0.05,
+        eyeBlink: eyeBlinkTrack,
+        headTilt: (headTiltDegTrack * Math.PI) / 180,
+        shouldersY: shouldersYTrack * 0.05,
+        styleIntensity: styleIntensity + a * 0.2,
+      };
     }
 
     _sampleMouth(track, tMs) {
@@ -611,10 +650,14 @@
         const v = (a.buffer[i] - 128) / 128;
         sum += v * v;
       }
-      const rms = Math.sqrt(sum / a.buffer.length);
+      let rms = Math.sqrt(sum / a.buffer.length);
+      // Boost and smooth amplitude to improve visible response
+      rms = Math.min(1, rms * 2.5);
+      this._state.lastAmp = this._state.lastAmp * 0.85 + rms * 0.15;
+      const out = this._state.lastAmp;
       const now = performance.now();
-      if (now - a.lastLogTime > 1000) { this._log(`[Visualizer] amp=${rms.toFixed(3)}`); a.lastLogTime = now; }
-      return Math.min(1, Math.max(0, rms));
+      if (now - a.lastLogTime > 1000) { this._log(`[Visualizer] amp=${out.toFixed(3)}`); a.lastLogTime = now; }
+      return out;
     }
 
     _createProgram(gl, vsSource, fsSource) {

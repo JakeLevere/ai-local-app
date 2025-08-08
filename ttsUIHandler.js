@@ -481,6 +481,8 @@ class TTSUIHandler {
         
         // Create an audio element to play the file
         this.currentAudio = new Audio(audioUrl);
+        try { if (window._viz) { window._viz.connectAudio(this.currentAudio, null); } } catch(_){}
+        this.currentAudio.addEventListener('play', () => { try { window._viz?.speechStart(0); } catch(_){} });
         this.currentAudio.addEventListener('ended', () => {
             this.isPlaying = false;
             this.updateStatus('Ready', 'success');
@@ -491,6 +493,7 @@ class TTSUIHandler {
             console.error('Audio playback error:', e);
             this.updateStatus('Playback failed', 'error');
             this.isPlaying = false;
+            try { window._viz?.speechStop(); } catch(_){}
             if (onComplete) onComplete();
         });
         
@@ -499,6 +502,7 @@ class TTSUIHandler {
             console.error('Failed to play audio:', err);
             this.updateStatus('Playback failed', 'error');
             this.isPlaying = false;
+            try { window._viz?.speechStop(); } catch(_){}
             if (onComplete) onComplete();
         });
     }
@@ -511,9 +515,12 @@ class TTSUIHandler {
         }
         
         const utterance = new SpeechSynthesisUtterance(settings.text);
+        try { window._viz?.speechStart(0); } catch(_){}
         utterance.rate = settings.rate || 1.0;
         utterance.pitch = settings.pitch || 1.0;
         utterance.volume = settings.volume || 1.0;
+        utterance.onend = () => { try { window._viz?.speechStop(); } catch(_){} if (onComplete) onComplete(); };
+        utterance.onerror = () => { try { window._viz?.speechStop(); } catch(_){} if (onComplete) onComplete(); };
         
         if (settings.voice) {
             const voices = window.speechSynthesis.getVoices();

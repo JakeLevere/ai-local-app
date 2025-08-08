@@ -2,6 +2,9 @@
 
 console.log("--- Renderer Script Loading ---");
 
+// Global placeholder image used throughout the UI and visualizer when no persona icon is available
+const PLACEHOLDER_IMG = '/images/placeholder.png';
+
 let selectedIdentifier = null;
 let activePrimaryIdentifier = null;
 let primaryPersonaCache = {};
@@ -26,6 +29,30 @@ const elementToDisplayIdMap = new WeakMap();
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
 let domElements = {};
+async function updateVisualizerImageForPersona(identifier){
+    try{
+        const viz = window._viz;
+        if (!viz || !identifier) return;
+        const persona = primaryPersonaCache?.[identifier];
+        let icon = persona?.icon || PLACEHOLDER_IMG;
+        const candidates = [icon];
+        // If served from /images, try lower/upper-case fallbacks for filename to be case-insensitive
+        if (icon.startsWith('/images/')){
+            const base = icon.substring('/images/'.length);
+            candidates.push('/images/' + base.toLowerCase());
+            candidates.push('/images/' + base.toUpperCase());
+        }
+        // Try sequentially until one succeeds
+        for (const url of candidates){
+            try{
+                await viz.initFromImage(url);
+                return; // success
+            }catch(_){ /* try next */ }
+        }
+        // Final fallback
+        try{ await viz.initFromImage(PLACEHOLDER_IMG); }catch(_){}
+    }catch(_){ }
+}
 function cacheDomElements() {
     console.log("--- Caching DOM Elements ---");
     domElements = {
@@ -592,7 +619,7 @@ function updateStatusBarUI(identifier, status) {
     if (!domElements.statusTitle || !domElements.personaImage || !domElements.configPanelHeader || !domElements.convCountSpan || !domElements.lastInteractionSpan) { console.error("Renderer Error: Status bar elements not found!"); return; }
     let primaryIdToDisplay = null;
     let titleToDisplay = "No Persona Selected";
-    let iconToDisplay = './images/placeholder.png';
+    let iconToDisplay = PLACEHOLDER_IMG;
     let convCountToDisplay = 0;
     let lastInteractionToDisplay = 'N/A';
     let configHeaderToDisplay = 'Configuration';
@@ -628,7 +655,7 @@ function updateStatusBarUI(identifier, status) {
     domElements.statusTitle.textContent = titleToDisplay;
     console.log(`[Status Bar Update] Setting Image Src: ${iconToDisplay}`);
     domElements.personaImage.src = iconToDisplay;
-    domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = './images/placeholder.png'; };
+    domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = PLACEHOLDER_IMG; };
     // Video preview has been replaced by canvas visualizer. If needed, show the image fallback explicitly.
     if (domElements.personaPreviewImage) {
         domElements.personaPreviewImage.style.display = 'none';
@@ -698,7 +725,7 @@ function appendMessageToChatLog(entry, isStatus = false, isUser = false) {
         if (domElements.chatLog) domElements.chatLog.scrollTop = domElements.chatLog.scrollHeight;
     });
 }
-function updateSlideIcon(displayId, type, src) { const slideItem = domElements.slideTabs?.querySelector(`.slide-tab[data-display-id="${displayId}"]`); if (!slideItem) return; const slideIcon = slideItem.querySelector('.slide-icon'); const slideName = slideItem.querySelector('.slide-name'); if (!slideIcon || !slideName) return; slideIcon.style.backgroundColor = 'transparent'; slideIcon.onerror = () => { if (slideIcon) slideIcon.src = './images/placeholder.png'; if (slideName) slideName.textContent = 'Load Error'; }; const imageBasePath = './images'; if (type === 'image' && src) { slideIcon.src = src.startsWith('file://') ? src : `file://${src}`; slideName.textContent = 'Image'; } else if (type === 'iframe' && src) { if (src.includes('player.twitch.tv')) { slideIcon.src = `${imageBasePath}/twitch-icon.png`; slideName.textContent = 'Twitch Stream';} else if (src.includes('example.com')) { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Example.com'; } else if (src.includes('persona-creator.html')) { slideIcon.src = `${imageBasePath}/persona-creator-icon.png`; slideName.textContent = 'Persona Creator'; } else if (src === 'about:blank' || !src) { slideIcon.src = `${imageBasePath}/placeholder.png`; slideIcon.style.backgroundColor = '#444'; slideName.textContent = 'Empty'; } else { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Web Page'; } } else { slideIcon.src = `${imageBasePath}/placeholder.png`; slideIcon.style.backgroundColor = '#444'; slideName.textContent = type === 'error' ? 'Load Error' : 'Empty'; } }
+function updateSlideIcon(displayId, type, src) { const slideItem = domElements.slideTabs?.querySelector(`.slide-tab[data-display-id="${displayId}"]`); if (!slideItem) return; const slideIcon = slideItem.querySelector('.slide-icon'); const slideName = slideItem.querySelector('.slide-name'); if (!slideIcon || !slideName) return; slideIcon.style.backgroundColor = 'transparent'; slideIcon.onerror = () => { if (slideIcon) slideIcon.src = PLACEHOLDER_IMG; if (slideName) slideName.textContent = 'Load Error'; }; const imageBasePath = './images'; if (type === 'image' && src) { slideIcon.src = src.startsWith('file://') ? src : `file://${src}`; slideName.textContent = 'Image'; } else if (type === 'iframe' && src) { if (src.includes('player.twitch.tv')) { slideIcon.src = `${imageBasePath}/twitch-icon.png`; slideName.textContent = 'Twitch Stream';} else if (src.includes('example.com')) { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Example.com'; } else if (src.includes('persona-creator.html')) { slideIcon.src = `${imageBasePath}/persona-creator-icon.png`; slideName.textContent = 'Persona Creator'; } else if (src === 'about:blank' || !src) { slideIcon.src = PLACEHOLDER_IMG; slideIcon.style.backgroundColor = '#444'; slideName.textContent = 'Empty'; } else { slideIcon.src = `${imageBasePath}/webview-icon.png`; slideName.textContent = 'Web Page'; } } else { slideIcon.src = PLACEHOLDER_IMG; slideIcon.style.backgroundColor = '#444'; slideName.textContent = type === 'error' ? 'Load Error' : 'Empty'; } }
 
 function renderPersonaList(personas) {
     const container = domElements.personaListContainer;
@@ -714,7 +741,7 @@ function renderPersonaList(personas) {
         const li = document.createElement('li');
         li.className = 'persona-item primary-persona';
         li.dataset.personaId = p.id;
-        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='./images/placeholder.png'" class="persona-icon"> <span class="persona-name">${p.name}</span>`;
+        li.innerHTML = ` <img src="${p.icon}" onerror="this.src='${PLACEHOLDER_IMG}'" class="persona-icon"> <span class="persona-name">${p.name}</span>`;
         container.appendChild(li);
     });
     updateFavoriteStars();
@@ -760,6 +787,8 @@ function handlePersonaItemClick(event) {
             });
         }
     } catch (_) {}
+    // Update visualizer image to persona icon (with case-insensitive attempts)
+    updateVisualizerImageForPersona(selectedIdentifier);
     loadInitialContent(selectedIdentifier);
     document.querySelectorAll('.dropdown-content.active').forEach(ac => {
         ac.classList.remove('active');
@@ -810,6 +839,8 @@ function handlePersonaSelectChange(event) {
             });
         }
     } catch (_) {}
+    // Update visualizer image to persona icon (with case-insensitive attempts)
+    updateVisualizerImageForPersona(selectedIdentifier);
     loadInitialContent(selectedIdentifier);
     document.querySelectorAll('.dropdown-content.active').forEach(ac => {
         ac.classList.remove('active');
@@ -988,10 +1019,12 @@ function setupIpcListeners() {
                         });
                     }
                 } catch(_){}
-                document.querySelectorAll('.dropdown-content.active').forEach(activeContent => {
+                document.querySelectorAll('.dropdown-content.active').forEach(function(activeContent){
                     activeContent.classList.remove('active');
                     if (activeContent.previousElementSibling) activeContent.previousElementSibling.classList.remove('active');
                 });
+                // Set visualizer image to selected persona's icon (case-insensitive attempts)
+                updateVisualizerImageForPersona(selectedIdentifier);
                 loadInitialContent(selectedIdentifier); // Load content for the default selection
                 updateFavoriteCheckbox();
             }

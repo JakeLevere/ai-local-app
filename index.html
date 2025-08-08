@@ -132,7 +132,7 @@
              <div id="central-display">
                  <div id="persona-status-bar" class="collapsed">
                      <div id="status-header">
-                         <img id="persona-image" src="./images/placeholder.png" alt="Current AI Persona">
+                         <img id="persona-image" src="/images/placeholder.png" alt="Current AI Persona">
                          <div id="status-text-content">
                              <div id="status-title">No Persona Selected</div>
                              <div id="status-info">
@@ -189,7 +189,7 @@
                   </div>
                   <div id="persona-video-container">
                       <canvas id="persona-visualizer" width="640" height="360"></canvas>
-                      <img id="persona-preview-image" src="./images/placeholder.png" alt="Persona preview fallback" style="display:none;" />
+                      <img id="persona-preview-image" src="/images/placeholder.png" alt="Persona preview fallback" style="display:none;" />
                   </div>
               </div>
               <div id="chat-log-container"> <svg id="chat-collapse-arrow" viewBox="0 0 24 24"> <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> </svg> <h2>Chat</h2> <div id="chat-log"></div> </div> <div id="chat-input-area"> <input type="text" id="user_input" placeholder="Send a message..."> <button type="button" id="send_button">Chat</button> </div>
@@ -198,8 +198,8 @@
 
     <script src="/renderer.js"></script>
     <script src="visualizer/PersonaPointCloudVisualizer.js"></script>
-    <script src="visualizer/bridge.js"></script>
     <script src="animation/visemeClient.js"></script>
+    <script src="visualizer/bridge.js"></script>
     <script src="components/diagnosticsPanel.js"></script>
     <script>
         // Initialize diagnostics panel if in dev mode
