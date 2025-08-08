@@ -12,11 +12,16 @@ let ipcListenersAttached = false;
 let eventListenerCleanupFunctions = [];
 const activeBrowserDisplays = {};
 let scrollAnimationFrame = null;
+// Development flag to bypass login instantly without animations (set to false for normal login)
+const DEV_LOGIN_BYPASS = false;
 let scrollStopTimer = null;
 let pendingOpenDisplays = null;
 let isDomReady = false;
 let ttsHandler = null;
 let memoryHandler = null;
+let hasLoggedIn = false;
+let displayResizeObserver = null;
+const elementToDisplayIdMap = new WeakMap();
 
 const deckColors = ['#e74c3c', '#3498db', '#27ae60', '#f1c40f', '#9b59b6', '#1abc9c'];
 
@@ -36,7 +41,7 @@ function cacheDomElements() {
         userInput: document.getElementById('user_input'),
         chatLog: document.getElementById('chat-log'),
         personaImage: document.getElementById('persona-image'),
-        personaPreviewVideo: document.getElementById('persona-preview-video'),
+        personaVisualizer: document.getElementById('persona-visualizer'),
         personaPreviewImage: document.getElementById('persona-preview-image'),
         personaVideoOverlay: document.getElementById('persona-video-overlay'),
         videoMinimizeArrow: document.getElementById('video-minimize-arrow'),
@@ -221,6 +226,10 @@ function updateBrowserBoundsForDisplay(displayId) {
 
 function updateAllBrowserBounds() {
     Object.keys(activeBrowserDisplays).forEach(id => updateBrowserBoundsForDisplay(id));
+    // Extra nudge shortly after to catch layout settling
+    setTimeout(() => {
+        Object.keys(activeBrowserDisplays).forEach(id => updateBrowserBoundsForDisplay(id));
+    }, 50);
 }
 
 function startScrollSync() {
@@ -268,6 +277,8 @@ function applyBounceAnimation(elements, callback) {
         el.classList.add('bounce-in');
         el.addEventListener('animationend', () => {
             el.classList.remove('bounce-in');
+            // Ensure BrowserViews are realigned after bounce animation completes
+            updateAllBrowserBounds();
             if (--remaining === 0) done();
         }, { once: true });
     });
@@ -421,6 +432,8 @@ function setupDisplayVisibilityObserver() {
                 if (activeBrowserDisplays[id]) {
                     window.electronAPI.send('show-browser-view', id);
                     window.electronAPI.send('set-browser-brightness', { displayId: id, brightness: 100 });
+                    // Ensure bounds match the newly visible size
+                    updateBrowserBoundsForDisplay(id);
                 }
             } else {
                 display.classList.remove('fully-visible');
@@ -432,6 +445,24 @@ function setupDisplayVisibilityObserver() {
         });
     }, { root: container, threshold: 1.0 });
     container.querySelectorAll('.display-wrapper').forEach(wrapper => observer.observe(wrapper));
+
+    // Monitor size changes within each display for precise bounds updates
+    try {
+        displayResizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const wrapper = entry.target;
+                const display = wrapper.querySelector('.display');
+                if (!display) continue;
+                const id = display.id;
+                if (activeBrowserDisplays[id]) {
+                    updateBrowserBoundsForDisplay(id);
+                }
+            }
+        });
+        container.querySelectorAll('.display-wrapper').forEach(wrapper => displayResizeObserver.observe(wrapper));
+    } catch (err) {
+        console.warn('ResizeObserver unavailable, skipping display size observation');
+    }
 }
 
 function handleDeckMainClick() {
@@ -598,22 +629,9 @@ function updateStatusBarUI(identifier, status) {
     console.log(`[Status Bar Update] Setting Image Src: ${iconToDisplay}`);
     domElements.personaImage.src = iconToDisplay;
     domElements.personaImage.onerror = () => { if (domElements.personaImage) domElements.personaImage.src = './images/placeholder.png'; };
-    if (domElements.personaPreviewVideo) {
-        const sanitizedId = identifier ? sanitizeFolderName(identifier) : null;
-        const videoPath = `./videos/${sanitizedId || sanitizeFolderName(primaryIdToDisplay) || 'placeholder'}.mp4`;
-        domElements.personaPreviewVideo.onerror = () => {
-            console.error(`Video failed to load: ${videoPath}`);
-            if (domElements.personaPreviewImage) {
-                domElements.personaPreviewVideo.style.display = 'none';
-                domElements.personaPreviewImage.style.display = 'block';
-            }
-        };
-        if (domElements.personaPreviewVideo.src !== videoPath) {
-            domElements.personaPreviewVideo.style.display = 'block';
-            if (domElements.personaPreviewImage) domElements.personaPreviewImage.style.display = 'none';
-            domElements.personaPreviewVideo.src = videoPath;
-            domElements.personaPreviewVideo.load();
-        }
+    // Video preview has been replaced by canvas visualizer. If needed, show the image fallback explicitly.
+    if (domElements.personaPreviewImage) {
+        domElements.personaPreviewImage.style.display = 'none';
     }
     domElements.configPanelHeader.textContent = configHeaderToDisplay;
     domElements.convCountSpan.textContent = `Conversations: ${convCountToDisplay}`;
@@ -727,6 +745,21 @@ function handlePersonaItemClick(event) {
     item.classList.add('selected');
     selectedIdentifier = identifier;
     activePrimaryIdentifier = identifier;
+    // Apply persona-level visualizer config if available
+    try {
+        const persona = primaryPersonaCache?.[identifier];
+        const meta = persona?.visualizer || persona?.meta || {};
+        if (window._viz && meta) {
+            window._viz.applyPersonaConfig({
+                pointCount: meta.pointCount,
+                baseSize: meta.baseSize,
+                edgeGain: meta.edgeGain,
+                ampGain: meta.ampGain,
+                shadeLevels: meta.shadeLevels,
+                style: { intensityBias: meta?.style?.intensityBias }
+            });
+        }
+    } catch (_) {}
     loadInitialContent(selectedIdentifier);
     document.querySelectorAll('.dropdown-content.active').forEach(ac => {
         ac.classList.remove('active');
@@ -762,6 +795,21 @@ function handlePersonaSelectChange(event) {
     }
     selectedIdentifier = identifier;
     activePrimaryIdentifier = identifier;
+    // Apply persona-level visualizer config if available
+    try {
+        const persona = primaryPersonaCache?.[identifier];
+        const meta = persona?.visualizer || persona?.meta || {};
+        if (window._viz && meta) {
+            window._viz.applyPersonaConfig({
+                pointCount: meta.pointCount,
+                baseSize: meta.baseSize,
+                edgeGain: meta.edgeGain,
+                ampGain: meta.ampGain,
+                shadeLevels: meta.shadeLevels,
+                style: { intensityBias: meta?.style?.intensityBias }
+            });
+        }
+    } catch (_) {}
     loadInitialContent(selectedIdentifier);
     document.querySelectorAll('.dropdown-content.active').forEach(ac => {
         ac.classList.remove('active');
@@ -817,7 +865,7 @@ function addTrackedListener(element, event, handler, options = {}) {
 } els.collapseArrow?.addEventListener('click', () => { els.leftSidebar?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('collapsed'); }); els.statusCollapseArrow?.addEventListener('click', () => els.statusBar?.classList.toggle('collapsed')); els.chatCollapseArrow?.addEventListener('click', () => { els.rightChat?.classList.toggle('collapsed'); els.appContainer?.classList.toggle('chat-collapsed'); }); document.querySelectorAll('.dropdown-header').forEach(header => { header.addEventListener('click', () => { const content = header.nextElementSibling; if (!content?.classList.contains('dropdown-content')) return; content.classList.toggle('active'); header.classList.toggle('active'); }); }); document.querySelectorAll('.slide-tab').forEach(item => item.addEventListener('click', handleSlideItemClick)); els.sendButton?.addEventListener('click', sendMessage); els.userInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); document.querySelectorAll('.clear-button').forEach(button => { button.addEventListener('click', (e) => { const displayId = e.currentTarget.dataset.displayId; if (displayId) window.electronAPI.send('clear-display', displayId); }); }); els.displaysContainer?.addEventListener('contextmenu', (e) => { const target = e.target; if (target.tagName === 'IMG' && target.classList.contains('active') && target.closest('.display')) { e.preventDefault(); const imagePath = target.dataset.path; if (imagePath) { window.electronAPI.send('context-menu-command', { command: 'copy-image', path: imagePath }); } } }); els.personaListContainer?.addEventListener('click', handlePersonaItemClick); els.personaSelect?.addEventListener('change', handlePersonaSelectChange); els.favoriteStarOverlay?.addEventListener('click', handleFavoriteStarClick); els.savePrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.prePromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Pre-Prompt.md', content: els.prePromptText.value })}); els.autoPrePromptBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('auto-populate-config', { personaIdentifier: selectedIdentifier, type: 'pre-prompt' })}); els.saveMemoryPromptBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryPromptText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory-Prompt.md', content: els.memoryPromptText.value })}); els.saveMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier && els.memoryText) window.electronAPI.send('save-config', { personaIdentifier: selectedIdentifier, file: 'Memory.md', content: els.memoryText.value })}); els.updateMemoryBtn?.addEventListener('click', () => { if(selectedIdentifier) window.electronAPI.send('update-memory-summary', selectedIdentifier)}); els.createDeckBtn?.addEventListener('click', () => { const deckName = prompt('Enter new deck name:'); if (deckName?.trim()) { const currentDisplaysState = {}; if (domElements.displays) { Object.keys(domElements.displays).forEach(displayId => { const display = domElements.displays[displayId]; if (display?.image?.classList.contains('active') && display.image.dataset.path) { currentDisplaysState[displayId] = { type: 'image', src: `file://${display.image.dataset.path}` }; } else if (display?.iframe?.classList.contains('active') && display.iframe.src && display.iframe.src !== 'about:blank') { currentDisplaysState[displayId] = { type: 'iframe', src: display.iframe.src }; } else { currentDisplaysState[displayId] = { type: 'empty' }; } }); } window.electronAPI.send('create-deck', { deckName: deckName.trim(), displays: currentDisplaysState }); } }); els.deckList?.addEventListener('click', (e) => { const item = e.target.closest('.deck-item'); if (item) handleDeckItemClick({currentTarget:item}); }); els.createSlideBtn?.addEventListener('click', () => { const availableDisplay = findAvailableDisplayId(); window.electronAPI.send('clear-display', availableDisplay); }); eventListenersAttached = true; console.log("Renderer: Event listeners attached."); }
 function restoreOpenDisplays(displays) {
     if (!displays) return;
-    if (!isDomReady) {
+    if (!isDomReady || !hasLoggedIn) {
         pendingOpenDisplays = displays;
         return;
     }
@@ -851,6 +899,10 @@ function restoreOpenDisplays(displays) {
                         activeTabIndex: info.activeTabIndex
                     });
                     activeBrowserDisplays[id] = true;
+                    // Refresh bounds immediately and again after a tick
+                    updateBrowserBoundsForDisplay(id);
+                    setTimeout(() => updateBrowserBoundsForDisplay(id), 50);
+                    setTimeout(() => updateBrowserBoundsForDisplay(id), 150);
                     const bright3 = el.classList.contains('fully-visible') ? 100 : 35;
                     if (bright3 === 100) {
                         window.electronAPI.send('show-browser-view', id);
@@ -897,31 +949,60 @@ function setupIpcListeners() {
     window.electronAPI.on('restore-open-displays', (displays) => {
         restoreOpenDisplays(displays);
     });
-    window.electronAPI.on('personas-loaded', (receivedData) => { console.log(`Renderer: Received 'personas-loaded' event.`); console.log(`  -> Type of receivedData: ${typeof receivedData}`); console.log(`  -> receivedData:`, receivedData); if (Array.isArray(receivedData)) { const personas = receivedData; primaryPersonaCache = {}; personas.forEach(p => { primaryPersonaCache[p.id] = p; }); renderPersonaList(personas); renderPersonaDropdown(personas);
-        // *** MODIFIED DEFAULT SELECTION LOGIC ***
-        if (personas.length > 0) {
-            let defaultId = personas[0].id;
-            if (favoritePersonaId && personas.some(p => p.id === favoritePersonaId)) {
-                defaultId = favoritePersonaId;
+    window.electronAPI.on('personas-loaded', (receivedData) => {
+        console.log(`Renderer: Received 'personas-loaded' event.`);
+        console.log(`  -> Type of receivedData: ${typeof receivedData}`);
+        console.log(`  -> receivedData:`, receivedData);
+        if (Array.isArray(receivedData)) {
+            const personas = receivedData;
+            primaryPersonaCache = {};
+            personas.forEach(p => { primaryPersonaCache[p.id] = p; });
+            renderPersonaList(personas);
+            renderPersonaDropdown(personas);
+            // *** MODIFIED DEFAULT SELECTION LOGIC ***
+            if (personas.length > 0) {
+                let defaultId = personas[0].id;
+                if (favoritePersonaId && personas.some(p => p.id === favoritePersonaId)) {
+                    defaultId = favoritePersonaId;
+                }
+                console.log(`Renderer: Setting initial selection to ${defaultId}`);
+                const item = domElements.personaListContainer?.querySelector(`.persona-item[data-persona-id="${defaultId}"]`);
+                if (item) {
+                    item.classList.add('selected');
+                    if (domElements.personaSelect) domElements.personaSelect.value = defaultId;
+                }
+                selectedIdentifier = defaultId;
+                activePrimaryIdentifier = defaultId;
+                // Apply persona-level visualizer config if available for default selection
+                try {
+                    const persona = primaryPersonaCache?.[defaultId];
+                    const meta = persona?.visualizer || persona?.meta || {};
+                    if (window._viz && meta) {
+                        window._viz.applyPersonaConfig({
+                            pointCount: meta.pointCount,
+                            baseSize: meta.baseSize,
+                            edgeGain: meta.edgeGain,
+                            ampGain: meta.ampGain,
+                            shadeLevels: meta.shadeLevels,
+                            style: { intensityBias: meta?.style?.intensityBias }
+                        });
+                    }
+                } catch(_){}
+                document.querySelectorAll('.dropdown-content.active').forEach(activeContent => {
+                    activeContent.classList.remove('active');
+                    if (activeContent.previousElementSibling) activeContent.previousElementSibling.classList.remove('active');
+                });
+                loadInitialContent(selectedIdentifier); // Load content for the default selection
+                updateFavoriteCheckbox();
             }
-            console.log(`Renderer: Setting initial selection to ${defaultId}`);
-            const item = domElements.personaListContainer?.querySelector(`.persona-item[data-persona-id="${defaultId}"]`);
-            if (item) {
-                item.classList.add('selected');
-                if (domElements.personaSelect) domElements.personaSelect.value = defaultId;
-            }
-            selectedIdentifier = defaultId;
-            activePrimaryIdentifier = defaultId;
-            document.querySelectorAll('.dropdown-content.active').forEach(activeContent => {
-                 activeContent.classList.remove('active');
-                 if (activeContent.previousElementSibling) activeContent.previousElementSibling.classList.remove('active');
-             });
-            loadInitialContent(selectedIdentifier); // Load content for the default selection
-            updateFavoriteCheckbox();
+            // *** END MODIFIED DEFAULT SELECTION LOGIC ***
+        } else if (typeof receivedData === 'string' && receivedData.startsWith('DIAGNOSTIC_MESSAGE')) {
+            console.log(`Renderer: Received diagnostic string, skipping list render.`);
+        } else {
+            console.warn(`Renderer: Received unexpected data type on 'personas-loaded': ${typeof receivedData}`);
+            renderPersonaList([]);
         }
-        // *** END MODIFIED DEFAULT SELECTION LOGIC ***
-
-    } else if (typeof receivedData === 'string' && receivedData.startsWith('DIAGNOSTIC_MESSAGE')) { console.log(`Renderer: Received diagnostic string, skipping list render.`); } else { console.warn(`Renderer: Received unexpected data type on 'personas-loaded': ${typeof receivedData}`); renderPersonaList([]); } });
+    });
     window.electronAPI.on('initial-data-loaded', ({ identifier, status, content, entries, decks }) => { console.log(`Renderer: Received initial-data-loaded for ${identifier}`); if (identifier === selectedIdentifier) { updateStatusBarUI(identifier, status); if (domElements.prePromptText) domElements.prePromptText.value = content?.prePrompt || ''; if (domElements.memoryPromptText) domElements.memoryPromptText.value = content?.memoryPrompt ?? ''; if (domElements.memoryText) domElements.memoryText.value = content?.memory ?? ''; if (domElements.conversationsText) domElements.conversationsText.value = content?.conversations || ''; if (domElements.chatLog) { domElements.chatLog.innerHTML = ''; entries?.forEach(entry => appendMessageToChatLog(entry, false, entry?.content?.startsWith('You:'))); } if (domElements.deckList) { const currentDeck = domElements.deckList.querySelector('.deck-item.selected')?.dataset.deckName; domElements.deckList.innerHTML = ''; Object.keys(decks || {}).forEach(deckName => { const li = document.createElement('li'); li.className = 'deck-item'; li.dataset.deckName = deckName; li.innerHTML = `<img src="./images/placeholder.png" class="slide-icon"><span class="slide-name">${deckName}</span>`; li.addEventListener('click', handleDeckItemClick); domElements.deckList.appendChild(li); }); const currentItem = domElements.deckList.querySelector(`.deck-item[data-deck-name="${currentDeck}"]`); if (currentItem) currentItem.classList.add('selected'); } } else { console.log(`Renderer: Received initial data for ${identifier}, but ${selectedIdentifier} is currently selected. Ignoring.`); } });
     window.electronAPI.on('load-display', ({ displayId, url }) => {
         try {
@@ -1014,6 +1095,32 @@ document.addEventListener('DOMContentLoaded', () => {
     domElements.minButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'minimize'));
     domElements.maxButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'maximize'));
     domElements.closeButton?.addEventListener('click', () => window.electronAPI.send('window-control', 'close'));
+    // Add a quick dev overlay toggle key: Ctrl+Alt+V
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.altKey && (e.key === 'v' || e.key === 'V')) {
+            try { window._viz?.toggleDevOverlay(); updateOverlayToggleButton(); } catch(_){}
+        }
+    });
+    // Hook visualizer overlay toggle button
+    const overlayBtn = document.getElementById('viz-overlay-toggle');
+    function updateOverlayToggleButton(){
+        try{
+            const enabled = !!window._viz?._dev?.enabled;
+            if (overlayBtn) {
+                overlayBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+                overlayBtn.classList.toggle('active', enabled);
+            }
+        }catch(_){}
+    }
+    if (overlayBtn) {
+        overlayBtn.addEventListener('click', () => {
+            try {
+                const enabled = !!window._viz?._dev?.enabled;
+                window._viz?.setDevOverlayVisible(!enabled);
+                updateOverlayToggleButton();
+            } catch(_){}
+        });
+    }
     const overlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
     if (overlay && loginForm) {
@@ -1024,98 +1131,102 @@ document.addEventListener('DOMContentLoaded', () => {
             passInput.focus();
             passInput.select();
         }
-        const animatePanelReset = (callback) => {
-            const left = domElements.leftSidebar;
-            const right = domElements.rightChat;
-            const status = domElements.statusBar;
-            const info = domElements.infoPanels;
-            const program = domElements.programMakerSection;
-            const container = domElements.appContainer;
 
-            // Start overlay close and prepare content reveal
-            requestAnimationFrame(() => {
-                overlay.classList.add('closing');
-                document.body.classList.add('logging-in');
-
-                // Crossfade app container back to full clarity during overlay fade
-                if (container) {
-                    container.style.transition = 'opacity 220ms ease, filter 220ms ease';
-                    container.style.opacity = '1';
-                    container.style.filter = 'none';
+        // Simple, robust finalize for login without animations.
+        function finalizeLogin() {
+            try {
+                console.log('Login: finalizing...');
+                hasLoggedIn = true;
+                document.body.classList.remove('pre-login');
+                document.body.classList.remove('logging-in');
+                overlay.classList.remove('active', 'closing');
+                overlay.classList.add('hidden');
+                if (pendingOpenDisplays) {
+                    const toRestore = pendingOpenDisplays;
+                    pendingOpenDisplays = null;
+                    restoreOpenDisplays(toRestore);
                 }
+                updateAllBrowserBounds();
 
-                // Smoothly collapse sidebar using existing CSS transition
-                if (left && !left.classList.contains('collapsed')) {
-                    left.classList.add('collapsed');
-                    domElements.appContainer?.classList.add('collapsed');
-                }
-
-                const finish = () => {
-                    // Remove pre-login states and hide overlay
-                    document.body.classList.remove('pre-login');
-                    document.body.classList.remove('logging-in');
-                    overlay.classList.remove('active', 'closing');
-                    overlay.classList.add('hidden');
-
-                    // Clean up any inline styles
-                    if (container) {
-                        container.style.opacity = '';
-                        container.style.transition = '';
-                        container.style.filter = '';
-                    }
-
-                    // Ensure first display is positioned
-                    const firstDisplay = domElements.displays?.display1?.element;
-                    if (firstDisplay && domElements.displaysContainer) {
-                        const displayWrapper = firstDisplay.closest('.display-wrapper');
-                        if (displayWrapper) {
-                            const scrollPosition = Math.max(0, displayWrapper.offsetTop - 10);
-                            domElements.displaysContainer.scrollTop = scrollPosition;
+                // Ensure first display tab is selected and scrolled into view
+                try {
+                    const firstSlide = document.querySelector('.slide-tab');
+                    if (firstSlide) {
+                        document.querySelectorAll('.slide-tab.selected').forEach(el => el.classList.remove('selected'));
+                        firstSlide.classList.add('selected');
+                        const displayId = firstSlide.dataset.displayId;
+                        const displayElement = domElements.displays?.[displayId]?.element;
+                        const container = domElements.displaysContainer;
+                        if (displayElement && container) {
+                            const displayWrapper = displayElement.closest('.display-wrapper');
+                            if (displayWrapper) {
+                                const wrapperTop = displayWrapper.offsetTop;
+                                const scrollPosition = Math.max(0, wrapperTop - 10);
+                                container.scrollTo({ top: scrollPosition, behavior: 'smooth' });
+                                console.log(`Login: auto-selected ${displayId} and scrolled to ${scrollPosition}`);
+                            }
                         }
                     }
+                } catch (scrollErr) {
+                    console.warn('Login: failed to auto-select/scroll first display:', scrollErr);
+                }
 
-                    // Focus input
-                    if (domElements.userInput) {
-                        domElements.userInput.focus();
-                    }
+                if (domElements.userInput) {
+                    domElements.userInput.focus();
+                    domElements.userInput.select();
+                }
+                console.log('Login: finalize complete.');
+            } catch (err) {
+                console.error('Finalize login failed:', err);
+            }
+        }
 
-                    // Update browser bounds after layout settles
-                    setTimeout(() => {
-                        updateAllBrowserBounds();
-                        setTimeout(updateAllBrowserBounds, 100);
-                    }, 250);
-
-                    if (typeof callback === 'function') {
-                        callback();
-                    }
-                };
-
-                const onEnd = () => {
-                    overlay.removeEventListener('transitionend', onEnd);
-                    finish();
-                };
-                overlay.addEventListener('transitionend', onEnd, { once: true });
-
-                // Fallback if transitionend does not fire
-                setTimeout(finish, 320);
-            });
-        };
-        
+        // Submit handler: accept any non-empty password
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const pass = document.getElementById('login-pass').value;
-            if (pass === 'password') {
-                animatePanelReset(() => {
-                    updateAllBrowserBounds();
-                    setTimeout(updateAllBrowserBounds, 50);
-                    if (domElements.userInput) {
-                        domElements.userInput.focus();
-                        domElements.userInput.select();
+            const passEl = document.getElementById('login-pass');
+            const pass = passEl ? passEl.value : '';
+            console.log('Login: submit triggered. length=', pass ? pass.trim().length : 0);
+            if (pass && pass.trim().length > 0) {
+                finalizeLogin();
+            } else {
+                try {
+                    const input = document.getElementById('login-pass');
+                    if (input) {
+                        input.classList.add('input-error');
+                        setTimeout(() => input.classList.remove('input-error'), 450);
                     }
-                });
+                } catch(_) {}
+                console.warn('Login blocked: empty password');
             }
         });
+
+        // Prevent default Enter behavior at the form level too, then defer to submit handler
+        loginForm.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                console.log('Login: Enter pressed on form');
+                e.preventDefault();
+            }
+        });
+
+        // Also handle Enter key on the password field explicitly
+        if (passInput) {
+            passInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    console.log('Login: Enter pressed on password input');
+                    e.preventDefault();
+                    if (typeof loginForm.requestSubmit === 'function') {
+                        loginForm.requestSubmit();
+                    } else {
+                        // As a fallback, call the submit handler directly without reloading
+                        const evt = new Event('submit', { cancelable: true, bubbles: true });
+                        loginForm.dispatchEvent(evt);
+                    }
+                }
+            });
+        }
     }
+
     createInitialDeckIcons();
     createProgramIcons();
     setupProgramIconListeners();
@@ -1208,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllBrowserBounds();
     const firstSlide = document.querySelector('.slide-tab');
     if (firstSlide) firstSlide.classList.add('selected');
-    if (pendingOpenDisplays) {
+    if (pendingOpenDisplays && hasLoggedIn) {
         restoreOpenDisplays(pendingOpenDisplays);
         pendingOpenDisplays = null;
     }

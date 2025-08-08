@@ -24,7 +24,7 @@
             <button id="close-button" class="window-button" aria-label="Close">&#x2715;</button>
         </div>
     </div>
-    <div id="login-overlay">
+    <div id="login-overlay" class="active">
         <form id="login-form">
             <h1 id="login-title">Your Personal Ai Vault</h1>
             <input type="password" id="login-pass" placeholder="Password">
@@ -182,20 +182,24 @@
                   <div id="persona-video-header">
                       <select id="persona-select"></select>
                       <span id="favorite-star-overlay" class="favorite-star">☆</span>
+                      <button id="viz-overlay-toggle" class="small-button" title="Toggle visualizer overlay (Ctrl+Alt+V)" aria-pressed="true">Overlay</button>
                       <svg id="video-minimize-arrow" viewBox="0 0 24 24">
                           <path d="M6 15L12 9L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
                   </div>
                   <div id="persona-video-container">
-                      <video id="persona-preview-video" src="./videos/placeholder.mp4" autoplay loop muted playsinline poster="./images/placeholder.png"></video>
-                      <img id="persona-preview-image" src="./images/placeholder.png" alt="Persona preview fallback" />
+                      <canvas id="persona-visualizer" width="640" height="360"></canvas>
+                      <img id="persona-preview-image" src="./images/placeholder.png" alt="Persona preview fallback" style="display:none;" />
                   </div>
               </div>
               <div id="chat-log-container"> <svg id="chat-collapse-arrow" viewBox="0 0 24 24"> <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> </svg> <h2>Chat</h2> <div id="chat-log"></div> </div> <div id="chat-input-area"> <input type="text" id="user_input" placeholder="Send a message..."> <button type="button" id="send_button">Chat</button> </div>
          </aside>
     </div>
 
-    <script src="renderer.js"></script>
+    <script src="/renderer.js"></script>
+    <script src="visualizer/PersonaPointCloudVisualizer.js"></script>
+    <script src="visualizer/bridge.js"></script>
+    <script src="animation/visemeClient.js"></script>
     <script src="components/diagnosticsPanel.js"></script>
     <script>
         // Initialize diagnostics panel if in dev mode

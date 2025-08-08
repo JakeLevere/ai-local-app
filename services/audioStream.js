@@ -140,6 +140,35 @@ class AudioStreamService {
                 duration: Date.now() - streamStartTime
             }));
 
+            // After completion, request animation plan and send to client
+            try {
+                const { requestAnimationPlan } = require('../animation/requestAnimationPlan');
+                const agg = this.activeStreams.get(clientId)?.agg || { durationMs: 0, words: [], phonemes: [] };
+                const timings = {
+                    durationMs: Math.max(0, Math.round(agg.durationMs || 0)),
+                    words: (agg.words || []).slice(0, 60),
+                    phonemes: (agg.phonemes || []).slice(0, 120)
+                };
+                const plan = await requestAnimationPlan({ persona: { id: personaId }, text: fullResponse, timings, context: null });
+                ws.send(JSON.stringify({ type: 'animation_plan', plan }));
+                console.log('[AudioStream] Sent animation_plan');
+            } catch (e) {
+                console.warn('[AudioStream] Animation plan fetch failed:', e.message);
+                // Fallback: generate a local minimal plan using available timings
+                try {
+                    const agg = this.activeStreams.get(clientId)?.agg || { durationMs: 0, words: [], phonemes: [] };
+                    const fallback = this._buildFallbackPlan({
+                        durationMs: Math.max(0, Math.round(agg.durationMs || 0)),
+                        words: agg.words || [],
+                        phonemes: agg.phonemes || []
+                    }, fullResponse);
+                    ws.send(JSON.stringify({ type: 'animation_plan', plan: fallback }));
+                    console.log('[AudioStream] Sent local fallback animation_plan');
+                } catch (ee) {
+                    console.warn('[AudioStream] Local fallback plan failed:', ee.message);
+                }
+            }
+
         } catch (error) {
             if (error.message === 'Stream interrupted') {
                 console.log('[AudioStream] Stream interrupted for client:', clientId);
@@ -166,11 +195,35 @@ class AudioStreamService {
             const ttsTime = Date.now() - ttsStartTime;
             const ttfa = startTime ? Date.now() - startTime : null;
 
+            // Minimal forced alignment (heuristic) per chunk
+            const estDurationMs = this._estimateDurationMs(text);
+            const alignment = this._generateAlignment(text, estDurationMs);
+            try {
+                console.log('[AudioStream] Alignment:', JSON.stringify({
+                    durationMs: alignment.durationMs,
+                    wordsLen: alignment.words.length,
+                    phonemesLen: alignment.phonemes.length
+                }));
+            } catch (_) {}
+
+            // Aggregate timings for plan request later
+            try {
+                const entry = this.activeStreams.get(clientId);
+                if (entry) {
+                    entry.agg = entry.agg || { durationMs: 0, words: [], phonemes: [] };
+                    entry.agg.durationMs += alignment.durationMs || 0;
+                    // Keep a reduced set to bound payload size
+                    if (alignment.words?.length) entry.agg.words.push(...alignment.words.slice(0, 20));
+                    if (alignment.phonemes?.length) entry.agg.phonemes.push(...alignment.phonemes.slice(0, 40));
+                }
+            } catch (_) {}
+
             // Send audio chunk to client
             ws.send(JSON.stringify({
                 type: 'audio_chunk',
                 audio: audioBuffer.toString('base64'),
                 text: text,
+                alignment,
                 metrics: {
                     ttsTime,
                     ttfa, // Time to first audio
@@ -208,6 +261,92 @@ class AudioStreamService {
                 }));
             }
         }
+    }
+
+    _estimateDurationMs(text) {
+        const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+        const wordsPerSecond = 3.2; // ~192 WPM
+        const dur = Math.max(0.3, words.length / wordsPerSecond) * 1000;
+        return Math.round(dur);
+    }
+
+    _generateAlignment(text, durationMs) {
+        const content = String(text || '').trim();
+        const wordsRaw = content.split(/\s+/).filter(Boolean);
+        const words = [];
+        const phonemes = [];
+        if (wordsRaw.length === 0) {
+            return { durationMs: 0, words: [], phonemes: [] };
+        }
+        // Distribute duration proportional to word length
+        const lens = wordsRaw.map(w => Math.max(1, w.replace(/[^a-zA-Z]/g, '').length));
+        const total = lens.reduce((a, b) => a + b, 0);
+        let t = 0;
+        for (let i = 0; i < wordsRaw.length; i++) {
+            const w = wordsRaw[i];
+            const seg = Math.round((lens[i] / total) * durationMs);
+            const t0 = t;
+            const t1 = Math.min(durationMs, t + seg);
+            words.push({ w, t0, t1 });
+            // naive letter->phoneme mapping across the span
+            const pseq = this._lettersToArpabet(w);
+            const step = pseq.length > 0 ? Math.max(1, Math.floor((t1 - t0) / pseq.length)) : (t1 - t0);
+            let tp = t0;
+            for (const p of pseq) {
+                phonemes.push({ p, t: tp });
+                tp += step;
+            }
+            t = t1;
+        }
+        // Ensure last phoneme timestamp <= duration
+        if (phonemes.length > 0) {
+            phonemes[phonemes.length - 1].t = Math.min(durationMs, phonemes[phonemes.length - 1].t);
+        }
+        return { durationMs, words, phonemes };
+    }
+
+    _lettersToArpabet(word) {
+        const s = String(word || '').toUpperCase();
+        const res = [];
+        let i = 0;
+        while (i < s.length) {
+            const ch2 = s.slice(i, i + 2);
+            if (ch2 === 'CH') { res.push('CH'); i += 2; continue; }
+            if (ch2 === 'TH') { res.push('TH'); i += 2; continue; }
+            const ch = s[i];
+            switch (ch) {
+                case 'A': res.push('AE'); break;
+                case 'E': res.push('EH'); break;
+                case 'I': res.push('IY'); break;
+                case 'O': res.push('OW'); break;
+                case 'U': res.push('UW'); break;
+                case 'B': res.push('BMP'); break; // approximate
+                case 'P': res.push('BMP'); break;
+                case 'M': res.push('BMP'); break;
+                case 'F': res.push('FV'); break;
+                case 'V': res.push('FV'); break;
+                case 'L': res.push('L'); break;
+                case 'R': res.push('R'); break;
+                case 'N': res.push('N'); break;
+                case 'S': res.push('S'); break;
+                case 'Z': res.push('S'); break;
+                case 'H': res.push('HH'); break;
+                case 'W': res.push('UW'); break;
+                case 'Y': res.push('IY'); break;
+                case 'T': res.push('TH'); break; // crude
+                case 'D': res.push('CH'); break; // crude
+                case 'J': res.push('CH'); break;
+                case 'K': res.push('CH'); break; // crude stop
+                case 'G': res.push('CH'); break;
+                case 'C': res.push('CH'); break;
+                case 'Q': res.push('CH'); break;
+                case 'X': res.push('S'); break;
+                default: break;
+            }
+            i += 1;
+        }
+        if (res.length === 0) res.push('SIL');
+        return res;
     }
 
     async _handleInterrupt(ws, clientId) {
@@ -326,5 +465,58 @@ class AudioStreamService {
         throw lastError;
     }
 }
+
+// Build minimal local fallback animation plan when GPT plan unavailable
+AudioStreamService.prototype._buildFallbackPlan = function(timings, text){
+    const durationMs = Number(timings?.durationMs) || 0;
+    const phonemes = Array.isArray(timings?.phonemes) ? timings.phonemes : [];
+    const words = Array.isArray(timings?.words) ? timings.words : [];
+
+    // Mouth track from phonemes (map to viseme labels and simple opening)
+    const mouth = [];
+    const map = (p)=>{
+        const P = String(p||'').toUpperCase();
+        const M = { BMP:'BMP', F:'FV', V:'FV', FV:'FV', L:'L', AA:'AA', AE:'AE', AO:'AO', IY:'IY', UW:'UW', TH:'TH', CH:'CH', R:'R', N:'N', S:'S', Z:'S', HH:'S', OW:'AO', EH:'AE', UW0:'UW', IY0:'IY', SIL:'SIL' };
+        return M[P] || 'SIL';
+    };
+    if (phonemes.length>0) {
+        for (const ph of phonemes) {
+            const t = Math.max(0, Math.min(durationMs, Math.round(ph.t||0)));
+            mouth.push({ t, viseme: map(ph.p), open: 0.5, width: 0.3, round: 0.3 });
+        }
+    } else if (words.length>0) {
+        for (const w of words) {
+            const t = Math.max(0, Math.min(durationMs, Math.round(w.t0||0)));
+            mouth.push({ t, viseme: 'S', open: 0.45, width: 0.35, round: 0.2 });
+        }
+    } else {
+        // Minimal two-key mouth
+        mouth.push({ t: 0, viseme:'SIL', open:0.2, width:0.2, round:0.2 });
+        mouth.push({ t: durationMs, viseme:'SIL', open:0.0, width:0.2, round:0.2 });
+    }
+
+    // Neutral tracks with subtle motion; small intensity pulse by pseudo amplitude derived from word cadence
+    const eyes = [];
+    const brows = [];
+    const headTilt = [];
+    const shoulders = [];
+    const style = { intensity: 0.05 };
+
+    // Add occasional blinks every ~900ms
+    for (let t=500; t<durationMs; t+=900) eyes.push({ t, blink: true });
+
+    // Pulse with words
+    const pulses = words.length>0 ? words.map(w=>({ t: w.t0||0 })) : mouth.map(m=>({ t: m.t||0 }));
+    for (const p of pulses) {
+        const tt = Math.max(0, Math.min(durationMs, Math.round(p.t)));
+        brows.push({ t: tt, y: 0.6 });
+        shoulders.push({ t: tt, y: 0.4 });
+    }
+    // Head tilt gentle sway start/end
+    headTilt.push({ t: 0, deg: -2 });
+    headTilt.push({ t: Math.max(0, durationMs-1), deg: 2 });
+
+    return { tracks: { mouth, eyes, brows, headTilt, shoulders, style } };
+};
 
 module.exports = new AudioStreamService();

@@ -664,10 +664,10 @@ button.deck-save-btn { margin-left: var(--space-1); background: none; border: no
     background-color: #000;
 }
 
-#persona-video-container #persona-preview-video {
+/* Visualizer canvas fills container */
+#persona-video-container #persona-visualizer {
     width: 100%;
     height: 100%;
-    object-fit: cover;
     display: block;
 }
 

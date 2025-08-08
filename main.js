@@ -72,6 +72,41 @@ function startLocalServer() {
     const expressApp = express();
     expressApp.use(express.json()); // Add JSON body parser
     
+    // Hotfix: normalize malformed characters in renderer.js that break arrow functions
+    expressApp.get('/renderer.js', async (req, res) => {
+        try {
+            const filePath = path.join(__dirname, 'renderer.js');
+            let code = await fs.readFile(filePath, 'utf-8');
+
+            // 1) Remove any embedded NUL bytes outright (they corrupt tokens)
+            code = code.replace(/\u0000/g, '');
+
+            // 2) Convert escaped Unicode for '>' to literal '>' so (=\u003e) becomes (=>)
+            //    Note: in source this is the two-character sequence '\\u003e'
+            code = code.replace(/\\u003e/g, '>');
+
+            // 3) Broad sanitize: remove control chars except TAB(\t), LF(\n), CR(\r)
+            code = code.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+            // 4) Normalize escaped sequences to literals
+            code = code.replace(/\\u003e/g, '>');   // >
+            code = code.replace(/\\u0026/g, '&');   // &
+
+            // 5) Repair malformed arrows that may have had control chars inserted
+            // Patterns like '=<control...>'' back to '=>'
+            code = code.replace(/=\s*>/g, '=>');
+
+            // 6) Ensure logical ands aren't broken by stray whitespace
+            code = code.replace(/&\s*&/g, '&&');
+
+            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            res.send(code);
+        } catch (err) {
+            console.error('Failed to serve normalized renderer.js:', err);
+            res.status(500).send('/* renderer load error */');
+        }
+    });
+
     // Serve static files from the project directory
     expressApp.use(express.static(path.join(__dirname)));
     // Serve user images from the persistent data directory

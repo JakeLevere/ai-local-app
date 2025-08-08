@@ -9,6 +9,10 @@ class AudioStreamClient {
         this.clientId = null;
         this.onMessageCallback = null;
         this.onErrorCallback = null;
+        // Global timing across chunks for a single response
+        this.speechStartTime = null; // in audioContext seconds
+        this.runningOffsetMs = 0; // cumulative chunk offset
+        this.currentChunkOffsetMs = 0; // offset at the start of the current chunk
     }
 
     /**
@@ -68,6 +72,12 @@ class AudioStreamClient {
         // Clear any existing audio
         this.interrupt();
 
+        // Reset global timing for the upcoming response
+        this.runningOffsetMs = 0;
+        this.currentChunkOffsetMs = 0;
+        this.speechStartTime = null;
+        try { if (window._viz) window._viz.speechStop(); } catch (_) {}
+
         this.ws.send(JSON.stringify({
             type: 'chat',
             message,
@@ -92,6 +102,9 @@ class AudioStreamClient {
         this.audioQueue = [];
         this.isPlaying = false;
         
+        // Visualizer: immediate idle
+        try { if (window._viz) window._viz.speechStop(); } catch (_) {}
+        
         // Send interrupt signal to server
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
@@ -107,6 +120,12 @@ class AudioStreamClient {
         switch (data.type) {
             case 'audio_chunk':
                 this.handleAudioChunk(data);
+                break;
+            case 'animation_plan':
+                try {
+                    this.latestPlan = data.plan;
+                    console.log('[AudioStream Client] received animation_plan');
+                } catch (e) {}
                 break;
                 
             case 'text_fallback':
@@ -139,11 +158,18 @@ class AudioStreamClient {
      * Handle incoming audio chunk
      */
     handleAudioChunk(data) {
-        const { audio, text, metrics } = data;
+        const { audio, text, metrics, alignment } = data;
         
         // Log metrics
         if (metrics && metrics.ttfa) {
             console.log(`[AudioStream Client] Time to first audio: ${metrics.ttfa}ms`);
+        }
+
+        if (alignment) {
+            try {
+                console.log('[AudioStream Client] alignment durationMs=', alignment.durationMs);
+                console.assert(Array.isArray(alignment.words) && Array.isArray(alignment.phonemes), 'Alignment arrays missing');
+            } catch (_) {}
         }
         
         // Convert base64 to blob
@@ -153,7 +179,8 @@ class AudioStreamClient {
         // Add to queue
         this.audioQueue.push({
             url: audioUrl,
-            text: text
+            text: text,
+            alignment: alignment || null
         });
         
         // Start playing if not already playing
@@ -213,9 +240,19 @@ class AudioStreamClient {
         }
         
         this.isPlaying = true;
-        const { url, text } = this.audioQueue.shift();
+        const { url, text, alignment } = this.audioQueue.shift();
         
         this.currentAudio = new Audio(url);
+        // Validate alignment duration vs audio duration
+        if (alignment) {
+            this.currentAudio.addEventListener('loadedmetadata', () => {
+                try {
+                    const durMs = (this.currentAudio.duration || 0) * 1000;
+                    const diff = Math.abs(durMs - alignment.durationMs);
+                    console.log(`[AudioStream Client] align vs audio: ${Math.round(durMs)}ms vs ${alignment.durationMs}ms (Δ=${Math.round(diff)}ms)`);
+                } catch (_) {}
+            }, { once: true });
+        }
         this.currentAudio.play()
             .then(() => {
                 console.log('[AudioStream Client] Playing audio chunk');
@@ -225,9 +262,43 @@ class AudioStreamClient {
                 this.showToast('Audio playback failed', 'error');
             });
         
+        // Timebase: mark start time when first audio begins playing for a response
+        const onPlay = () => {
+            try {
+                if (!this.audioContext) {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    this.audioContext = new AC();
+                }
+                if (this.speechStartTime == null) {
+                    this.speechStartTime = this.audioContext.currentTime;
+                }
+                // Determine this chunk's global offset
+                this.currentChunkOffsetMs = this.runningOffsetMs;
+                // Wire visualizer to shared AudioContext and start speech mode
+                if (window._viz) {
+                    window._viz.connectAudio(this.currentAudio, this.audioContext);
+                    // Pass global offset so visualizer's t = (audioCtx.now - startCtxTime)*1000 aligns to global ms
+                    window._viz.speechStart(this.currentChunkOffsetMs || 0);
+                }
+                // Expose for bridge consumers
+                window.audioStreamClientInstance = this;
+            } catch (_) {}
+            this.currentAudio.removeEventListener('play', onPlay);
+        };
+        this.currentAudio.addEventListener('play', onPlay);
+
         this.currentAudio.onended = () => {
             URL.revokeObjectURL(url); // Clean up
             this.currentAudio = null;
+            // Advance running offset by this chunk's alignment duration if available
+            try {
+                if (alignment && typeof alignment.durationMs === 'number') {
+                    this.runningOffsetMs += Math.max(0, alignment.durationMs);
+                }
+            } catch (_) {}
+            if (window._viz) {
+                window._viz.speechStop();
+            }
             this.playNextAudio(); // Play next chunk
         };
     }

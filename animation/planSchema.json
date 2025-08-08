@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/animation/plan.schema.json",
+  "title": "AnimationPlan",
+  "type": "object",
+  "required": ["version", "fps", "duration_ms", "tracks"],
+  "properties": {
+    "version": { "type": "string" },
+    "fps": { "type": "number", "minimum": 1 },
+    "duration_ms": { "type": "number", "minimum": 0 },
+    "tracks": {
+      "type": "object",
+      "required": ["mouth", "brows", "eyes", "headTilt", "shoulders", "style"],
+      "properties": {
+        "mouth": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "viseme", "open", "width", "round"],
+            "properties": {
+              "t": { "type": "number" },
+              "viseme": { "type": "string" },
+              "open": { "type": "number" },
+              "width": { "type": "number" },
+              "round": { "type": "number" }
+            }
+          }
+        },
+        "brows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "y"],
+            "properties": { "t": { "type": "number" }, "y": { "type": "number" } }
+          }
+        },
+        "eyes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "blink"],
+            "properties": { "t": { "type": "number" }, "blink": { "type": "boolean" } }
+          }
+        },
+        "headTilt": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "deg"],
+            "properties": { "t": { "type": "number" }, "deg": { "type": "number" } }
+          }
+        },
+        "shoulders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "y"],
+            "properties": { "t": { "type": "number" }, "y": { "type": "number" } }
+          }
+        },
+        "style": {
+          "type": "object",
+          "properties": {
+            "intensity": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
+
+
