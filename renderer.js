@@ -557,9 +557,14 @@ function sendMessage() {
     const content = domElements.userInput.value.trim();
     if (!content) return;
     const lower = content.toLowerCase();
-    const openMatch = lower.match(/open\s+([a-z0-9_-]+)(?:.*?(?:display|slide)\s*(\d+))?/i);
+    // Support multi-word program names like "visualizer editor" and optional target display
+    // Examples:
+    //   "open visualizer editor"
+    //   "open visualizer editor in display 2"
+    //   "open calendar display 3"
+    const openMatch = lower.match(/open\s+([a-z0-9 _-]+?)(?:\s+(?:in\s+)?(?:display|slide)\s*(\d+))?\s*$/i);
     if (openMatch) {
-        const program = openMatch[1];
+        const program = (openMatch[1] || '').trim();
         if (program === 'browser') {
             let displayNum = openMatch[2];
             if (!displayNum) {

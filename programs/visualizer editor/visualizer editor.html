@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persona Frame Cataloguer</title>
+  <style>
+    :root{--bg:#0b0f15;--fg:#e6eef7;--muted:#8aa0b5;--acc:#4aa8ff;--warn:#ffcc00;--err:#ff6677}
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--fg);font:11px system-ui,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden;box-sizing:border-box}
+    *, *:before, *:after {box-sizing: inherit}
+
+    /* App layout - video 2/3 width/height, controls on right and bottom */
+    #app{position:absolute;inset:0;display:grid;gap:4px;padding:4px;
+         grid-template-rows:2fr 1fr;
+         grid-template-columns:2fr 1fr;
+         grid-template-areas:"video controls" "bottom bottom";}
+
+    /* Video section - top-left, 2/3 width and 2/3 height */
+    .video-section{grid-area:video;display:flex;flex-direction:column;min-height:0}
+    .video-pane{position:relative;flex:1;min-height:0;border-radius:6px;background:#000;overflow:hidden;border:1px solid #1b2533}
+    .video-pane > video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+
+    /* Control sidebar - top-right, 1/3 width, 2/3 height */
+    .sidebar{grid-area:controls;display:flex;flex-direction:column;min-height:0;gap:4px;padding:6px;background:#0f1520;border:1px solid #1b2533;border-radius:6px;overflow:hidden}
+    
+    /* Control sections - fixed height to prevent overflow */
+    .control-section{display:flex;flex-direction:column;gap:3px;padding:6px;background:#0a0e14;border:1px solid #1b2533;border-radius:4px;flex:0 0 auto}
+
+    /* Bottom area - full width, 1/3 height */
+    .bottom-area{grid-area:bottom;display:flex;gap:6px;min-height:0}
+    /* Control sections within sidebar */
+    .control-section{display:flex;flex-direction:column;gap:3px;padding:6px;background:#0a0e14;border:1px solid #1b2533;border-radius:4px}
+    .control-section h4{margin:0 0 4px 0;color:var(--acc);font-size:10px;font-weight:600}
+    .control-row{display:flex;gap:4px;align-items:center}
+    .control-row.wrap{flex-wrap:wrap}
+    .action-buttons{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .action-buttons button{padding:4px 6px;font-size:9px}
+    
+    /* Thumbnails and log in expandable sections */
+    
+    /* Thumbnails grid - fixed size, no scrollbars */
+    .thumbs{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:36px;gap:2px;height:80px;overflow:hidden;border:1px solid #1b2533;border-radius:4px;padding:2px}
+    .thumbs img{width:100%;height:100%;border-radius:3px;border:1px solid #1b2533;image-rendering:pixelated}
+
+    /* Status log - fixed size, no scrollbars */
+    .status{font-family:ui-monospace,Consolas,monospace;background:#0a1018;padding:4px 6px;border-radius:4px;font-size:9px;white-space:pre-wrap;height:60px;overflow:hidden;border:1px solid #1b2533}
+
+    /* Status bar moved to bottom area */
+    .status-bar{display:flex;gap:6px;align-items:center;min-height:20px;font-size:10px;flex:1}
+    .progress{height:6px;background:#0c121b;border-radius:3px;overflow:hidden;border:1px solid #1b2533;flex:1}
+    .progress>span{display:block;height:100%;background:var(--acc);width:0%;transition:width 0.3s ease}
+    
+    /* Bottom sections */
+    .bottom-section{background:#0f1520;border:1px solid #1b2533;border-radius:6px;padding:6px;display:flex;flex-direction:column;gap:4px}
+    .pill{background:#0c121b;border:1px solid #1b2533;border-radius:12px;padding:2px 6px;color:var(--muted);font-size:9px;white-space:nowrap}
+
+    /* Compact form controls */
+    input[type="text"],input[type="number"],button,select{background:#0c121b;color:var(--fg);border:1px solid #1b2533;border-radius:4px;padding:3px 6px;font-size:10px;min-height:20px}
+    button{cursor:pointer;white-space:nowrap}
+    button.primary{background:var(--acc);color:#021420;border:none}
+    button:disabled{opacity:0.5;cursor:not-allowed}
+    
+    /* Crop overlay */
+    .crop{position:absolute;border:2px dashed var(--warn);box-shadow:0 0 0 9999px rgba(0,0,0,.4);cursor:move}
+    .handle{position:absolute;width:10px;height:10px;background:var(--warn);border-radius:50%}
+    .handle.br{right:-5px;bottom:-5px;cursor:nwse-resize}
+
+    /* Compact spacing */
+    .row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+    .col{display:flex;flex-direction:column;gap:2px}
+    label{color:var(--muted);font-size:9px;margin:0}
+    .settings{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px}
+    .settings label{margin-bottom:1px}
+    .settings input, .settings select{padding:2px 4px;min-height:18px}
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      .main{grid-template-columns:3fr 2fr}
+    }
+    @media (max-width: 1000px) {
+      .main{grid-template-columns:1fr;grid-template-rows:2fr 1fr}
+      .sidebar{max-height:300px;overflow-y:auto}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Video section - top-left 2/3x2/3 -->
+    <div class="video-section">
+      <div class="video-pane" id="pane">
+        <video id="vid" controls></video>
+        <div class="crop" id="crop" style="left:30%;top:20%;width:40%;height:40%">
+          <div class="handle br"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control sidebar - top-right -->
+    <div class="sidebar">
+      <!-- File and persona selection -->
+      <div class="control-section">
+        <h4>📁 Input & Persona</h4>
+        <input id="file" type="file" accept="video/*" />
+        <div class="control-row">
+          <select id="personaSelect" style="flex:1">
+            <option value="">Select Persona...</option>
+          </select>
+          <button id="refreshPersonas" title="Refresh personas">🔄</button>
+        </div>
+        <div class="control-row">
+          <button id="scanIndex" style="flex:1">📊 Scan Library</button>
+          <button id="redescribe" style="flex:1">🔄 Re-describe All</button>
+        </div>
+        <span id="libraryInfo" class="pill" style="text-overflow:ellipsis;overflow:hidden">no persona selected</span>
+      </div>
+
+      <!-- Processing settings -->
+      <div class="control-section">
+        <h4>⚙️ Settings</h4>
+        <div class="control-row">
+          <label style="flex:1">FPS <input id="fps" type="number" value="20" min="1" max="60"></label>
+          <label style="flex:1">Batch <input id="batch" type="number" value="20" min="1" max="100"></label>
+        </div>
+        <label>Scale <select id="scale"><option value="nearest" selected>Pixelated</option><option value="bilinear">Smooth</option></select></label>
+        <small style="color:var(--warn);font-size:8px">Drag yellow square on video to set crop area</small>
+      </div>
+
+      <!-- Actions -->
+      <div class="control-section">
+        <h4>🎬 Actions</h4>
+        <div class="action-buttons">
+          <span id="nextId" class="pill" style="grid-column:span 2;text-align:center">Next ID: ?</span>
+          <button id="start" class="primary">▶️ Process</button>
+          <button id="abort">⏹️ Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom area - full width -->
+    <div class="bottom-area">
+      <!-- Thumbnails section -->
+      <div class="bottom-section" style="flex:1">
+        <h4>🖼️ Recent Thumbnails</h4>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+      
+      <!-- Log section -->
+      <div class="bottom-section" style="flex:1">
+        <h4>📋 Processing Log</h4>
+        <div class="status" id="log">Ready. Select video and library folder to begin.</div>
+      </div>
+      
+      <!-- Status bar -->
+      <div class="bottom-section" style="flex:0 0 200px">
+        <h4>📊 Progress</h4>
+        <div class="status-bar">
+          <div class="progress"><span id="bar"></span></div>
+        </div>
+        <span id="counts" class="pill" style="text-align:center;margin-top:4px">frames:0, saved:0, described:0</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ---- helpers ----
+  const $ = (id)=>document.getElementById(id);
+  const log = (m)=>{ const L=$('log'); L.textContent += "\n"+m; L.scrollTop=L.scrollHeight; };
+  const setBar = (p)=> $('bar').style.width = Math.max(0,Math.min(100,p))+'%';
+  function dataURLToBlob(dataURL){const bstr=atob(dataURL.split(',')[1]);const n=bstr.length;const u8=new Uint8Array(n);for(let i=0;i<n;i++)u8[i]=bstr.charCodeAt(i);return new Blob([u8],{type:'image/png'})}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+  // ---- State management ----
+  const appState = {
+    personaName: null,
+    outFolder: null,
+    nextId: null,
+    basePersonasPath: null,
+    
+    setPersona(name) {
+      if (!name || !this.basePersonasPath) {
+        this.personaName = null;
+        this.outFolder = null;
+        $('libraryInfo').textContent = 'no persona selected';
+        $('libraryInfo').title = '';
+        return;
+      }
+      
+      this.personaName = name;
+      this.outFolder = `${this.basePersonasPath}\\${name}\\vizualizer frames`;
+      sessionStorage.setItem('selectedPersona', name);
+      
+      $('libraryInfo').textContent = `Persona: ${name}`;
+      $('libraryInfo').title = this.outFolder;
+      
+      // Auto-scan when persona is selected
+      setTimeout(() => scanIndex(), 100);
+    },
+    
+    loadState() {
+      const saved = sessionStorage.getItem('selectedPersona');
+      if (saved && this.basePersonasPath) {
+        this.setPersona(saved);
+        log('📁 Restored persona: ' + saved);
+      }
+    }
+  };
+
+  // Load saved state on startup
+  window.addEventListener('DOMContentLoaded', async () => {
+    // Get base personas path from Electron
+    await loadPersonasList();
+    appState.loadState();
+  });
+  
+  async function loadPersonasList() {
+    try {
+      // Get the Electron API - check both direct access and parent window
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || null;
+      
+      if (!electronAPI?.invoke) {
+        log('⚠️ No Electron API available');
+        // Fallback to default path
+        const userName = window.location.pathname.includes('jakek') ? 'jakek' : 'user';
+        appState.basePersonasPath = `C:\\Users\\${userName}\\Documents\\ai-local-data\\Personas`;
+        log('⚠️ Using default personas path');
+        return;
+      }
+      
+      // Get the personas directory path
+      const result = await electronAPI.invoke('visualizer:getPersonasPath');
+      if (result?.path) {
+        appState.basePersonasPath = result.path;
+        log('📂 Personas path: ' + result.path);
+      }
+      
+      // Get list of personas
+      const personas = await electronAPI.invoke('visualizer:listPersonas');
+      if (personas?.list) {
+        updatePersonasDropdown(personas.list);
+      }
+    } catch (e) {
+      console.error('Failed to load personas:', e);
+      log('❌ Could not load personas list');
+    }
+  }
+  
+  function updatePersonasDropdown(personas) {
+    const select = $('personaSelect');
+    const currentValue = select.value;
+    
+    // Clear existing options except the first
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+    
+    // Add personas
+    personas.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    
+    // Restore selection if it still exists
+    if (currentValue && personas.includes(currentValue)) {
+      select.value = currentValue;
+    }
+    
+    log(`📋 Loaded ${personas.length} personas`);
+  }
+
+  // ---- electron bridges with robust fallbacks ----
+  // Get the Electron API - check both direct access and parent window
+  const getElectronAPI = () => window.electronAPI || window.parent?.electronAPI || null;
+  
+  const api = {
+    async chooseOutputFolder() {
+      try {
+        // Check for various Electron API patterns
+        const apis = [
+          window.electronAPI,
+          window.electron,
+          window.ipcRenderer,
+          window.api,
+          window.bridge
+        ].filter(Boolean);
+        
+        log('🔍 Checking for Electron APIs...');
+        
+        for (const electronAPI of apis) {
+          console.log('Testing API:', electronAPI);
+          
+          // Direct method calls
+          const directMethods = [
+            'selectFolder', 'chooseFolder', 'openDirectory', 
+            'showDirectoryPicker', 'selectDirectory', 'openFolder'
+          ];
+          
+          for (const method of directMethods) {
+            if (typeof electronAPI[method] === 'function') {
+              log(`📂 Using ${method}...`);
+              const result = await electronAPI[method]();
+              const path = this.extractPath(result);
+              if (path) return path;
+            }
+          }
+          
+          // IPC invoke patterns
+          if (typeof electronAPI.invoke === 'function') {
+            const invokeMethods = [
+              'dialog:openDirectory',
+              'selectFolder',
+              'chooseFolder',
+              'openDirectory',
+              'dialog:selectFolder',
+              'showOpenDialog'
+            ];
+            
+            for (const method of invokeMethods) {
+              try {
+                log(`📂 Trying invoke: ${method}...`);
+                const result = await electronAPI.invoke(method, { 
+                  properties: ['openDirectory', 'createDirectory'] 
+                });
+                const path = this.extractPath(result);
+                if (path) return path;
+              } catch(e) {
+                console.log(`invoke ${method} failed:`, e.message);
+              }
+            }
+          }
+          
+          // Send/receive pattern
+          if (typeof electronAPI.send === 'function' && typeof electronAPI.receive === 'function') {
+            return new Promise((resolve) => {
+              electronAPI.receive('folder-selected', (path) => resolve(path));
+              electronAPI.send('select-folder');
+              setTimeout(() => resolve(null), 5000);
+            });
+          }
+        }
+        
+        // Web File System API fallback (for browser)
+        if (window.showDirectoryPicker) {
+          log('📂 Using Web File System API...');
+          const handle = await window.showDirectoryPicker();
+          return handle.name;
+        }
+        
+        // Manual input fallback
+        log('⚠️ No Electron API found, using manual input');
+        return prompt('Enter the full folder path:') || null;
+        
+      } catch(e) {
+        console.error('Folder selection error:', e);
+        log('❌ Error: ' + e.message);
+        return prompt('Electron API failed. Enter folder path manually:') || null;
+      }
+    },
+    
+    extractPath(result) {
+      if (!result) return null;
+      
+      // Direct string result
+      if (typeof result === 'string' && result.length > 0 && 
+          result !== 'undefined' && result !== 'null') {
+        return result;
+      }
+      
+      // Electron dialog result format
+      if (result && !result.canceled) {
+        if (result.filePaths && result.filePaths[0]) return result.filePaths[0];
+        if (result.filePath) return result.filePath;
+        if (result.paths && result.paths[0]) return result.paths[0];
+        if (result.path) return result.path;
+        if (result.folder) return result.folder;
+        if (result.directory) return result.directory;
+      }
+      
+      // Array result
+      if (Array.isArray(result) && result[0]) return result[0];
+      
+      // Object with path property
+      if (result && typeof result === 'object') {
+        const pathKeys = ['path', 'folder', 'directory', 'filePath', 'folderPath'];
+        for (const key of pathKeys) {
+          if (result[key] && typeof result[key] === 'string') {
+            return result[key];
+          }
+        }
+      }
+      
+      return null;
+    },
+    
+    async readIndex(folder) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          return await electronAPI.invoke('visualizer:readIndex', {folder});
+        } catch(e) {
+          console.error('readIndex failed:', e);
+        }
+      }
+      return null;
+    },
+    
+    async writeIndex(folder, index) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          const result = await electronAPI.invoke('visualizer:writeIndex', {folder, index});
+          if (result) return result;
+        } catch(e) {
+          console.error('writeIndex failed:', e);
+        }
+      }
+      // Don't auto-download - just log the failure
+      log('⚠️ Could not write index.json');
+      return false;
+    },
+    
+    async saveFrames(folder, frames) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          const result = await electronAPI.invoke('visualizer:saveFrames', {folder, frames});
+          if (result) return result;
+        } catch(e) {
+          console.error('saveFrames failed:', e);
+          log('❌ Electron save failed. Backend not configured.');
+          return false;
+        }
+      }
+      
+      // No dangerous fallbacks - require proper Electron backend
+      console.error('Electron API not available for file saving');
+      log('❌ Cannot save files - Electron backend required');
+      return false;
+    },
+    
+    async getExistingImages(folder) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          return await electronAPI.invoke('visualizer:getExistingImages', {folder});
+        } catch(e) {
+          console.error('getExistingImages failed:', e);
+        }
+      }
+      return null;
+    },
+    
+    async updateDescriptions(folder, descriptions) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          return await electronAPI.invoke('visualizer:updateDescriptions', {folder, descriptions});
+        } catch(e) {
+          console.error('updateDescriptions failed:', e);
+        }
+      }
+      return false;
+    },
+    
+    async describeImages(batch) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.invoke) {
+        try {
+          return await electronAPI.invoke('llm.describeImages', {batch});
+        } catch(e) {
+          console.error('describeImages failed:', e);
+        }
+      }
+      return mockDescribe(batch);
+    }
+  };
+
+  async function mockDescribe(batch) {
+    return batch.map((b,i) => ({ 
+      id: b.tempId, 
+      desc: `neutral head, eyes forward, viseme=SIL, energy=0.2 (stub)` 
+    }));
+  }
+
+  // ---- crop UI ----
+  const pane=$('pane'), crop=$('crop');
+  let dragging=false, resizing=false, startX=0,startY=0,rect0=null;
+  crop.addEventListener('mousedown', (e)=>{ 
+    if(e.target.classList.contains('handle')){resizing=true}else{dragging=true} 
+    startX=e.clientX;startY=e.clientY;rect0=crop.getBoundingClientRect(); 
+    e.preventDefault();
+  });
+  window.addEventListener('mouseup', ()=>{dragging=false;resizing=false});
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging && !resizing) return; 
+    const paneRect=pane.getBoundingClientRect();
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    if(dragging){
+      const l=(rect0.left-paneRect.left+dx), t=(rect0.top-paneRect.top+dy);
+      crop.style.left=Math.max(0,Math.min(l,paneRect.width-rect0.width))+'px';
+      crop.style.top=Math.max(0,Math.min(t,paneRect.height-rect0.height))+'px';
+    }
+    if(resizing){
+      const s=Math.max(40, Math.min(rect0.width+dx, rect0.height+dy));
+      crop.style.width=crop.style.height=s+'px';
+    }
+  });
+
+  // ---- main flow ----
+  const file=$('file'), vid=$('vid');
+  file.onchange=()=>{ 
+    if(file.files[0]){
+      const url=URL.createObjectURL(file.files[0]); 
+      vid.src=url; 
+      log('📹 Loaded: '+file.files[0].name);
+    } 
+  };
+
+  let abortFlag=false;
+  
+  // Persona selection handler
+  $('personaSelect').onchange = () => {
+    const selected = $('personaSelect').value;
+    if (selected) {
+      appState.setPersona(selected);
+      log('👤 Selected persona: ' + selected);
+    } else {
+      appState.setPersona(null);
+      log('❌ No persona selected');
+    }
+  };
+  
+  // Refresh personas button
+  $('refreshPersonas').onclick = async () => {
+    log('🔄 Refreshing personas list...');
+    await loadPersonasList();
+    
+    // Restore selection if it was saved
+    const saved = sessionStorage.getItem('selectedPersona');
+    if (saved) {
+      $('personaSelect').value = saved;
+      appState.setPersona(saved);
+    }
+  };
+  
+  // Re-describe all images button
+  $('redescribe').onclick = async () => {
+    if (!appState.outFolder || !appState.personaName) {
+      log('❌ Select a persona first');
+      return;
+    }
+    
+    if (!confirm(`Re-describe ALL images for persona "${appState.personaName}"?\n\nThis will update the descriptions for all existing images in the visualizer frames folder.`)) {
+      return;
+    }
+    
+    try {
+      $('redescribe').disabled = true;
+      log('🔄 Starting re-description process...');
+      
+      // Get all existing images from the folder
+      const result = await api.getExistingImages(appState.outFolder);
+      if (!result || !result.images || result.images.length === 0) {
+        log('❌ No images found to re-describe');
+        return;
+      }
+      
+      log(`📊 Found ${result.images.length} images to re-describe`);
+      
+      // Process in batches
+      const batchSize = parseInt($('batch').value || 20, 10);
+      const described = await redescribeImages(result.images, batchSize);
+      
+      // Update the index
+      await api.updateDescriptions(appState.outFolder, described);
+      
+      log(`✅ Re-described ${described.length} images`);
+      
+      // Refresh the index display
+      await scanIndex();
+      
+    } catch (e) {
+      console.error('Re-describe error:', e);
+      log('❌ Re-describe failed: ' + e.message);
+    } finally {
+      $('redescribe').disabled = false;
+    }
+  };
+  
+  $('scanIndex').onclick = scanIndex;
+  $('abort').onclick = () => { 
+    abortFlag = true; 
+    log('🛑 Abort requested...'); 
+  };
+
+  async function scanIndex() {
+    if (!appState.outFolder) { 
+      log('❌ Select a persona first.'); 
+      return; 
+    }
+    
+    try {
+      const idx = await api.readIndex(appState.outFolder);
+      if (idx) {
+        if (typeof idx.nextId === 'number') { 
+          appState.nextId = idx.nextId;
+        } else {
+          appState.nextId = 1;
+        }
+        
+        // Count existing frames
+        const frameCount = idx.frames ? Object.keys(idx.frames).length : 0;
+        $('nextId').textContent = `Next ID: ${appState.nextId} (${frameCount} existing)`;
+        log(`🔍 Scanned. Next ID = ${appState.nextId}, Existing frames = ${frameCount}`);
+      } else { 
+        appState.nextId = 1;
+        $('nextId').textContent = 'Next ID: 1 (new library)';
+        log('📝 New library. Starting at ID 1');
+      }
+    } catch(e) {
+      console.error('Scan error:', e);
+      appState.nextId = 1;
+      $('nextId').textContent = 'Next ID: 1 (new)';
+      log('📝 New library. Starting at ID 1');
+    }
+  }
+  
+  async function redescribeImages(images, batchSize) {
+    const out = [];
+    let done = 0;
+    
+    for (let i = 0; i < images.length; i += batchSize) {
+      if (abortFlag) break;
+      
+      const batch = images.slice(i, i + batchSize);
+      const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
+      
+      // Load image data for batch
+      const payload = [];
+      for (const img of batch) {
+        // For re-description, we need to load the actual image data
+        // This would require reading from disk via Electron
+        payload.push({ 
+          id: img.id, 
+          image: img.dataUrl || img.path, // Use existing data or path
+          prompt: promptHeader 
+        });
+      }
+      
+      const desc = await api.describeImages(payload);
+      out.push(...batch.map((b, ix) => ({ 
+        id: b.id,
+        filename: b.filename,
+        meta: desc[ix] 
+      })));
+      
+      done += batch.length;
+      $('counts').textContent = `re-describing: ${done}/${images.length}`;
+      setBar((done / images.length) * 100);
+      await sleep(15);
+    }
+    
+    return out;
+  }
+
+  $('start').onclick = async () => {
+    try { 
+      abortFlag = false; 
+      setBar(0); 
+      $('counts').textContent = 'frames:0, saved:0, described:0';
+      $('start').disabled = true;
+      
+      if (!file.files[0]) {
+        log('❌ Choose a video first.');
+        return;
+      }
+      if (!appState.outFolder) {
+        log('❌ Choose an output folder first.');
+        return;
+      }
+      if (appState.nextId == null) {
+        await scanIndex();
+      }
+      
+      const fps = parseInt($('fps').value || 20, 10); 
+      const scale = $('scale').value; 
+      const batchSize = parseInt($('batch').value || 20, 10);
+      
+      const frames = await extractFrames({video: vid, fps, scale});
+      if (abortFlag) {
+        log('🛑 Aborted before LLM.');
+        return;
+      }
+      
+      const described = await describeInBatches(frames, batchSize);
+      if (abortFlag) {
+        log('🛑 Aborted before save.');
+        return;
+      }
+      
+      const saved = await saveToLibrary(described);
+      log(`✅ Done. Saved ${saved} frames.`);
+      
+    } catch(e) { 
+      console.error(e); 
+      log('❌ Error: ' + e.message); 
+    } finally {
+      $('start').disabled = false;
+    }
+  };
+
+  async function extractFrames({video, fps, scale}) {
+    log(`⚙️ Extracting at ${fps} fps...`);
+    const duration = video.duration; 
+    if (!isFinite(duration) || duration <= 0) await once(video, 'loadedmetadata');
+    const dur = video.duration; 
+    const total = Math.floor(dur * fps);
+    const paneRect = pane.getBoundingClientRect(); 
+    const cropRect = crop.getBoundingClientRect();
+    const paneW = paneRect.width, paneH = paneRect.height; 
+    const cx = cropRect.left - paneRect.left, cy = cropRect.top - paneRect.top, cs = cropRect.width;
+
+    const work = document.createElement('canvas');
+    const ctx = work.getContext('2d');
+    const out = document.createElement('canvas'); 
+    out.width = 80; 
+    out.height = 80; 
+    const octx = out.getContext('2d');
+    if (scale === 'nearest') { 
+      octx.imageSmoothingEnabled = false; 
+    }
+
+    const thumbs = $('thumbs'); 
+    thumbs.innerHTML = '';
+    const results = [];
+    
+    for (let i = 0; i < total; i++) {
+      if (abortFlag) break;
+      const t = i / fps; 
+      video.currentTime = Math.min(t, dur - 0.0001);
+      await once(video, 'seeked');
+      
+      work.width = paneW; 
+      work.height = paneH; 
+      ctx.drawImage(video, 0, 0, paneW, paneH);
+      const imgData = ctx.getImageData(cx, cy, cs, cs);
+      
+      const tmp = document.createElement('canvas'); 
+      tmp.width = cs; 
+      tmp.height = cs; 
+      tmp.getContext('2d').putImageData(imgData, 0, 0);
+      
+      octx.imageSmoothingEnabled = scale !== 'nearest';
+      octx.clearRect(0, 0, 80, 80); 
+      octx.drawImage(tmp, 0, 0, 80, 80);
+      
+      const d = octx.getImageData(0, 0, 80, 80); 
+      const a = d.data;
+      for (let p = 0; p < a.length; p += 4) { 
+        const y = 0.2126 * a[p] + 0.7152 * a[p+1] + 0.0722 * a[p+2]; 
+        a[p] = a[p+1] = a[p+2] = y; 
+      }
+      octx.putImageData(d, 0, 0);
+      
+      const dataURL = out.toDataURL('image/png');
+      const tempId = `t${i}`;
+      results.push({ tempId, timeMs: Math.round(1000 * t), png: dataURL });
+      
+      if (thumbs.children.length < 24) { 
+        const img = new Image(); 
+        img.src = dataURL; 
+        thumbs.appendChild(img);
+      }
+      
+      if (i % 5 === 0) { 
+        $('counts').textContent = `frames:${i+1}/${total}, saved:0, described:0`; 
+        setBar(((i+1) / total) * 30); 
+      }
+    }
+    log(`📊 Extracted ${results.length} frames.`);
+    return results;
+  }
+
+  async function describeInBatches(frames, batchSize) {
+    log('🤖 Describing frames via LLM...');
+    const out = []; 
+    let done = 0;
+    for (let i = 0; i < frames.length; i += batchSize) {
+      if (abortFlag) break;
+      const batch = frames.slice(i, i + batchSize);
+      const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
+      const payload = batch.map(b => ({ id: b.tempId, image: b.png, prompt: promptHeader }));
+      const desc = await api.describeImages(payload);
+      out.push(...batch.map((b, ix) => ({ ...b, meta: desc[ix] })));
+      done += batch.length; 
+      $('counts').textContent = `frames:${frames.length}, saved:0, described:${done}`; 
+      setBar(30 + (done / frames.length) * 40);
+      await sleep(15);
+    }
+    log('🏷️ Descriptions complete.');
+    return out;
+  }
+
+  async function saveToLibrary(frames) {
+    log('💾 Saving to library...');
+    const records = []; 
+    let curId = appState.nextId || 1;
+    
+    // Prepare frame data
+    for (const f of frames) {
+      const id = curId++; 
+      const name = String(id).padStart(6, '0');
+      records.push({ id, filename: `${name}.png`, timeMs: f.timeMs, meta: f.meta });
+    }
+    
+    // Try to save frames
+    const saveResult = await api.saveFrames(appState.outFolder, { 
+      images: frames.map((f, ix) => ({ 
+        id: records[ix].id, 
+        filename: records[ix].filename, 
+        blob: f.png 
+      })), 
+      records 
+    });
+    
+    if (!saveResult) {
+      log('❌ Save failed. Electron backend not properly configured.');
+      log('⚠️ Images processed but not saved to disk.');
+      
+      // Offer to save as single ZIP file instead
+      if (confirm('Direct save failed. Create downloadable ZIP archive instead?')) {
+        await createZipDownload(frames, records);
+      }
+      return 0;
+    } 
+    
+    log(`✅ Saved ${records.length} frames to ${appState.outFolder}`);
+    
+    // Update index
+    const indexResult = await api.writeIndex(appState.outFolder, { nextId: curId });
+    if (!indexResult) {
+      log('⚠️ Could not update index.json');
+    }
+    
+    appState.nextId = curId; 
+    $('nextId').textContent = 'ID: ' + appState.nextId;
+    $('counts').textContent = `frames:${frames.length}, saved:${records.length}, described:${frames.length}`; 
+    setBar(100);
+    return records.length;
+  }
+  
+  async function createZipDownload(frames, records) {
+    log('📦 Creating ZIP archive (requires manual extraction)...');
+    // Create a single JSON file with all data as a workaround
+    const exportData = {
+      frames: frames.map((f, i) => ({
+        ...records[i],
+        imageData: f.png
+      })),
+      nextId: appState.nextId + frames.length
+    };
+    
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonStr], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `frames_export_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    log('📥 Downloaded frames_export.json - extract manually with a script');
+  }
+
+  function once(el, ev) { 
+    return new Promise(res => { 
+      const h = () => { 
+        el.removeEventListener(ev, h); 
+        res(); 
+      }; 
+      el.addEventListener(ev, h, {once: true}); 
+    }); 
+  }
+  </script>
+</body>
+</html>

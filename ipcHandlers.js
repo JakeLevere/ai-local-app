@@ -181,13 +181,22 @@ function initialize(windowInstance, paths) {
     ipcMain.on('open-program', async (event, { program, displayId, state = {} }) => {
         if (!program || !displayId) return;
 
-        // Sanitize program name to prevent path traversal
-        const name = String(program).replace(/[^\w-]/g, '');
+        // Sanitize program name to prevent path traversal, but allow spaces and hyphens
+        // 1) Remove anything that's not a word char, space, or hyphen
+        // 2) Collapse multiple spaces and trim
+        const raw = String(program);
+        const name = raw.replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
         if (!name) return;
 
         const base = appPaths.serverUrl || `http://localhost:${process.env.PORT || 3000}`;
+
+        // Candidate file locations, in priority order:
+        // - programs/<name>/index.html
+        // - programs/<name>.html
+        // - programs/<name>/<name>.html (handles folders where the html matches the folder name)
         const indexPath = path.join(baseDir, 'programs', name, 'index.html');
         const filePath = path.join(baseDir, 'programs', `${name}.html`);
+        const namedInsideFolderPath = path.join(baseDir, 'programs', name, `${name}.html`);
 
         let relativePath = null;
         try {
@@ -198,7 +207,12 @@ function initialize(windowInstance, paths) {
                 await fs.access(filePath);
                 relativePath = `programs/${name}.html`;
             } catch {
-                // no file found
+                try {
+                    await fs.access(namedInsideFolderPath);
+                    relativePath = `programs/${name}/${name}.html`;
+                } catch {
+                    // no file found
+                }
             }
         }
 
@@ -518,6 +532,326 @@ function initialize(windowInstance, paths) {
         } catch (err) {
             console.error('Failed to test TTS:', err);
             return { success: false, error: err.message };
+        }
+    });
+
+    // Visualizer Editor handlers
+    ipcMain.handle('visualizer:getPersonasPath', async () => {
+        try {
+            console.log('[Visualizer] Getting personas path:', appPaths.vaultPath);
+            return { path: appPaths.vaultPath };
+        } catch (err) {
+            console.error('Failed to get personas path:', err);
+            return { path: null };
+        }
+    });
+
+    ipcMain.handle('visualizer:listPersonas', async () => {
+        try {
+            const personas = [];
+            const entries = await fs.readdir(appPaths.vaultPath, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    // Check if it's a valid persona folder (has persona.json)
+                    const personaJsonPath = path.join(appPaths.vaultPath, entry.name, 'persona.json');
+                    try {
+                        await fs.access(personaJsonPath);
+                        personas.push(entry.name);
+                    } catch {
+                        // Not a persona folder, skip
+                    }
+                }
+            }
+            
+            console.log('[Visualizer] Found personas:', personas);
+            return { list: personas };
+        } catch (err) {
+            console.error('Failed to list personas:', err);
+            return { list: [] };
+        }
+    });
+
+    ipcMain.handle('visualizer:readIndex', async (event, { folder }) => {
+        try {
+            // Ensure the folder exists
+            await fs.mkdir(folder, { recursive: true });
+            
+            const indexPath = path.join(folder, 'index.json');
+            const content = await fs.readFile(indexPath, 'utf-8');
+            return JSON.parse(content);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                // No index file yet, return default
+                return { nextId: 1, frames: {} };
+            }
+            console.error('Failed to read index:', err);
+            return null;
+        }
+    });
+
+    ipcMain.handle('visualizer:writeIndex', async (event, { folder, index }) => {
+        try {
+            await fs.mkdir(folder, { recursive: true });
+            
+            // Read existing index to merge frames
+            const indexPath = path.join(folder, 'index.json');
+            let existingIndex = { frames: {} };
+            
+            try {
+                const content = await fs.readFile(indexPath, 'utf-8');
+                existingIndex = JSON.parse(content);
+            } catch {
+                // No existing index
+            }
+            
+            // Merge with new data
+            const mergedIndex = {
+                ...existingIndex,
+                ...index,
+                frames: { ...existingIndex.frames, ...(index.frames || {}) },
+                lastUpdated: new Date().toISOString()
+            };
+            
+            await fs.writeFile(indexPath, JSON.stringify(mergedIndex, null, 2), 'utf-8');
+            return true;
+        } catch (err) {
+            console.error('Failed to write index:', err);
+            return false;
+        }
+    });
+
+    ipcMain.handle('visualizer:saveFrames', async (event, { folder, frames }) => {
+        try {
+            await fs.mkdir(folder, { recursive: true });
+            
+            const { images, records } = frames;
+            const savedFiles = [];
+            
+            // Save each image
+            for (const img of images) {
+                const filePath = path.join(folder, img.filename);
+                
+                // Convert data URL to buffer
+                const base64Data = img.blob.replace(/^data:image\/png;base64,/, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+                
+                await fs.writeFile(filePath, buffer);
+                savedFiles.push(img.filename);
+            }
+            
+            // Update the index with new frames
+            const indexPath = path.join(folder, 'index.json');
+            let index = { nextId: 1, frames: {} };
+            
+            try {
+                const content = await fs.readFile(indexPath, 'utf-8');
+                index = JSON.parse(content);
+            } catch {
+                // No existing index
+            }
+            
+            // Add new records to frames
+            for (const record of records) {
+                index.frames[record.id] = {
+                    filename: record.filename,
+                    timeMs: record.timeMs,
+                    meta: record.meta,
+                    createdAt: new Date().toISOString()
+                };
+            }
+            
+            // Update nextId
+            const maxId = Math.max(...records.map(r => r.id), index.nextId - 1);
+            index.nextId = maxId + 1;
+            index.lastUpdated = new Date().toISOString();
+            
+            await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+            
+            return true;
+        } catch (err) {
+            console.error('Failed to save frames:', err);
+            return false;
+        }
+    });
+
+    ipcMain.handle('visualizer:getExistingImages', async (event, { folder }) => {
+        try {
+            const indexPath = path.join(folder, 'index.json');
+            const content = await fs.readFile(indexPath, 'utf-8');
+            const index = JSON.parse(content);
+            
+            const images = [];
+            
+            // Load image data for each frame
+            for (const [id, frame] of Object.entries(index.frames || {})) {
+                const imagePath = path.join(folder, frame.filename);
+                
+                try {
+                    // Check if file exists
+                    await fs.access(imagePath);
+                    
+                    // For re-description, we'll need to load the actual image data
+                    const imageBuffer = await fs.readFile(imagePath);
+                    const base64 = imageBuffer.toString('base64');
+                    const dataUrl = `data:image/png;base64,${base64}`;
+                    
+                    images.push({
+                        id: parseInt(id),
+                        filename: frame.filename,
+                        dataUrl,
+                        meta: frame.meta
+                    });
+                } catch (err) {
+                    console.warn(`Image not found: ${frame.filename}`);
+                }
+            }
+            
+            return { images };
+        } catch (err) {
+            console.error('Failed to get existing images:', err);
+            return { images: [] };
+        }
+    });
+
+    ipcMain.handle('visualizer:updateDescriptions', async (event, { folder, descriptions }) => {
+        try {
+            const indexPath = path.join(folder, 'index.json');
+            const content = await fs.readFile(indexPath, 'utf-8');
+            const index = JSON.parse(content);
+            
+            // Update descriptions for specified frames
+            for (const desc of descriptions) {
+                if (index.frames[desc.id]) {
+                    index.frames[desc.id].meta = desc.meta;
+                    index.frames[desc.id].updatedAt = new Date().toISOString();
+                }
+            }
+            
+            index.lastUpdated = new Date().toISOString();
+            
+            await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+            return true;
+        } catch (err) {
+            console.error('Failed to update descriptions:', err);
+            return false;
+        }
+    });
+
+    // LLM handler for describing images (used by visualizer editor)
+    ipcMain.handle('llm.describeImages', async (event, { batch }) => {
+        try {
+            console.log('[Visualizer] Describing', batch.length, 'images via GPT-4o-mini');
+            await ensureAIService();
+            
+            // Import OpenAI directly for vision API
+            const { OpenAI } = await import('openai');
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            
+            // Process each image in the batch
+            const results = [];
+            for (const item of batch) {
+                try {
+                    // Prepare the vision request
+                    const messages = [
+                        {
+                            role: "system",
+                            content: "You are analyzing portrait frames for a virtual persona system. Analyze the facial features and return a JSON object with these exact fields: mouthViseme (one of: SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen (0-1), headYaw (-30 to 30), headPitch (-20 to 20), eyes (one of: left,right,center,down,up), brow (one of: neutral,up,down), mood (one of: neutral,warm,angry,sad,excited), energy (0-1), note (max 12 words describing the expression). Be precise and concise."
+                        },
+                        {
+                            role: "user",
+                            content: [
+                                {
+                                    type: "text",
+                                    text: item.prompt || "Analyze this facial expression and return the JSON object."
+                                },
+                                {
+                                    type: "image_url",
+                                    image_url: {
+                                        url: item.image,
+                                        detail: "low" // Use low detail for faster processing
+                                    }
+                                }
+                            ]
+                        }
+                    ];
+                    
+                    console.log(`[Visualizer] Processing image ${item.id}...`);
+                    
+                    const response = await openai.chat.completions.create({
+                        model: "gpt-4o-mini", // Using mini model for cost efficiency
+                        messages: messages,
+                        max_tokens: 150,
+                        temperature: 0.3, // Lower temperature for more consistent output
+                        response_format: { type: "json_object" } // Request JSON format
+                    });
+                    
+                    const content = response.choices?.[0]?.message?.content || '{}';
+                    let desc;
+                    
+                    try {
+                        desc = JSON.parse(content);
+                        // Validate and set defaults for missing fields
+                        desc = {
+                            mouthViseme: desc.mouthViseme || 'SIL',
+                            mouthOpen: typeof desc.mouthOpen === 'number' ? desc.mouthOpen : 0,
+                            headYaw: typeof desc.headYaw === 'number' ? desc.headYaw : 0,
+                            headPitch: typeof desc.headPitch === 'number' ? desc.headPitch : 0,
+                            eyes: desc.eyes || 'center',
+                            brow: desc.brow || 'neutral',
+                            mood: desc.mood || 'neutral',
+                            energy: typeof desc.energy === 'number' ? desc.energy : 0.5,
+                            note: desc.note || 'neutral expression'
+                        };
+                    } catch (parseErr) {
+                        console.error('Failed to parse LLM response:', content);
+                        desc = {
+                            mouthViseme: 'SIL',
+                            mouthOpen: 0,
+                            headYaw: 0,
+                            headPitch: 0,
+                            eyes: 'center',
+                            brow: 'neutral',
+                            mood: 'neutral',
+                            energy: 0.5,
+                            note: 'parse error'
+                        };
+                    }
+                    
+                    results.push({
+                        id: item.id,
+                        desc: desc
+                    });
+                    
+                } catch (err) {
+                    console.error(`Failed to describe image ${item.id}:`, err.message);
+                    results.push({
+                        id: item.id,
+                        desc: {
+                            mouthViseme: 'SIL',
+                            mouthOpen: 0,
+                            headYaw: 0,
+                            headPitch: 0,
+                            eyes: 'center',
+                            brow: 'neutral',
+                            mood: 'neutral',
+                            energy: 0.5,
+                            note: 'error: ' + (err.message || 'unknown')
+                        }
+                    });
+                }
+                
+                // Small delay to avoid rate limiting
+                if (results.length < batch.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            console.log('[Visualizer] Completed describing', results.length, 'images');
+            return results;
+        } catch (err) {
+            console.error('Failed to describe images:', err);
+            throw err;
         }
     });
 

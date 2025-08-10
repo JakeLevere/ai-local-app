@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persona Frame Cataloguer</title>
+  <style>
+    :root{--bg:#0b0f15;--fg:#e6eef7;--muted:#8aa0b5;--acc:#4aa8ff;--warn:#ffcc00;--err:#ff6677}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1050px;margin:0 auto;padding:16px 20px;}
+    h1{font-size:20px;margin:0 0 10px}
+    .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .card{background:#0f1520;border:1px solid #1b2533;border-radius:14px;padding:12px}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    label{display:block;margin:6px 0;color:var(--muted)}
+    input[type="text"],input[type="number"],button,select{background:#0c121b;color:var(--fg);border:1px solid #1b2533;border-radius:10px;padding:8px 10px}
+    button{cursor:pointer}
+    button.primary{background:var(--acc);color:#021420;border:none}
+    .video-pane{position:relative;aspect-ratio:16/9;min-height:260px;background:#000;border-radius:12px;overflow:hidden}
+    video{width:100%;height:100%;object-fit:contain;background:#000}
+    .crop{position:absolute;border:2px dashed var(--warn);box-shadow:0 0 0 9999px rgba(0,0,0,.4);cursor:move}
+    .handle{position:absolute;width:14px;height:14px;background:var(--warn);border-radius:50%}
+    .handle.br{right:-7px;bottom:-7px;cursor:nwse-resize}
+    .status{font-family:ui-monospace,Consolas,monospace;background:#0a1018;padding:8px 10px;border-radius:10px;min-height:56px;white-space:pre-wrap}
+    .thumbs{display:grid;grid-template-columns:repeat(auto-fill,80px);gap:6px}
+    .thumbs img{width:80px;height:80px;border-radius:8px;border:1px solid #1b2533;image-rendering:pixelated}
+    .progress{height:8px;background:#0c121b;border-radius:999px;overflow:hidden;border:1px solid #1b2533}
+    .progress>span{display:block;height:100%;background:var(--acc);width:0%}
+    .pill{background:#0c121b;border:1px solid #1b2533;border-radius:999px;padding:4px 8px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Persona Frame Cataloguer</h1>
+    <div class="row card">
+      <div class="row" style="gap:10px">
+        <input id="file" type="file" accept="video/*" />
+        <button id="chooseOut">Choose Persona Library Folder</button>
+        <span id="outPath" class="pill">no folder selected</span>
+        <label>FPS <input id="fps" type="number" value="20" min="1" max="60" style="width:70px"></label>
+        <label>Scale <select id="scale">
+          <option value="nearest" selected>Nearest (pixelated)</option>
+          <option value="bilinear">Bilinear</option>
+        </select></label>
+        <label>Batch size <input id="batch" type="number" value="20" min="1" max="100" style="width:80px"></label>
+      </div>
+      <div class="row" style="gap:10px">
+        <button id="scanIndex">Scan Index</button>
+        <span id="nextId" class="pill">nextId: ?</span>
+        <button id="start" class="primary">Process Video → Library</button>
+        <button id="abort">Abort</button>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <label>Video & Square Crop</label>
+        <div class="video-pane" id="pane">
+          <video id="vid" controls></video>
+          <div class="crop" id="crop" style="left:30%;top:20%;width:40%;height:40%">
+            <div class="handle br"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <label>Status</label>
+        <div class="status" id="log">Idle.</div>
+        <div class="progress" style="margin-top:10px"><span id="bar"></span></div>
+        <div class="row" style="margin-top:8px"><span id="counts" class="pill">frames:0, saved:0, described:0</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <label>Recent 80×80 thumbnails</label>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+  </div>
+
+  <script>
+  // ---- helpers ----
+  const $ = (id)=>document.getElementById(id);
+  const log = (m)=>{ const L=$('log'); L.textContent += "\n"+m; L.scrollTop=L.scrollHeight; };
+  const setBar = (p)=> $('bar').style.width = Math.max(0,Math.min(100,p))+'%';
+  function dataURLToBlob(dataURL){const bstr=atob(dataURL.split(',')[1]);const n=bstr.length;const u8=new Uint8Array(n);for(let i=0;i<n;i++)u8[i]=bstr.charCodeAt(i);return new Blob([u8],{type:'image/png'})}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+  // ---- electron bridges (fallbacks provided for browser dev) ----
+  const api = {
+    async chooseOutputFolder(){return window.electronAPI?.invoke('persona.chooseFolder')||null;},
+    async readIndex(folder){return window.electronAPI?.invoke('persona.readIndex', {folder})||null;},
+    async writeIndex(folder, index){return window.electronAPI?.invoke('persona.writeIndex', {folder, index})||null;},
+    async saveFrames(folder, frames){return window.electronAPI?.invoke('persona.saveFrames', {folder, frames})||null;},
+    async describeImages(batch){return window.electronAPI?.invoke('llm.describeImages', {batch})||mockDescribe(batch);}
+  };
+
+  async function mockDescribe(batch){
+    // Offline/dev fallback LLM stub
+    return batch.map((b,i)=>({ id:b.tempId, desc:`neutral head, eyes forward, viseme=SIL, energy=0.2 (stub)` }));
+  }
+
+  // ---- crop UI ----
+  const pane=$('pane'), crop=$('crop');
+  let dragging=false, resizing=false, startX=0,startY=0,rect0=null;
+  crop.addEventListener('mousedown', (e)=>{ if(e.target.classList.contains('handle')){resizing=true}else{dragging=true} startX=e.clientX;startY=e.clientY;rect0=crop.getBoundingClientRect(); e.preventDefault();});
+  window.addEventListener('mouseup', ()=>{dragging=false;resizing=false});
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging && !resizing) return; const paneRect=pane.getBoundingClientRect();
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    if(dragging){
+      const l=(rect0.left-paneRect.left+dx), t=(rect0.top-paneRect.top+dy);
+      const size=Math.min(paneRect.width, paneRect.height, Math.min(paneRect.width - l, paneRect.height - t));
+      crop.style.left=Math.max(0,Math.min(l,paneRect.width-rect0.width))+'px';
+      crop.style.top=Math.max(0,Math.min(t,paneRect.height-rect0.height))+'px';
+    }
+    if(resizing){
+      const s=Math.max(40, Math.min(rect0.width+dx, rect0.height+dy));
+      crop.style.width=crop.style.height=s+'px';
+    }
+  });
+
+  // ---- main flow ----
+  const file=$('file'), vid=$('vid');
+  file.onchange=()=>{ if(file.files[0]){const url=URL.createObjectURL(file.files[0]); vid.src=url; log('Loaded video: '+file.files[0].name);} };
+
+  let outFolder=null, nextId=null, abortFlag=false;
+  $('chooseOut').onclick=async()=>{ outFolder=await api.chooseOutputFolder(); $('outPath').textContent=outFolder||'no folder selected'; if(outFolder) log('Output folder: '+outFolder); };
+  $('scanIndex').onclick=scanIndex;
+  $('abort').onclick=()=>{ abortFlag=true; log('Abort requested…'); };
+
+  async function scanIndex(){
+    if(!outFolder){ log('Select output folder first.'); return; }
+    const idx = await api.readIndex(outFolder);
+    if(idx && typeof idx.nextId==='number'){ nextId=idx.nextId; } else { nextId=1; }
+    $('nextId').textContent='nextId: '+nextId;
+    log('Index scanned. Next ID = '+nextId);
+  }
+
+  $('start').onclick=async()=>{
+    try{ abortFlag=false; setBar(0); $('counts').textContent='frames:0, saved:0, described:0';
+      if(!file.files[0]) return log('Choose a video first.');
+      if(!outFolder) return log('Choose an output folder first.');
+      if(nextId==null) await scanIndex();
+      const fps=parseInt($('fps').value||20,10); const scale=$('scale').value; const batchSize=parseInt($('batch').value||20,10);
+      const frames = await extractFrames({video:vid, fps, scale});
+      if(abortFlag) return log('Aborted before LLM.');
+      const described = await describeInBatches(frames, batchSize);
+      if(abortFlag) return log('Aborted before save.');
+      const saved = await saveToLibrary(described);
+      log(`Done. Saved ${saved} frames.`);
+    }catch(e){ console.error(e); log('Error: '+e.message); }
+  };
+
+  async function extractFrames({video, fps, scale}){
+    log(`Extracting at ${fps} fps…`);
+    const duration=video.duration; if(!isFinite(duration)||duration<=0) await once(video,'loadedmetadata');
+    const dur=video.duration; const total=Math.floor(dur*fps);
+    const paneRect=pane.getBoundingClientRect(); const cropRect=crop.getBoundingClientRect();
+    // compute crop in normalized pane coords, then map to actual video draw rect
+    const paneW=paneRect.width, paneH=paneRect.height; const cx=cropRect.left-paneRect.left, cy=cropRect.top-paneRect.top, cs=cropRect.width;
+
+    // Setup canvases
+    const work=document.createElement('canvas');
+    const ctx=work.getContext('2d');
+    const out=document.createElement('canvas'); out.width=80; out.height=80; const octx=out.getContext('2d');
+    if(scale==='nearest'){ octx.imageSmoothingEnabled=false; octx.imageSmoothingQuality='low'; }
+
+    const thumbs=$('thumbs'); thumbs.innerHTML='';
+
+    const results=[];
+    for(let i=0;i<total;i++){
+      if(abortFlag) break;
+      const t=i/fps; video.currentTime=Math.min(t, dur-0.0001);
+      await once(video,'seeked');
+      // draw video to fit pane size
+      work.width=paneW; work.height=paneH; ctx.drawImage(video, 0,0, paneW, paneH);
+      // crop square
+      const imgData=ctx.getImageData(cx, cy, cs, cs);
+      // draw to out 80×80
+      const tmp=document.createElement('canvas'); tmp.width=cs; tmp.height=cs; tmp.getContext('2d').putImageData(imgData,0,0);
+      if(scale==='nearest'){ octx.imageSmoothingEnabled=false; } else { octx.imageSmoothingEnabled=true; }
+      octx.clearRect(0,0,80,80); octx.drawImage(tmp, 0,0,80,80);
+      // convert to monochrome 80×80 (pixelized look but keep alpha)
+      const d=octx.getImageData(0,0,80,80); const a=d.data;
+      for(let p=0;p<a.length;p+=4){ const y=0.2126*a[p]+0.7152*a[p+1]+0.0722*a[p+2]; a[p]=a[p+1]=a[p+2]=y; }
+      octx.putImageData(d,0,0);
+      const dataURL=out.toDataURL('image/png');
+      const tempId=`t${i}`;
+      results.push({ tempId, timeMs: Math.round(1000*t), png:dataURL });
+      if(i<36){ // show some thumbs
+        const img=new Image(); img.src=dataURL; thumbs.appendChild(img);
+      }
+      if(i%5===0) { $('counts').textContent=`frames:${i+1}/${total}, saved:0, described:0`; setBar(((i+1)/total)*30); }
+    }
+    log(`Extracted ${results.length} frames.`);
+    return results;
+  }
+
+  async function describeInBatches(frames, batchSize){
+    log('Describing frames via LLM in batches of '+batchSize+'…');
+    const out=[]; let done=0;
+    for(let i=0;i<frames.length;i+=batchSize){
+      if(abortFlag) break;
+      const batch=frames.slice(i,i+batchSize);
+      const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
+      const payload = batch.map(b=>({ id:b.tempId, image:b.png, prompt: promptHeader }));
+      const desc = await api.describeImages(payload);
+      out.push(...batch.map((b,ix)=>({ ...b, meta: desc[ix] })));
+      done += batch.length; $('counts').textContent=`frames:${frames.length}, saved:0, described:${done}`; setBar(30 + (done/frames.length)*40);
+      await sleep(15);
+    }
+    log('Descriptions done.');
+    return out;
+  }
+
+  async function saveToLibrary(frames){
+    const records=[]; let saved=0; let curId=nextId||1;
+    for(const f of frames){
+      const id=curId++; const name = String(id).padStart(6,'0');
+      records.push({ id, filename: `${name}.png`, timeMs: f.timeMs, meta: f.meta });
+    }
+    await api.saveFrames(outFolder, { images: frames.map((f,ix)=>({ id: records[ix].id, filename: records[ix].filename, blob: f.png })), records });
+    await api.writeIndex(outFolder, { nextId: curId }); nextId=curId; $('nextId').textContent='nextId: '+nextId;
+    $('counts').textContent=`frames:${frames.length}, saved:${records.length}, described:${frames.length}`; setBar(100);
+    return records.length;
+  }
+
+  function once(el, ev){ return new Promise(res=>{ const h=()=>{ el.removeEventListener(ev,h); res(); }; el.addEventListener(ev,h,{once:true}); }); }
+  </script>
+</body>
+</html>
