@@ -42,7 +42,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         setSpeed: (speed) => ipcRenderer.invoke('tts-set-speed', speed),
         getVoices: () => ipcRenderer.invoke('tts-get-voices'),
         test: () => ipcRenderer.invoke('tts-test')
-    }
+    },
+    
+    // Personas API
+    getPersonas: () => ipcRenderer.invoke('getPersonas'),
+    
+    // OpenAI API key retrieval for visualizer editor
+    getOpenAIKey: () => ipcRenderer.invoke('getOpenAIKey'),
+    
+    // File system API for visualizer editor
+    saveFile: (filePath, data) => ipcRenderer.invoke('saveFile', { filePath, data }),
+    ensureDirectory: (dirPath) => ipcRenderer.invoke('ensureDirectory', dirPath),
+    readFile: (filePath) => ipcRenderer.invoke('readFile', filePath),
+    listFiles: (dirPath) => ipcRenderer.invoke('listFiles', dirPath)
 });
 
 // Provide the same API under the legacy 'electron' name

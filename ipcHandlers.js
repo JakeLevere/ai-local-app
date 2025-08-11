@@ -738,6 +738,127 @@ function initialize(windowInstance, paths) {
         }
     });
 
+    // File system handlers for visualizer editor
+    ipcMain.handle('saveFile', async (event, { filePath, data }) => {
+        try {
+            // Convert data to Buffer if it's not already
+            let buffer;
+            if (Buffer.isBuffer(data)) {
+                buffer = data;
+            } else if (data instanceof Uint8Array) {
+                buffer = Buffer.from(data);
+            } else if (typeof data === 'string') {
+                buffer = Buffer.from(data, 'utf-8');
+            } else {
+                // Assume it's an object to be saved as JSON
+                buffer = Buffer.from(JSON.stringify(data, null, 2), 'utf-8');
+            }
+            
+            // Ensure directory exists
+            const dir = path.dirname(filePath);
+            await fs.mkdir(dir, { recursive: true });
+            
+            // Save the file
+            await fs.writeFile(filePath, buffer);
+            console.log('[IPC] File saved:', filePath);
+            return true;
+        } catch (error) {
+            console.error('[IPC] Failed to save file:', error);
+            throw error;
+        }
+    });
+    
+    ipcMain.handle('readFile', async (event, filePath) => {
+        try {
+            // Check file extension to determine if it's binary
+            const ext = path.extname(filePath).toLowerCase();
+            const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico', '.mp3', '.mp4', '.wav', '.pdf', '.zip'];
+            
+            if (binaryExtensions.includes(ext)) {
+                // Read binary files as buffer and convert to base64
+                const buffer = await fs.readFile(filePath);
+                const base64 = buffer.toString('base64');
+                console.log('[IPC] Binary file read as base64:', filePath, '- size:', buffer.length);
+                return base64;
+            } else {
+                // Read text files as UTF-8
+                const data = await fs.readFile(filePath, 'utf-8');
+                console.log('[IPC] Text file read:', filePath);
+                return data;
+            }
+        } catch (error) {
+            console.error('[IPC] Failed to read file:', filePath, error);
+            throw error;
+        }
+    });
+    
+    ipcMain.handle('listFiles', async (event, dirPath) => {
+        try {
+            const files = await fs.readdir(dirPath);
+            console.log('[IPC] Listed files in:', dirPath, '- count:', files.length);
+            return files;
+        } catch (error) {
+            console.error('[IPC] Failed to list files:', dirPath, error);
+            // Return empty array if directory doesn't exist
+            return [];
+        }
+    });
+    
+    ipcMain.handle('ensureDirectory', async (event, dirPath) => {
+        try {
+            await fs.mkdir(dirPath, { recursive: true });
+            console.log('[IPC] Directory ensured:', dirPath);
+            return true;
+        } catch (error) {
+            console.error('[IPC] Failed to ensure directory:', error);
+            throw error;
+        }
+    });
+    
+    // LLM handler for describing images (used by visualizer editor)
+    // Handler to get list of personas for visualizer editor
+    ipcMain.handle('getPersonas', async () => {
+        try {
+            const personasPath = path.join('C:', 'Users', 'jakek', 'Documents', 'ai-local-data', 'Personas');
+            console.log('[IPC] Looking for personas in:', personasPath);
+            
+            // Check if directory exists
+            try {
+                await fs.access(personasPath);
+            } catch (err) {
+                console.log('[IPC] Personas directory does not exist:', personasPath);
+                return ['default'];
+            }
+            
+            const entries = await fs.readdir(personasPath, { withFileTypes: true });
+            const personas = entries
+                .filter(entry => entry.isDirectory())
+                .map(entry => entry.name)
+                .sort();
+            console.log('[IPC] Found personas:', personas);
+            return personas.length > 0 ? personas : ['default'];
+        } catch (error) {
+            console.error('[IPC] Failed to get personas:', error);
+            return ['default']; // Return default if path doesn't exist
+        }
+    });
+    
+    // Handler to get OpenAI API key for visualizer editor
+    ipcMain.handle('getOpenAIKey', async () => {
+        try {
+            const key = process.env.OPENAI_API_KEY;
+            if (!key) {
+                console.log('[IPC] No OpenAI key found in environment');
+                return null;
+            }
+            console.log('[IPC] Returning OpenAI key to visualizer editor');
+            return key;
+        } catch (error) {
+            console.error('[IPC] Failed to get OpenAI key:', error);
+            return null;
+        }
+    });
+
     // LLM handler for describing images (used by visualizer editor)
     ipcMain.handle('llm.describeImages', async (event, { batch }) => {
         try {

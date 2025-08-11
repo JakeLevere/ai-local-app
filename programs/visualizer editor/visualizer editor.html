@@ -1,886 +1,2856 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Persona Frame Cataloguer</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visualizer Editor — Ingest → Analyze → Review</title>
   <style>
-    :root{--bg:#0b0f15;--fg:#e6eef7;--muted:#8aa0b5;--acc:#4aa8ff;--warn:#ffcc00;--err:#ff6677}
-    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--fg);font:11px system-ui,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden;box-sizing:border-box}
-    *, *:before, *:after {box-sizing: inherit}
-
-    /* App layout - video 2/3 width/height, controls on right and bottom */
-    #app{position:absolute;inset:0;display:grid;gap:4px;padding:4px;
-         grid-template-rows:2fr 1fr;
-         grid-template-columns:2fr 1fr;
-         grid-template-areas:"video controls" "bottom bottom";}
-
-    /* Video section - top-left, 2/3 width and 2/3 height */
-    .video-section{grid-area:video;display:flex;flex-direction:column;min-height:0}
-    .video-pane{position:relative;flex:1;min-height:0;border-radius:6px;background:#000;overflow:hidden;border:1px solid #1b2533}
-    .video-pane > video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
-
-    /* Control sidebar - top-right, 1/3 width, 2/3 height */
-    .sidebar{grid-area:controls;display:flex;flex-direction:column;min-height:0;gap:4px;padding:6px;background:#0f1520;border:1px solid #1b2533;border-radius:6px;overflow:hidden}
-    
-    /* Control sections - fixed height to prevent overflow */
-    .control-section{display:flex;flex-direction:column;gap:3px;padding:6px;background:#0a0e14;border:1px solid #1b2533;border-radius:4px;flex:0 0 auto}
-
-    /* Bottom area - full width, 1/3 height */
-    .bottom-area{grid-area:bottom;display:flex;gap:6px;min-height:0}
-    /* Control sections within sidebar */
-    .control-section{display:flex;flex-direction:column;gap:3px;padding:6px;background:#0a0e14;border:1px solid #1b2533;border-radius:4px}
-    .control-section h4{margin:0 0 4px 0;color:var(--acc);font-size:10px;font-weight:600}
-    .control-row{display:flex;gap:4px;align-items:center}
-    .control-row.wrap{flex-wrap:wrap}
-    .action-buttons{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-    .action-buttons button{padding:4px 6px;font-size:9px}
-    
-    /* Thumbnails and log in expandable sections */
-    
-    /* Thumbnails grid - fixed size, no scrollbars */
-    .thumbs{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:36px;gap:2px;height:80px;overflow:hidden;border:1px solid #1b2533;border-radius:4px;padding:2px}
-    .thumbs img{width:100%;height:100%;border-radius:3px;border:1px solid #1b2533;image-rendering:pixelated}
-
-    /* Status log - fixed size, no scrollbars */
-    .status{font-family:ui-monospace,Consolas,monospace;background:#0a1018;padding:4px 6px;border-radius:4px;font-size:9px;white-space:pre-wrap;height:60px;overflow:hidden;border:1px solid #1b2533}
-
-    /* Status bar moved to bottom area */
-    .status-bar{display:flex;gap:6px;align-items:center;min-height:20px;font-size:10px;flex:1}
-    .progress{height:6px;background:#0c121b;border-radius:3px;overflow:hidden;border:1px solid #1b2533;flex:1}
-    .progress>span{display:block;height:100%;background:var(--acc);width:0%;transition:width 0.3s ease}
-    
-    /* Bottom sections */
-    .bottom-section{background:#0f1520;border:1px solid #1b2533;border-radius:6px;padding:6px;display:flex;flex-direction:column;gap:4px}
-    .pill{background:#0c121b;border:1px solid #1b2533;border-radius:12px;padding:2px 6px;color:var(--muted);font-size:9px;white-space:nowrap}
-
-    /* Compact form controls */
-    input[type="text"],input[type="number"],button,select{background:#0c121b;color:var(--fg);border:1px solid #1b2533;border-radius:4px;padding:3px 6px;font-size:10px;min-height:20px}
-    button{cursor:pointer;white-space:nowrap}
-    button.primary{background:var(--acc);color:#021420;border:none}
-    button:disabled{opacity:0.5;cursor:not-allowed}
-    
-    /* Crop overlay */
-    .crop{position:absolute;border:2px dashed var(--warn);box-shadow:0 0 0 9999px rgba(0,0,0,.4);cursor:move}
-    .handle{position:absolute;width:10px;height:10px;background:var(--warn);border-radius:50%}
-    .handle.br{right:-5px;bottom:-5px;cursor:nwse-resize}
-
-    /* Compact spacing */
-    .row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-    .col{display:flex;flex-direction:column;gap:2px}
-    label{color:var(--muted);font-size:9px;margin:0}
-    .settings{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px}
-    .settings label{margin-bottom:1px}
-    .settings input, .settings select{padding:2px 4px;min-height:18px}
-
-    /* Responsive adjustments */
-    @media (max-width: 1200px) {
-      .main{grid-template-columns:3fr 2fr}
+    :root{
+      --bg:#0f1220; --panel:#161a2b; --muted:#8b92b2; --text:#e8ecff; --accent:#8ad1ff; --green:#35d49b; --red:#ff6b6b; --yellow:#ffd166; --magenta:#ff7dd8;
+      --card:#1b2036; --border:#262c49; --pill:#1e2440; --shadow:0 8px 30px rgba(0,0,0,.35);
     }
-    @media (max-width: 1000px) {
-      .main{grid-template-columns:1fr;grid-template-rows:2fr 1fr}
-      .sidebar{max-height:300px;overflow-y:auto}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:linear-gradient(180deg,var(--bg),rgba(15,18,32,.9));backdrop-filter:saturate(1.2) blur(8px);z-index:10}
+    h1{margin:0;font-size:16px;letter-spacing:.4px;font-weight:700}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:8px;background:var(--pill);border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px}
+    .pill .dot{width:8px;height:8px;border-radius:50%}
+    .pill.ready .dot{background:var(--green)}
+    .pill.warn .dot{background:var(--yellow)}
+    .pill.err .dot{background:var(--red)}
+    .tabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)}
+    .tab-btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tab-btn.active{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 2px rgba(138,209,255,.15) inset}
+    main{display:grid;grid-template-columns:minmax(260px,340px) 1fr;min-height:calc(100vh - 100px)}
+    aside{border-right:1px solid var(--border);padding:14px 14px 80px;overflow:auto}
+    section{padding:14px;overflow:auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:12px;margin:10px 0}
+    .card h3{margin:0 0 8px 0;font-size:13px;letter-spacing:.2px;color:#cdd3ff}
+    label{display:block;margin:8px 0 4px 0;color:var(--muted)}
+    input[type="text"], input[type="number"], textarea, select{width:100%;box-sizing:border-box;background:#0c1022;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 10px}
+    textarea{min-height:90px}
+    button{background:#1e2544;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 12px;cursor:pointer}
+    button.primary{background:#233056;border-color:#2f3a6a}
+    button.warn{background:#3a2a23;border-color:#5a3a2f}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .split{display:grid;grid-template-columns:1fr;gap:12px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .hidden{display:none !important}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .muted{color:var(--muted)}
+    .bar{height:8px;background:#0d1230;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+    .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5ac8ff,#8ad1ff)}
+    .folder-preview{display:flex;flex-direction:column;gap:8px}
+    .folder-preview .line{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+    .folder-preview .dot{width:8px;height:8px;border-radius:50%;background:#5ac8ff}
+    .log{font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto;background:#0b0f1e;border:1px solid var(--border);border-radius:8px;padding:8px}
+  /* Review canvas pane */
+  .review{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:14px}
+  #previewWrap{background:#0b0f1e;border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+  #frameCanvas{image-rendering: pixelated;image-rendering: crisp-edges;background:#000;border:1px solid #2c3255;border-radius:10px;max-width:100%;width:100%;height:auto}
+  
+  /* Frame selection overlay */
+  .video-container{position:relative;display:inline-block;width:100%;margin-top:8px}
+  #selectionOverlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5}
+  #selectionBox{position:absolute;border:2px dashed var(--accent);background:rgba(138,209,255,0.1);pointer-events:all;cursor:move;display:none}
+  #selectionBox.active{display:block}
+  .resize-handle{position:absolute;width:10px;height:10px;background:var(--accent);border:1px solid #fff;border-radius:2px}
+  .resize-handle.nw{top:-5px;left:-5px;cursor:nw-resize}
+  .resize-handle.ne{top:-5px;right:-5px;cursor:ne-resize}
+  .resize-handle.sw{bottom:-5px;left:-5px;cursor:sw-resize}
+  .resize-handle.se{bottom:-5px;right:-5px;cursor:se-resize}
+  .selection-info{position:absolute;top:-25px;left:0;font-size:11px;background:var(--pill);padding:2px 6px;border-radius:4px;white-space:nowrap;color:var(--text)}
+    .overlay-legend{display:flex;gap:10px;font-size:12px;color:var(--muted)}
+    .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .legend-leftEye,.legend-rightEye{background:var(--yellow)}
+    .legend-mouth{background:var(--magenta)}
+    .side{display:flex;flex-direction:column;gap:12px}
+    .kbd{font:600 11px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:#10142b;border:1px solid #2d365f;border-radius:6px;padding:3px 6px;color:#cdd3ff}
+    .flex{display:flex;gap:10px;align-items:center}
+    .space{flex:1}
+    .list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}
+    .list .item{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#131938}
+    .danger{color:#ff7e99}
+
+    /* Responsive layout + canvas scaling */
+    @media (max-width:1100px){
+      main{grid-template-columns:1fr}
+      aside{order:2}
+      section{order:1}
+      .review{grid-template-columns:1fr}
     }
+    @media (max-width:820px){
+      .grid2{grid-template-columns:1fr}
+      .grid3{grid-template-columns:1fr}
+    }
+    body.collapsed aside{display:none}
+    body.collapsed main{grid-template-columns:1fr}
+
+    /* Stepper */
+    .stepper{display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .step{display:flex;align-items:center;gap:8px;color:var(--muted)}
+    .step .num{width:20px;height:20px;border-radius:50%;background:#0b0f1e;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px}
+    .step.active{color:var(--text)}
+    .step.active .num{background:var(--accent);border-color:var(--accent);color:#001020}
+  .guide-hint{background:linear-gradient(135deg, #0b0f1e, #151938);border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;color:#cdd3ff;font-size:12px;box-shadow:0 2px 8px rgba(138,209,255,0.1)}
   </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Video section - top-left 2/3x2/3 -->
-    <div class="video-section">
-      <div class="video-pane" id="pane">
-        <video id="vid" controls></video>
-        <div class="crop" id="crop" style="left:30%;top:20%;width:40%;height:40%">
-          <div class="handle br"></div>
-        </div>
+  <header>
+    <h1>Visualizer Editor<span class="muted"> — Ingest → Analyze → Review</span></h1>
+    <div class="row">
+      <div class="pill" style="background:var(--accent);color:#001020">
+        <b>Persona:</b>
+        <select id="personaTop" style="background:transparent;border:none;color:#001020;font-weight:600;min-width:100px">
+          <option value="">Select...</option>
+        </select>
       </div>
+      <span id="adapterPill" class="pill"><i class="dot"></i><b>Adapter:</b><span id="adapterState">Not tested</span></span>
+      <span class="pill"><b>Prompt</b>: <span id="promptHash">(none)</span></span>
+      <span class="pill" style="background:var(--magenta);color:#fff"><b>Video #</b>: <span id="videoIndexDisplay">-</span></span>
+      <span class="pill"><b>Frames</b>: <span id="counts">0</span></span>
+      <span class="pill"><b>Duration</b>: <span id="duration">0.00s @12fps</span></span>
     </div>
+  </header>
 
-    <!-- Control sidebar - top-right -->
-    <div class="sidebar">
-      <!-- File and persona selection -->
-      <div class="control-section">
-        <h4>📁 Input & Persona</h4>
-        <input id="file" type="file" accept="video/*" />
-        <div class="control-row">
-          <select id="personaSelect" style="flex:1">
-            <option value="">Select Persona...</option>
-          </select>
-          <button id="refreshPersonas" title="Refresh personas">🔄</button>
-        </div>
-        <div class="control-row">
-          <button id="scanIndex" style="flex:1">📊 Scan Library</button>
-          <button id="redescribe" style="flex:1">🔄 Re-describe All</button>
-        </div>
-        <span id="libraryInfo" class="pill" style="text-overflow:ellipsis;overflow:hidden">no persona selected</span>
-      </div>
-
-      <!-- Processing settings -->
-      <div class="control-section">
-        <h4>⚙️ Settings</h4>
-        <div class="control-row">
-          <label style="flex:1">FPS <input id="fps" type="number" value="20" min="1" max="60"></label>
-          <label style="flex:1">Batch <input id="batch" type="number" value="20" min="1" max="100"></label>
-        </div>
-        <label>Scale <select id="scale"><option value="nearest" selected>Pixelated</option><option value="bilinear">Smooth</option></select></label>
-        <small style="color:var(--warn);font-size:8px">Drag yellow square on video to set crop area</small>
-      </div>
-
-      <!-- Actions -->
-      <div class="control-section">
-        <h4>🎬 Actions</h4>
-        <div class="action-buttons">
-          <span id="nextId" class="pill" style="grid-column:span 2;text-align:center">Next ID: ?</span>
-          <button id="start" class="primary">▶️ Process</button>
-          <button id="abort">⏹️ Stop</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bottom area - full width -->
-    <div class="bottom-area">
-      <!-- Thumbnails section -->
-      <div class="bottom-section" style="flex:1">
-        <h4>🖼️ Recent Thumbnails</h4>
-        <div class="thumbs" id="thumbs"></div>
-      </div>
-      
-      <!-- Log section -->
-      <div class="bottom-section" style="flex:1">
-        <h4>📋 Processing Log</h4>
-        <div class="status" id="log">Ready. Select video and library folder to begin.</div>
-      </div>
-      
-      <!-- Status bar -->
-      <div class="bottom-section" style="flex:0 0 200px">
-        <h4>📊 Progress</h4>
-        <div class="status-bar">
-          <div class="progress"><span id="bar"></span></div>
-        </div>
-        <span id="counts" class="pill" style="text-align:center;margin-top:4px">frames:0, saved:0, described:0</span>
-      </div>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="ingest">Ingest</button>
+    <button class="tab-btn" data-tab="analyze">Analyze</button>
+    <button class="tab-btn" data-tab="review">Review</button>
+    <div class="space"></div>
+    <button id="toggleSidebar" class="tab-btn" title="Hide/Show left panel">☰ Panel</button>
+    <button id="runAllBtn" class="tab-btn">Run All</button>
+  </div>
+  <div class="stepper" id="stepper">
+    <div class="step" data-step="1"><span class="num">1</span><b>📥 Ingest</b></div>
+    <div class="step" data-step="2"><span class="num">2</span><b>🔬 Analyze</b></div>
+    <div class="step" data-step="3"><span class="num">3</span><b>✏️ Review</b></div>
+    <div class="space"></div>
+    <div class="guide-hint" id="guideHint">👉 First, select a persona from the top bar</div>
   </div>
 
-  <script>
-  // ---- helpers ----
-  const $ = (id)=>document.getElementById(id);
-  const log = (m)=>{ const L=$('log'); L.textContent += "\n"+m; L.scrollTop=L.scrollHeight; };
-  const setBar = (p)=> $('bar').style.width = Math.max(0,Math.min(100,p))+'%';
-  function dataURLToBlob(dataURL){const bstr=atob(dataURL.split(',')[1]);const n=bstr.length;const u8=new Uint8Array(n);for(let i=0;i<n;i++)u8[i]=bstr.charCodeAt(i);return new Blob([u8],{type:'image/png'})}
-  function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+  <main>
+    <aside>
+      <div class="card">
+        <h3>📋 Step-by-Step Workflow</h3>
+        <ol style="margin:6px 0 10px 18px; padding:0;">
+          <li><b>Setup:</b> Select Persona → Choose Output Folder</li>
+          <li><b>Ingest:</b> Load Video → Extract Frames (12fps) → Downscale → Create Chunks</li>
+          <li><b>Analyze:</b> Configure Model → Test Connection → Run Analysis</li>
+          <li><b>Review:</b> Check Results → Fix Errors → Export Report</li>
+        </ol>
+        <div class="row">
+          <button id="doNext" class="primary">▶ Start Guided Setup</button>
+          <span class="muted">Follow step-by-step</span>
+        </div>
+      </div>
 
-  // ---- State management ----
-  const appState = {
-    personaName: null,
-    outFolder: null,
-    nextId: null,
-    basePersonasPath: null,
-    
-    setPersona(name) {
-      if (!name || !this.basePersonasPath) {
-        this.personaName = null;
-        this.outFolder = null;
-        $('libraryInfo').textContent = 'no persona selected';
-        $('libraryInfo').title = '';
-        return;
-      }
-      
-      this.personaName = name;
-      this.outFolder = `${this.basePersonasPath}\\${name}\\vizualizer frames`;
-      sessionStorage.setItem('selectedPersona', name);
-      
-      $('libraryInfo').textContent = `Persona: ${name}`;
-      $('libraryInfo').title = this.outFolder;
-      
-      // Auto-scan when persona is selected
-      setTimeout(() => scanIndex(), 100);
-    },
-    
-    loadState() {
-      const saved = sessionStorage.getItem('selectedPersona');
-      if (saved && this.basePersonasPath) {
-        this.setPersona(saved);
-        log('📁 Restored persona: ' + saved);
-      }
-    }
+      <div class="card">
+        <h3>📁 Output Settings</h3>
+        <div>
+          <label><b>Output Directory</b></label>
+          <div class="row">
+            <button id="chooseOutDir">Choose Folder</button>
+            <button id="openOutDir" title="Open in OS" disabled>Open</button>
+          </div>
+          <div id="outPath" class="muted mono" style="margin-top:6px">(Select persona from top bar)</div>
+        </div>
+        <div class="folder-preview" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+          <div class="muted" style="margin-bottom:6px">📁 Files will be saved to:</div>
+          <div class="line"><span class="dot"></span><span class="mono">visualizer frames/</span> <span class="muted">Main folder</span></div>
+          <div class="line" style="margin-left:16px"><span class="dot"></span><span class="mono">raw/</span> <span class="muted">Original frames @12fps</span></div>
+          <div class="line" style="margin-left:16px"><span class="dot"></span><span class="mono">proc120/</span> <span class="muted">120×120 processed</span></div>
+          <div class="line" style="margin-left:16px"><span class="dot"></span><span class="mono">descriptors/</span> <span class="muted">Analysis results</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>1️⃣ Model Configuration</h3>
+        <label>AI Engine</label>
+        <select id="modelSelect">
+          <option value="openai:gpt-4o-mini">OpenAI — gpt-4o-mini</option>
+          <option value="ollama:llava">Local — Ollama + LLaVA</option>
+        </select>
+        <div id="openaiCfg" class="split">
+          <div>
+            <label>OpenAI API Key</label>
+            <input id="openaiKey" type="text" placeholder="sk-…" />
+          </div>
+          <div>
+            <label>OpenAI Base URL (optional)</label>
+            <input id="openaiBase" type="text" placeholder="https://api.openai.com" />
+          </div>
+        </div>
+        <div id="ollamaCfg" class="split hidden">
+          <div>
+            <label>Ollama Host</label>
+            <input id="ollamaHost" type="text" value="http://localhost:11434" />
+          </div>
+          <div class="muted">Assumes model <span class="mono">llava</span> is pulled.</div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="testAdapter">Test Adapter</button>
+          <button id="saveModelCfg">Save Config</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>2️⃣ Analysis Prompt</h3>
+        <label>Instructions for AI Model</label>
+        <textarea id="promptText" class="mono" placeholder="Instruction to model for coords/actions…"></textarea>
+        <div class="row">
+          <button id="loadPromptFile">Load from file…</button>
+          <button id="hashPrompt">Refresh hash</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🔍 Quality Checks</h3>
+        <div class="row">
+          <button id="findLowConf">Find low-confidence</button>
+          <input id="lowConfThresh" type="number" step="0.05" value="0.5" style="width:80px" />
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="findMissing">Find missing JSON</button>
+          <button id="findOOR">Find out-of-range</button>
+        </div>
+        <div id="auditList" class="list" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <h3>📊 Export Results</h3>
+        <div class="row">
+          <button id="exportReport">Export Run Report</button>
+        </div>
+      </div>
+    </aside>
+
+    <section>
+      <!-- INGEST TAB -->
+      <div id="tab-ingest">
+        <div class="guide-hint" style="margin:8px 0">📥 <b>INGEST PHASE</b> — Load video, extract frames, and prepare for analysis</div>
+
+        <div class="card" style="background:linear-gradient(135deg, var(--card), #1e2544);border-color:var(--accent)">
+          <h3>🚀 Quick Process All</h3>
+          <div class="row">
+            <button id="runAllIngest" class="primary" style="font-size:15px;padding:12px 20px">▶ Run All Ingest Steps</button>
+            <span class="muted">Extracts → Downscales → Creates chunks</span>
+          </div>
+          <div class="muted" style="margin-top:8px;font-size:12px">⚡ Runs steps 1-4 automatically after you load a video, then switches to Analyze tab</div>
+        </div>
+
+        <div class="grid2">
+        <div class="card">
+          <h3>Step 1: Load Video File</h3>
+          <div class="guide-hint" style="margin-bottom:8px;font-size:12px;background:var(--magenta);color:#fff">
+            ⚠️ <b>This will be saved as Video <span id="nextVideoNumber">-</span></b> - Each new video gets the next number to prevent overwrites
+          </div>
+          <label>Video file</label>
+          <input id="videoFile" type="file" accept="video/*" />
+            <div class="video-container">
+              <video id="vid" controls style="width:100%;border:1px solid var(--border);border-radius:10px"></video>
+              <div id="selectionOverlay">
+                <div id="selectionBox">
+                  <div class="resize-handle nw"></div>
+                  <div class="resize-handle ne"></div>
+                  <div class="resize-handle sw"></div>
+                  <div class="resize-handle se"></div>
+                  <div class="selection-info" id="selectionInfo">0×0</div>
+                </div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button id="toggleSelection" class="tab-btn">Toggle Selection</button>
+              <button id="resetSelection" class="tab-btn">Reset to 1000×1000</button>
+              <div class="space"></div>
+              <span class="muted" id="selectionStatus">No selection</span>
+            </div>
+            <div class="guide-hint" style="margin-top:8px;font-size:12px">💡 Use the square selection tool to focus on a specific area, or leave it for full frame</div>
+          </div>
+          <div class="card">
+            <h3>Step 2: Extract Frames (12 fps)</h3>
+            <div class="row">
+              <button id="extractCanvas" class="primary">Run Extraction (in-app)</button>
+              <button id="extractFFmpeg" title="Electron/Node sidecar if available">Run via ffmpeg</button>
+            </div>
+            <div class="bar" style="margin-top:10px"><i id="barExtract"></i></div>
+            <div id="logExtract" class="log" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <h3>Step 3: Downscale to 120×120</h3>
+            <div class="row">
+              <label class="flex" style="gap:8px"><input type="checkbox" id="useLetterbox" checked /> Letterbox (no distortion)</label>
+              <div class="space"></div>
+              <button id="downscaleBtn">Run Downscale</button>
+            </div>
+            <div class="bar" style="margin-top:10px"><i id="barDown"></i></div>
+            <div id="logDown" class="log" style="margin-top:8px"></div>
+            <div class="grid2" style="margin-top:8px">
+              <div>
+                <h3>First frame</h3>
+                <canvas id="first120" width="120" height="120"></canvas>
+              </div>
+              <div>
+                <h3>Last frame</h3>
+                <canvas id="last120" width="120" height="120"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Step 4: Create Frame Chunks</h3>
+            <div class="row">
+              <button id="makeChunks">Create chunks.json</button>
+              <div class="space"></div>
+              <div class="muted">Each chunk = 6 frames = 0.5 s</div>
+            </div>
+            <div id="chunkInfo" class="muted" style="margin-top:8px">(no chunks yet)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ANALYZE TAB -->
+      <div id="tab-analyze" class="hidden">
+        <div class="guide-hint" style="margin:8px 0">🔬 <b>ANALYSIS PHASE</b> — Process frames with AI to extract facial landmarks and actions</div>
+
+        <div class="card">
+          <h3>🤖 AI Analysis Settings</h3>
+          <div class="row" style="margin-bottom:12px;padding:10px;background:var(--pill);border-radius:10px">
+            <label style="margin:0;font-weight:600;color:var(--accent)">Select Video to Analyze:</label>
+            <select id="analyzeVideoSelect" style="min-width:150px;margin-left:10px">
+              <option value="">Loading videos...</option>
+            </select>
+            <div class="space"></div>
+            <span class="muted" id="analyzeVideoInfo">No videos found</span>
+          </div>
+          <div class="grid3">
+            <div>
+              <label>Concurrency</label>
+              <input id="concurrency" type="number" min="1" max="8" value="3" />
+            </div>
+            <div>
+              <label>Max retries / frame</label>
+              <input id="maxRetries" type="number" min="0" max="5" value="1" />
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button id="startAnalyze" class="primary">Start Analysis</button>
+            </div>
+          </div>
+          <div class="bar" style="margin-top:10px"><i id="barAnalyze"></i></div>
+          <div id="logAnalyze" class="log" style="margin-top:8px"></div>
+          <div class="row" style="margin-top:6px">
+            <button id="validateSchema">Validate Schema…</button>
+            <div class="space"></div>
+            <button id="openNextFailed">Open next failed in Review</button>
+            <button id="retryAll">Retry All</button>
+          </div>
+          <div class="list" id="retryList" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- REVIEW TAB -->
+      <div id="tab-review" class="hidden">
+        <div class="guide-hint" style="margin:8px 0">✏️ <b>REVIEW PHASE</b> — Check results, fix errors, and finalize data. Use keyboard shortcuts: L/R/M for points, ←/→ for frames</div>
+
+        <div class="review">
+          <div id="previewWrap">
+            <div class="row">
+              <button id="prevFrame">← Prev</button>
+              <button id="nextFrame">Next →</button>
+              <div class="space"></div>
+              <label>Chunk</label>
+              <select id="chunkSelect"></select>
+            </div>
+            <canvas id="frameCanvas" width="360" height="360"></canvas>
+            <div class="overlay-legend">
+              <span><i class="legend-dot legend-leftEye"></i> leftEye</span>
+              <span><i class="legend-dot legend-rightEye"></i> rightEye</span>
+              <span><i class="legend-dot legend-mouth"></i> mouth</span>
+              <div class="space"></div>
+              <span class="muted">Hotkeys: <span class="kbd">L</span> <span class="kbd">R</span> <span class="kbd">M</span> to select; click to set. <span class="kbd">←/→</span> frame, <span class="kbd">[ / ]</span> by 6.</span>
+            </div>
+          </div>
+          <div class="side">
+            <div class="card">
+              <h3>📝 Frame Data</h3>
+              <pre id="jsonView" class="mono" style="margin:0;font-size:12px;white-space:pre-wrap"></pre>
+              <div class="row" style="margin-top:8px">
+                <button id="saveFrame">Save Frame</button>
+                <div class="space"></div>
+                <span id="saveStamp" class="muted"></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>⚡ Quick Actions</h3>
+              <div class="grid2">
+                <div>
+                  <label>eyes</label>
+                  <select id="qaEyes">
+                    <option value="">—</option>
+                    <option>blink start</option>
+                    <option>glance left</option>
+                    <option>glance right</option>
+                    <option>steady</option>
+                    <option>closed</option>
+                  </select>
+                </div>
+                <div>
+                  <label>mouth</label>
+                  <select id="qaMouth">
+                    <option value="">—</option>
+                    <option>closed</option>
+                    <option>forming O</option>
+                    <option>slight smile</option>
+                    <option>open wide</option>
+                    <option>talking</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>🔍 Navigate to Frame</h3>
+              <div class="row">
+                <input id="gotoFrame" type="number" min="1" step="1" placeholder="frame #" style="width:120px"/>
+                <button id="gotoBtn">Open</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer style="position:sticky;bottom:0;left:0;right:0;background:linear-gradient(0deg, rgba(15,18,32,0.95), rgba(15,18,32,0.6));backdrop-filter: blur(6px);border-top:1px solid var(--border);padding:8px 12px;display:flex;gap:8px;align-items:center">
+    <button id="prevStep">◀ Back</button>
+    <button id="nextStep" class="primary">Next ▶</button>
+    <div class="space"></div>
+    <span class="muted">Need help? Click <b>Do This Next</b> in the left panel.</span>
+    <button id="toggleSidebarFooter" class="tab-btn" title="Hide/Show left panel">☰ Panel</button>
+  </footer>
+
+  <script>
+  /* ==========================
+     State & utilities
+  ========================== */
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  const app = {
+    outDirHandle: null, // File System Access API root
+    policy: null,       // overwrite|append|skip
+    videoFile: null,
+    rawFrames: [],      // {id, blob, name}
+    procFrames: [],     // {id, blob, name}
+    descriptors: new Map(), // id -> json
+    retryQueue: [],
+    chunks: [],
+    fps: 12,
+    letterbox: true,
+    curFrame: 1,
+    curPoint: 'leftEye',
+    model: { kind:'openai', name:'gpt-4o-mini', base:'https://api.openai.com', key:'' },
+    ollama: { host:'http://localhost:11434', model:'llava' },
+    promptText: defaultPrompt(),
+    promptHash: '(none)',
+    stats: { outOfBounds:0, finalFailures:0, totalFrames:0, avgLatencyMs:0 },
+    selection: { x: 0, y: 0, width: 0, height: 0, active: false },
+    currentPersona: null,
+    personaPath: null,
+    autoSelectedDir: false, // Flag for when we auto-select directory based on persona
+    videoIndex: 1, // Track which video number we're on
+    storedVideoIndex: 1, // Preserve the initial loaded index from file
+    globalChunks: [], // Master chunks array across all videos
   };
 
-  // Load saved state on startup
-  window.addEventListener('DOMContentLoaded', async () => {
-    // Get base personas path from Electron
-    await loadPersonasList();
-    appState.loadState();
-  });
+  function defaultPrompt(){
+    return `You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with this schema:
+{
+  "frameId": <int 1-based>,
+  "chunkNumber": <int 1-based>,
+  "frameNumberInChunk": 1..6,
+  "coords": {
+    "leftEye": {"x": <0..119>, "y": <0..119>, "confidence": <0..1>},
+    "rightEye": {"x": <0..119>, "y": <0..119>, "confidence": <0..1>},
+    "mouth": {"x": <0..119>, "y": <0..119>, "confidence": <0..1>}
+  },
+  "actions": {"eyes": "<=5 words", "mouth": "<=5 words"},
+  "meta": {"src": "<filename>", "w": 120, "h": 120, "model": "openai|ollama"}
+}
+Rules:
+- Output ONLY JSON (no markdown, no prose, no code fences).
+- Clamp coords to image interior; if uncertain, set reasonable defaults and lower confidence.
+- Keep action strings at five words or fewer.`;
+  }
+
+  async function sha256(text){
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function setPill(ok, msg){
+    const pill = $('#adapterPill');
+    pill.classList.remove('ready','warn','err');
+    pill.classList.add(ok? 'ready':'err');
+    $('#adapterState').textContent = msg || (ok? 'Ready':'Error');
+  }
+
+  function updateCounts(){
+    const n = app.rawFrames.length || app.stats.totalFrames || 0;
+    $('#counts').textContent = n;
+    const dur = n / app.fps;
+    $('#duration').textContent = `${dur.toFixed(2)}s @${app.fps}fps`;
+    try{ updateStepper(); }catch(e){}
+  }
+
+  function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+
+  function wordClamp(str, maxWords=5){
+    if(!str) return '';
+    const words = String(str).trim().split(/\s+/).slice(0,maxWords);
+    return words.join(' ');
+  }
+
+  function descriptorSkeleton(id, videoIndex){
+    // Find the chunk that contains this frame
+    const frameKey = `Video${videoIndex || app.videoIndex}_Frame${id}`;
+    let chunkNumber = 1;
+    let frameNumberInChunk = 1;
+    
+    // Look up the actual chunk number from app.chunks
+    if(app.chunks && app.chunks.length > 0) {
+      for(let i = 0; i < app.chunks.length; i++) {
+        const chunk = app.chunks[i];
+        const frameIndex = chunk.frames.indexOf(frameKey);
+        if(frameIndex !== -1) {
+          chunkNumber = chunk.chunkNumber;
+          frameNumberInChunk = frameIndex + 1;
+          break;
+        }
+      }
+    } else {
+      // Fallback calculation if chunks not loaded
+      chunkNumber = Math.ceil(id/6);
+      frameNumberInChunk = ((id-1)%6)+1;
+    }
+    
+    return {
+      frameId:id, 
+      videoIndex: videoIndex || app.videoIndex,
+      chunkNumber, 
+      frameNumberInChunk,
+      coords:{
+        leftEye:{x:60,y:50,confidence:0.5},
+        rightEye:{x:90,y:50,confidence:0.5},
+        mouth:{x:75,y:85,confidence:0.5},
+      },
+      actions:{eyes:"steady", mouth:"closed"},
+      meta:{src:`Video${videoIndex || app.videoIndex}_Frame${id}.png`,w:120,h:120,model: app.model.kind==='openai'?'openai':'ollama'}
+    };
+  }
+
+  function validateDescriptor(obj){
+    const errors=[];
+    function isNum(x){return typeof x==='number' && !isNaN(x)}
+    if(!obj || typeof obj!=='object') errors.push('not an object');
+    const mustInt = ['frameId','chunkNumber','frameNumberInChunk'];
+    for(const k of mustInt){ if(!Number.isInteger(obj[k])) errors.push(`${k} must be int`); }
+    if(!obj.coords) errors.push('coords missing');
+    else{
+      for(const p of ['leftEye','rightEye','mouth']){
+        const c = obj.coords[p];
+        if(!c) { errors.push(`coords.${p} missing`); continue; }
+        if(!isNum(c.x)||!isNum(c.y)) errors.push(`coords.${p}.x/y must be numbers`);
+        if(!isNum(c.confidence)) errors.push(`coords.${p}.confidence must be number`);
+        if(c.x<0||c.x>119||c.y<0||c.y>119) errors.push(`coords.${p} out of bounds`);
+        if(c.confidence<0||c.confidence>1) errors.push(`coords.${p}.confidence out of [0,1]`);
+      }
+    }
+    if(!obj.actions) errors.push('actions missing');
+    else{
+      for(const a of ['eyes','mouth']){
+        if(typeof obj.actions[a] !== 'string') errors.push(`actions.${a} must be string`);
+        const wc = String(obj.actions[a]||'').trim().split(/\s+/).filter(Boolean).length;
+        if(wc>5) errors.push(`actions.${a} exceeds 5 words`);
+      }
+    }
+    if(!obj.meta) errors.push('meta missing');
+    else{
+      for(const m of ['src','w','h','model']) if(obj.meta[m]===undefined) errors.push(`meta.${m} missing`);
+    }
+    return errors;
+  }
+
+  function sanitizeDescriptor(obj){
+    const before = JSON.stringify(obj);
+    for(const p of ['leftEye','rightEye','mouth']){
+      const c=obj.coords[p];
+      c.x = clamp(Math.round(c.x),0,119);
+      c.y = clamp(Math.round(c.y),0,119);
+      c.confidence = clamp(+c.confidence,0,1);
+    }
+    obj.actions.eyes = wordClamp(obj.actions.eyes||'',5);
+    obj.actions.mouth = wordClamp(obj.actions.mouth||'',5);
+    const after = JSON.stringify(obj);
+    if(before!==after) app.stats.outOfBounds++;
+    return obj;
+  }
+
+  /* ==========================
+     Tabs & basic wiring + Guided mode
+  ========================== */
+  $$('.tab-btn').forEach(btn=>btn.addEventListener('click', async ()=>{
+    if(btn.id==='runAllBtn') return runAll();
+    if(btn.id==='toggleSidebar' || btn.id==='toggleSidebarFooter'){ document.body.classList.toggle('collapsed'); return; }
+    $$('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    $('#tab-ingest').classList.toggle('hidden', tab!=='ingest');
+    $('#tab-analyze').classList.toggle('hidden', tab!=='analyze');
+    $('#tab-review').classList.toggle('hidden', tab!=='review');
+    
+    // Populate video dropdown when switching to Analyze tab
+    if(tab === 'analyze') {
+      await populateAnalyzeVideoSelect();
+    }
+    
+    updateStepper();
+  }));
+
+  // Load available personas from file system
+  async function loadAvailablePersonas() {
+    console.log('[Visualizer] Starting to load personas...');
+    // Check if we're in an iframe and try to access parent's API
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    const electron = window.electron || window.parent?.electron || window.top?.electron;
+    console.log('[Visualizer] window.electronAPI:', window.electronAPI);
+    console.log('[Visualizer] parent.electronAPI:', window.parent?.electronAPI);
+    console.log('[Visualizer] electron:', electron);
+    
+    const personas = [];
+    
+    // Try to get personas via Electron API if available (check parent window too)
+    if(electronAPI?.getPersonas) {
+      try {
+        console.log('[Visualizer] Calling electronAPI.getPersonas()...');
+        const personaList = await electronAPI.getPersonas();
+        console.log('[Visualizer] Loaded personas from Electron API:', personaList);
+        if(Array.isArray(personaList)) {
+          personaList.forEach(p => personas.push(p));
+        } else {
+          console.warn('[Visualizer] personaList is not an array:', personaList);
+          personas.push('Jinx', 'Memo'); // Hardcode known personas
+        }
+      } catch(err) {
+        console.error('[Visualizer] Failed to get personas from Electron API:', err);
+        // Fallback to known personas
+        personas.push('Jinx', 'Memo');
+      }
+    } else if(electron?.getPersonas) {
+      // Try legacy electron API
+      try {
+        console.log('[Visualizer] Calling electron.getPersonas()...');
+        const personaList = await electron.getPersonas();
+        console.log('[Visualizer] Loaded personas from legacy electron API:', personaList);
+        if(Array.isArray(personaList)) {
+          personaList.forEach(p => personas.push(p));
+        } else {
+          console.warn('[Visualizer] personaList is not an array:', personaList);
+          personas.push('Jinx', 'Memo');
+        }
+      } catch(err) {
+        console.error('[Visualizer] Failed to get personas from legacy electron API:', err);
+        personas.push('Jinx', 'Memo');
+      }
+    } else if(window.showDirectoryPicker) {
+      // For web, we'll use hardcoded list or previously saved
+      console.log('[Visualizer] Using web fallback with hardcoded personas');
+      personas.push('Jinx', 'Memo');
+    } else {
+      // Fallback to default list
+      console.log('[Visualizer] No API available, using hardcoded personas');
+      personas.push('Jinx', 'Memo');
+    }
+    
+    // Populate both dropdowns
+    const topSelect = $('#personaTop');
+    const savedPersona = localStorage.getItem('selectedPersona');
+    
+    topSelect.innerHTML = '<option value="">Select Persona...</option>';
+    
+    personas.forEach(persona => {
+      const opt = document.createElement('option');
+      opt.value = persona;
+      opt.textContent = persona;
+      if(persona === savedPersona) opt.selected = true;
+      topSelect.appendChild(opt);
+    });
+    
+    // If we have a saved persona, apply it
+    if(savedPersona) {
+      updatePersonaSelection(savedPersona);
+    }
+  }
   
-  async function loadPersonasList() {
-    try {
-      // Get the Electron API - check both direct access and parent window
-      const electronAPI = window.electronAPI || window.parent?.electronAPI || null;
-      
-      if (!electronAPI?.invoke) {
-        log('⚠️ No Electron API available');
-        // Fallback to default path
-        const userName = window.location.pathname.includes('jakek') ? 'jakek' : 'user';
-        appState.basePersonasPath = `C:\\Users\\${userName}\\Documents\\ai-local-data\\Personas`;
-        log('⚠️ Using default personas path');
+  async function updatePersonaSelection(persona) {
+    if(!persona) return;
+    
+    app.currentPersona = persona;
+    localStorage.setItem('selectedPersona', persona);
+    
+    const basePath = 'C:\\Users\\jakek\\Documents\\ai-local-data\\Personas';
+    const fullPath = `${basePath}\\${persona}`;
+    $('#outPath').textContent = fullPath;
+    app.personaPath = fullPath;
+    
+    // Always set autoSelectedDir when a persona is selected (BEFORE loading video index)
+    app.autoSelectedDir = true;
+    
+    // Load the video index for this persona
+    await loadVideoIndexForPersona();
+    
+    // For web File System API, show hint but still allow processing
+    if(window.showDirectoryPicker && !window.electronAPI) {
+      // User can optionally select for better browser integration
+      $('#outPath').textContent = `${fullPath} (optional: click Choose Folder for browser access)`;
+      $('#openOutDir').disabled = true;
+      // Make Choose Folder button less prominent since it's optional
+      $('#chooseOutDir').style.background = '';
+      $('#chooseOutDir').style.color = '';
+    } else {
+      $('#openOutDir').disabled = false;
+    }
+    
+    // Ensure base directory structure exists (shared outputs)
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    if(electronAPI?.ensureDirectory) {
+      try {
+        await electronAPI.ensureDirectory(fullPath);
+        await electronAPI.ensureDirectory(`${fullPath}\\visualizer frames`);
+        await electronAPI.ensureDirectory(`${fullPath}\\visualizer frames\\raw`);
+        await electronAPI.ensureDirectory(`${fullPath}\\visualizer frames\\proc120`);
+        await electronAPI.ensureDirectory(`${fullPath}\\visualizer frames\\descriptors`);
+        console.log('[Visualizer] Ensured shared directory structure for persona:', persona);
+      } catch(err) {
+        console.error('[Visualizer] Failed to ensure directories:', err);
+      }
+    }
+  }
+  
+  $('#personaTop').addEventListener('change', (e) => {
+    const persona = e.target.value;
+    if(!persona) {
+      alert('Please select a persona to continue');
+      return;
+    }
+    updatePersonaSelection(persona);
+  });
+
+  $('#chooseOutDir').addEventListener('click', async()=>{
+    try{
+      // Get selected persona from top dropdown
+      const persona = $('#personaTop').value || app.currentPersona;
+      if(!persona){
+        alert('Please select a persona from the top bar first');
         return;
       }
       
-      // Get the personas directory path
-      const result = await electronAPI.invoke('visualizer:getPersonasPath');
-      if (result?.path) {
-        appState.basePersonasPath = result.path;
-        log('📂 Personas path: ' + result.path);
+      if(window.showDirectoryPicker){
+        try {
+          // For web File System API - prompt user to select the persona folder
+          alert(`Please navigate to and select the persona folder:\n${app.personaPath}`);
+          const baseDir = await window.showDirectoryPicker();
+          // Use the selected directory as the base
+          app.outDirHandle = baseDir;
+          const basePath = 'C:\\Users\\jakek\\Documents\\ai-local-data\\Personas';
+          $('#outPath').textContent = `${basePath}\\${persona}`;
+          $('#openOutDir').disabled = false;
+          
+          // Reset button styling
+          $('#chooseOutDir').style.background = '';
+          $('#chooseOutDir').style.color = '';
+          
+          console.log('[Visualizer] Directory selected:', baseDir.name);
+          
+          // Pre-create the visualizer frames directory structure
+          try {
+            const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:true});
+            await vizFramesDir.getDirectoryHandle('raw', {create:true});
+            await vizFramesDir.getDirectoryHandle('proc120', {create:true});
+            await vizFramesDir.getDirectoryHandle('descriptors', {create:true});
+            console.log('[Visualizer] Created folder structure in:', baseDir.name);
+          } catch(err) {
+            console.error('[Visualizer] Could not create folder structure:', err);
+          }
+        } catch(err) {
+          console.error('[Visualizer] Directory picker cancelled or failed:', err);
+        }
+      }else{
+        // For non-browser environments, just confirm the auto-selected directory
+        alert(`Output directory set to: ${app.personaPath}`);
+        app.autoSelectedDir = true;
       }
-      
-      // Get list of personas
-      const personas = await electronAPI.invoke('visualizer:listPersonas');
-      if (personas?.list) {
-        updatePersonasDropdown(personas.list);
-      }
-    } catch (e) {
-      console.error('Failed to load personas:', e);
-      log('❌ Could not load personas list');
-    }
-  }
-  
-  function updatePersonasDropdown(personas) {
-    const select = $('personaSelect');
-    const currentValue = select.value;
-    
-    // Clear existing options except the first
-    while (select.options.length > 1) {
-      select.remove(1);
-    }
-    
-    // Add personas
-    personas.forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    });
-    
-    // Restore selection if it still exists
-    if (currentValue && personas.includes(currentValue)) {
-      select.value = currentValue;
-    }
-    
-    log(`📋 Loaded ${personas.length} personas`);
-  }
+    }catch(e){ console.warn(e); }
+  });
 
-  // ---- electron bridges with robust fallbacks ----
-  // Get the Electron API - check both direct access and parent window
-  const getElectronAPI = () => window.electronAPI || window.parent?.electronAPI || null;
+  $('#openOutDir').addEventListener('click',()=>{
+    if(window.api?.openPath) window.api.openPath($('#outPath').textContent);
+  });
+
+  $('#modelSelect').addEventListener('change',()=>{
+    const v = $('#modelSelect').value;
+    if(v.startsWith('openai:')){
+      $('#openaiCfg').classList.remove('hidden');
+      $('#ollamaCfg').classList.add('hidden');
+    }else{
+      $('#openaiCfg').classList.add('hidden');
+      $('#ollamaCfg').classList.remove('hidden');
+    }
+  });
+
+  $('#saveModelCfg').addEventListener('click',()=>{
+    const v = $('#modelSelect').value;
+    if(v.startsWith('openai:')){
+      app.model.kind='openai';
+      app.model.name = v.split(':')[1];
+      app.model.key = $('#openaiKey').value.trim();
+      app.model.base = ($('#openaiBase').value.trim())||'https://api.openai.com';
+      // Save to localStorage for persistence
+      localStorage.setItem('openaiKey', app.model.key);
+      localStorage.setItem('openaiBase', app.model.base);
+    }else{
+      app.model.kind='ollama';
+      app.ollama.host = $('#ollamaHost').value.trim()||'http://localhost:11434';
+      app.ollama.model='llava';
+      // Save to localStorage for persistence
+      localStorage.setItem('ollamaHost', app.ollama.host);
+    }
+    localStorage.setItem('modelSelect', v);
+    alert('Model configuration saved.');
+  });
+
+  $('#testAdapter').addEventListener('click', async()=>{
+    try{
+      const ok = await adapterTest();
+      setPill(ok, ok? 'Ready':'Error');
+    }catch(e){ console.error(e); setPill(false,'Error'); }
+  });
+
+  $('#promptText').value = app.promptText;
+  $('#hashPrompt').addEventListener('click', async()=>{
+    app.promptText = $('#promptText').value;
+    app.promptHash = await sha256(app.promptText);
+    $('#promptHash').textContent = app.promptHash.slice(0,10);
+  });
+  $('#hashPrompt').click();
+
+  $('#loadPromptFile').addEventListener('click', async()=>{
+    try{
+      const [h] = await window.showOpenFilePicker?.({types:[{description:'Text',accept:{'text/plain':['.txt']}}]}) || [];
+      if(!h) return;
+      const file = await h.getFile();
+      const text = await file.text();
+      $('#promptText').value = text;
+      $('#hashPrompt').click();
+    }catch(e){ console.warn(e); }
+  });
+
+  /* ==========================
+     Ingest: load video and extract frames @12fps
+  ========================== */
   
-  const api = {
-    async chooseOutputFolder() {
+  // Load video index when persona is selected
+  async function loadVideoIndexForPersona() {
+    try {
+      const indexData = await readVideoIndexFile();
+      // Store the video index in app state
+      app.videoIndex = indexData.nextVideoIndex || 1;
+      // Also store as the initial index to preserve it
+      app.storedVideoIndex = app.videoIndex;
+      // Display the next video index in the UI
+      $('#videoIndexDisplay').textContent = app.videoIndex;
+      $('#nextVideoNumber').textContent = app.videoIndex;
+      console.log('[Visualizer] Loaded video index for persona:', app.videoIndex);
+    } catch(err) {
+      console.log('[Visualizer] No video index file, will start at 1');
+      app.videoIndex = 1;
+      app.storedVideoIndex = 1;
+      $('#videoIndexDisplay').textContent = '1';
+      $('#nextVideoNumber').textContent = '1';
+    }
+  }
+  
+  // Read the video index tracking file
+  async function readVideoIndexFile() {
+    if(!app.currentPersona) {
+      console.log('[Visualizer] No persona selected, returning default index');
+      return { nextVideoIndex: 1, lastUpdated: new Date().toISOString() };
+    }
+    
+    try {
+      console.log('[Visualizer] Attempting to read video index for persona:', app.currentPersona);
+      const indexData = await readJSON('visualizer frames/video_index.json');
+      if(indexData && typeof indexData.nextVideoIndex === 'number') {
+        console.log('[Visualizer] Successfully read video index from file:', indexData);
+        return indexData;
+      } else {
+        console.log('[Visualizer] Invalid index data structure:', indexData);
+      }
+    } catch(err) {
+      console.log('[Visualizer] No video index file found or error reading:', err);
+    }
+    return { nextVideoIndex: 1, lastUpdated: new Date().toISOString() };
+  }
+  
+  // Write the video index tracking file
+  async function writeVideoIndexFile(nextIndex) {
+    const indexData = {
+      nextVideoIndex: nextIndex,
+      lastUpdated: new Date().toISOString(),
+      persona: app.currentPersona
+    };
+    try {
+      await writeJSON('visualizer frames/video_index.json', indexData);
+      console.log('[Visualizer] Updated video index file to:', nextIndex);
+    } catch(err) {
+      console.error('[Visualizer] Failed to write video index file:', err);
+    }
+  }
+  
+  // Verify and sync the video index with actual directory contents
+  async function syncVideoIndex() {
+    // First, always read the current index file to get the stored value
+    const indexFile = await readVideoIndexFile();
+    let storedIndex = indexFile.nextVideoIndex || app.storedVideoIndex || 1;
+    
+    let maxVideoNum = 0;
+    let hasAnyFiles = false;
+    let scanSuccessful = false;
+    
+    // Scan existing files to find the highest video number
+    if(app.outDirHandle) {
+      // Using File System API - scan the directories
       try {
-        // Check for various Electron API patterns
-        const apis = [
-          window.electronAPI,
-          window.electron,
-          window.ipcRenderer,
-          window.api,
-          window.bridge
-        ].filter(Boolean);
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        scanSuccessful = true;
         
-        log('🔍 Checking for Electron APIs...');
-        
-        for (const electronAPI of apis) {
-          console.log('Testing API:', electronAPI);
-          
-          // Direct method calls
-          const directMethods = [
-            'selectFolder', 'chooseFolder', 'openDirectory', 
-            'showDirectoryPicker', 'selectDirectory', 'openFolder'
-          ];
-          
-          for (const method of directMethods) {
-            if (typeof electronAPI[method] === 'function') {
-              log(`📂 Using ${method}...`);
-              const result = await electronAPI[method]();
-              const path = this.extractPath(result);
-              if (path) return path;
+        // Check raw directory
+        try {
+          const rawDir = await vizFramesDir.getDirectoryHandle('raw', {create:false});
+          for await(const [name, handle] of rawDir) {
+            // Match Video{N}_Frame{M}.png pattern
+            const match = name.match(/Video(\d+)_Frame\d+\.png$/i);
+            if(match) {
+              hasAnyFiles = true;
+              const videoNum = parseInt(match[1], 10);
+              if(videoNum > maxVideoNum) maxVideoNum = videoNum;
             }
           }
-          
-          // IPC invoke patterns
-          if (typeof electronAPI.invoke === 'function') {
-            const invokeMethods = [
-              'dialog:openDirectory',
-              'selectFolder',
-              'chooseFolder',
-              'openDirectory',
-              'dialog:selectFolder',
-              'showOpenDialog'
-            ];
-            
-            for (const method of invokeMethods) {
-              try {
-                log(`📂 Trying invoke: ${method}...`);
-                const result = await electronAPI.invoke(method, { 
-                  properties: ['openDirectory', 'createDirectory'] 
-                });
-                const path = this.extractPath(result);
-                if (path) return path;
-              } catch(e) {
-                console.log(`invoke ${method} failed:`, e.message);
+        } catch {}
+        
+        // Check chunks.json file for existing video references
+        try {
+          const chunksFile = await vizFramesDir.getFileHandle('chunks.json', {create:false});
+          const file = await chunksFile.getFile();
+          const chunks = JSON.parse(await file.text());
+          // Look through all chunks to find the highest video number
+          for(const chunk of chunks) {
+            for(const frame of chunk.frames) {
+              const match = frame.match(/Video(\d+)_Frame\d+$/i);
+              if(match) {
+                hasAnyFiles = true;
+                const videoNum = parseInt(match[1], 10);
+                if(videoNum > maxVideoNum) maxVideoNum = videoNum;
+              }
+            }
+          }
+        } catch {}
+      } catch(err) {
+        console.log('[Visualizer] Could not scan for existing files via File System API:', err);
+        scanSuccessful = false;
+      }
+    } else if(app.autoSelectedDir) {
+      // For Electron - use API to list files
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.listFiles) {
+        try {
+          // List raw directory files
+          const rawPath = `${app.personaPath}\\visualizer frames\\raw`;
+          const rawFiles = await electronAPI.listFiles(rawPath);
+          scanSuccessful = true;
+          if(Array.isArray(rawFiles)) {
+            for(const name of rawFiles) {
+              const match = name.match(/Video(\d+)_Frame\d+\.png$/i);
+              if(match) {
+                hasAnyFiles = true;
+                const videoNum = parseInt(match[1], 10);
+                if(videoNum > maxVideoNum) maxVideoNum = videoNum;
               }
             }
           }
           
-          // Send/receive pattern
-          if (typeof electronAPI.send === 'function' && typeof electronAPI.receive === 'function') {
-            return new Promise((resolve) => {
-              electronAPI.receive('folder-selected', (path) => resolve(path));
-              electronAPI.send('select-folder');
-              setTimeout(() => resolve(null), 5000);
-            });
-          }
-        }
-        
-        // Web File System API fallback (for browser)
-        if (window.showDirectoryPicker) {
-          log('📂 Using Web File System API...');
-          const handle = await window.showDirectoryPicker();
-          return handle.name;
-        }
-        
-        // Manual input fallback
-        log('⚠️ No Electron API found, using manual input');
-        return prompt('Enter the full folder path:') || null;
-        
-      } catch(e) {
-        console.error('Folder selection error:', e);
-        log('❌ Error: ' + e.message);
-        return prompt('Electron API failed. Enter folder path manually:') || null;
-      }
-    },
-    
-    extractPath(result) {
-      if (!result) return null;
-      
-      // Direct string result
-      if (typeof result === 'string' && result.length > 0 && 
-          result !== 'undefined' && result !== 'null') {
-        return result;
-      }
-      
-      // Electron dialog result format
-      if (result && !result.canceled) {
-        if (result.filePaths && result.filePaths[0]) return result.filePaths[0];
-        if (result.filePath) return result.filePath;
-        if (result.paths && result.paths[0]) return result.paths[0];
-        if (result.path) return result.path;
-        if (result.folder) return result.folder;
-        if (result.directory) return result.directory;
-      }
-      
-      // Array result
-      if (Array.isArray(result) && result[0]) return result[0];
-      
-      // Object with path property
-      if (result && typeof result === 'object') {
-        const pathKeys = ['path', 'folder', 'directory', 'filePath', 'folderPath'];
-        for (const key of pathKeys) {
-          if (result[key] && typeof result[key] === 'string') {
-            return result[key];
-          }
+          // Check chunks.json file for existing video references
+          const chunksPath = `${app.personaPath}\\visualizer frames\\chunks.json`;
+          try {
+            const content = await electronAPI.readFile(chunksPath);
+            const chunks = JSON.parse(content);
+            // Look through all chunks to find the highest video number
+            for(const chunk of chunks) {
+              for(const frame of chunk.frames) {
+                const match = frame.match(/Video(\d+)_Frame\d+$/i);
+                if(match) {
+                  hasAnyFiles = true;
+                  const videoNum = parseInt(match[1], 10);
+                  if(videoNum > maxVideoNum) maxVideoNum = videoNum;
+                }
+              }
+            }
+          } catch {}
+        } catch(err) {
+          console.log('[Visualizer] Could not scan for existing files via Electron API:', err);
+          scanSuccessful = false;
         }
       }
-      
-      return null;
-    },
-    
-    async readIndex(folder) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          return await electronAPI.invoke('visualizer:readIndex', {folder});
-        } catch(e) {
-          console.error('readIndex failed:', e);
-        }
-      }
-      return null;
-    },
-    
-    async writeIndex(folder, index) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          const result = await electronAPI.invoke('visualizer:writeIndex', {folder, index});
-          if (result) return result;
-        } catch(e) {
-          console.error('writeIndex failed:', e);
-        }
-      }
-      // Don't auto-download - just log the failure
-      log('⚠️ Could not write index.json');
-      return false;
-    },
-    
-    async saveFrames(folder, frames) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          const result = await electronAPI.invoke('visualizer:saveFrames', {folder, frames});
-          if (result) return result;
-        } catch(e) {
-          console.error('saveFrames failed:', e);
-          log('❌ Electron save failed. Backend not configured.');
-          return false;
-        }
-      }
-      
-      // No dangerous fallbacks - require proper Electron backend
-      console.error('Electron API not available for file saving');
-      log('❌ Cannot save files - Electron backend required');
-      return false;
-    },
-    
-    async getExistingImages(folder) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          return await electronAPI.invoke('visualizer:getExistingImages', {folder});
-        } catch(e) {
-          console.error('getExistingImages failed:', e);
-        }
-      }
-      return null;
-    },
-    
-    async updateDescriptions(folder, descriptions) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          return await electronAPI.invoke('visualizer:updateDescriptions', {folder, descriptions});
-        } catch(e) {
-          console.error('updateDescriptions failed:', e);
-        }
-      }
-      return false;
-    },
-    
-    async describeImages(batch) {
-      const electronAPI = getElectronAPI();
-      if (electronAPI?.invoke) {
-        try {
-          return await electronAPI.invoke('llm.describeImages', {batch});
-        } catch(e) {
-          console.error('describeImages failed:', e);
-        }
-      }
-      return mockDescribe(batch);
     }
-  };
-
-  async function mockDescribe(batch) {
-    return batch.map((b,i) => ({ 
-      id: b.tempId, 
-      desc: `neutral head, eyes forward, viseme=SIL, energy=0.2 (stub)` 
-    }));
+    
+    // Determine the correct next video index
+    let nextVideoIndex;
+    
+    if(!scanSuccessful) {
+      // If we couldn't scan the directory, trust the video_index.json file or preserved index
+      console.log('[Visualizer] Could not scan directory - using stored index:', storedIndex);
+      nextVideoIndex = storedIndex;
+    } else if(!hasAnyFiles) {
+      // Directory scan was successful but no files found
+      // Always respect the stored index from file or app state
+      console.log('[Visualizer] No video files found - using stored index:', storedIndex);
+      nextVideoIndex = storedIndex;
+    } else {
+      // We found files - use the higher of (maxVideoNum + 1) or storedIndex
+      const calculatedNext = maxVideoNum + 1;
+      nextVideoIndex = Math.max(calculatedNext, storedIndex);
+      console.log('[Visualizer] Found videos up to:', maxVideoNum, ', stored index:', storedIndex, '- using:', nextVideoIndex);
+    }
+    
+    // Update the stored index in app state
+    app.storedVideoIndex = nextVideoIndex;
+    
+    // Update the index file if it doesn't match what we determined
+    if(indexFile.nextVideoIndex !== nextVideoIndex) {
+      console.log('[Visualizer] Updating video index file from', indexFile.nextVideoIndex, 'to', nextVideoIndex);
+      await writeVideoIndexFile(nextVideoIndex);
+    }
+    
+    return nextVideoIndex;
   }
-
-  // ---- crop UI ----
-  const pane=$('pane'), crop=$('crop');
-  let dragging=false, resizing=false, startX=0,startY=0,rect0=null;
-  crop.addEventListener('mousedown', (e)=>{ 
-    if(e.target.classList.contains('handle')){resizing=true}else{dragging=true} 
-    startX=e.clientX;startY=e.clientY;rect0=crop.getBoundingClientRect(); 
+  
+  const vid = $('#vid');
+  $('#videoFile').addEventListener('change', async(e)=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    
+    // Check if persona is selected first
+    if(!app.currentPersona) {
+      alert('Please select a persona from the top bar first');
+      e.target.value = ''; // Clear the file input
+      return;
+    }
+    
+    app.videoFile = f;
+    
+    // Sync and get the correct video index based on actual directory contents
+    app.videoIndex = await syncVideoIndex();
+    console.log('[Visualizer] Using video index:', app.videoIndex);
+    
+    // Update the UI to show which video number this will be
+    $('#videoIndexDisplay').textContent = app.videoIndex;
+    $('#nextVideoNumber').textContent = app.videoIndex;
+    
+    // Keep output path display simple (no session folder)
+    if(app.personaPath) {
+      $('#outPath').textContent = app.personaPath;
+    }
+    
+    vid.src = URL.createObjectURL(f);
+    await vid.play().catch(()=>{});
+    vid.pause();
+    updateStepper();
+    
+    // Initialize selection to center square
+    await new Promise(res=>{
+      if(vid.readyState>=1) res(); else vid.onloadedmetadata=res;
+    });
+    initializeSelection();
+  });
+  
+  /* ==========================
+     Frame selection overlay functionality
+  ========================== */
+  function initializeSelection(){
+    const vidWidth = vid.videoWidth;
+    const vidHeight = vid.videoHeight;
+    
+    // Default to 1000x1000 square selection
+    const defaultSize = 1000;
+    
+    // Use 1000x1000 or the smaller video dimension if video is smaller than 1000px
+    const size = Math.min(defaultSize, vidWidth, vidHeight);
+    
+    // Ensure square dimensions
+    app.selection.width = size;
+    app.selection.height = size; // Always equal to width for square
+    app.selection.x = Math.round((vidWidth - size) / 2);
+    app.selection.y = Math.round((vidHeight - size) / 2);
+    app.selection.active = true;
+    
+    updateSelectionBox();
+  }
+  
+  function updateSelectionBox(){
+    const box = $('#selectionBox');
+    const overlay = $('#selectionOverlay');
+    const info = $('#selectionInfo');
+    const status = $('#selectionStatus');
+    
+    if(!app.selection.active){
+      box.classList.remove('active');
+      status.textContent = 'No selection (using full frame)';
+      return;
+    }
+    
+    // Calculate display coordinates based on video element dimensions
+    const vidRect = vid.getBoundingClientRect();
+    const displayWidth = vidRect.width;
+    const displayHeight = vidRect.height;
+    const scaleX = displayWidth / vid.videoWidth;
+    const scaleY = displayHeight / vid.videoHeight;
+    
+    const displayX = app.selection.x * scaleX;
+    const displayY = app.selection.y * scaleY;
+    const displayW = app.selection.width * scaleX;
+    const displayH = app.selection.height * scaleY;
+    
+    box.style.left = displayX + 'px';
+    box.style.top = displayY + 'px';
+    box.style.width = displayW + 'px';
+    box.style.height = displayH + 'px';
+    box.classList.add('active');
+    
+    info.textContent = `${app.selection.width}×${app.selection.height}`;
+    status.textContent = `Selection: ${app.selection.width}×${app.selection.height} at (${app.selection.x}, ${app.selection.y})`;
+  }
+  
+  // Toggle selection on/off
+  $('#toggleSelection').addEventListener('click', ()=>{
+    app.selection.active = !app.selection.active;
+    updateSelectionBox();
+  });
+  
+  // Reset selection to 1000x1000 square
+  $('#resetSelection').addEventListener('click', ()=>{
+    // Default to 1000x1000 or smaller if video is smaller
+    const defaultSize = 1000;
+    const size = Math.min(defaultSize, vid.videoWidth, vid.videoHeight);
+    app.selection.x = Math.round((vid.videoWidth - size) / 2);
+    app.selection.y = Math.round((vid.videoHeight - size) / 2);
+    app.selection.width = size;
+    app.selection.height = size; // Keep square
+    app.selection.active = true;
+    updateSelectionBox();
+  });
+  
+  // Dragging functionality
+  let isDragging = false;
+  let isResizing = false;
+  let dragStart = {x: 0, y: 0};
+  let selectionStart = {x: 0, y: 0, width: 0, height: 0};
+  let resizeHandle = null;
+  
+  $('#selectionBox').addEventListener('mousedown', (e)=>{
+    if(e.target.classList.contains('resize-handle')){
+      isResizing = true;
+      resizeHandle = e.target.className.split(' ')[1]; // Get handle position (nw, ne, sw, se)
+    }else{
+      isDragging = true;
+    }
+    dragStart = {x: e.clientX, y: e.clientY};
+    selectionStart = {...app.selection};
     e.preventDefault();
   });
-  window.addEventListener('mouseup', ()=>{dragging=false;resizing=false});
-  window.addEventListener('mousemove', (e)=>{
-    if(!dragging && !resizing) return; 
-    const paneRect=pane.getBoundingClientRect();
-    const dx=e.clientX-startX, dy=e.clientY-startY;
-    if(dragging){
-      const l=(rect0.left-paneRect.left+dx), t=(rect0.top-paneRect.top+dy);
-      crop.style.left=Math.max(0,Math.min(l,paneRect.width-rect0.width))+'px';
-      crop.style.top=Math.max(0,Math.min(t,paneRect.height-rect0.height))+'px';
+  
+  document.addEventListener('mousemove', (e)=>{
+    if(!isDragging && !isResizing) return;
+    
+    const vidRect = vid.getBoundingClientRect();
+    const scaleX = vid.videoWidth / vidRect.width;
+    const scaleY = vid.videoHeight / vidRect.height;
+    
+    const deltaX = (e.clientX - dragStart.x) * scaleX;
+    const deltaY = (e.clientY - dragStart.y) * scaleY;
+    
+    if(isDragging){
+      // Move the selection box
+      app.selection.x = Math.max(0, Math.min(vid.videoWidth - app.selection.width, selectionStart.x + deltaX));
+      app.selection.y = Math.max(0, Math.min(vid.videoHeight - app.selection.height, selectionStart.y + deltaY));
+    }else if(isResizing){
+      // Resize based on which handle is being dragged - maintain square aspect ratio
+      let newSize;
+      switch(resizeHandle){
+        case 'nw':
+          // Use the larger delta to maintain square
+          const nwDelta = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+          const nwSize = selectionStart.width - nwDelta;
+          newSize = Math.max(50, Math.min(
+            Math.min(selectionStart.x + selectionStart.width, selectionStart.y + selectionStart.height),
+            nwSize
+          ));
+          app.selection.x = selectionStart.x + selectionStart.width - newSize;
+          app.selection.y = selectionStart.y + selectionStart.height - newSize;
+          app.selection.width = newSize;
+          app.selection.height = newSize;
+          break;
+        case 'ne':
+          // Use horizontal delta for square sizing from top-right
+          const neSize = selectionStart.width + deltaX;
+          newSize = Math.max(50, Math.min(
+            Math.min(vid.videoWidth - selectionStart.x, selectionStart.y + selectionStart.height),
+            neSize
+          ));
+          app.selection.y = selectionStart.y + selectionStart.height - newSize;
+          app.selection.width = newSize;
+          app.selection.height = newSize;
+          break;
+        case 'sw':
+          // Use horizontal delta for square sizing from bottom-left
+          const swSize = selectionStart.width - deltaX;
+          newSize = Math.max(50, Math.min(
+            Math.min(selectionStart.x + selectionStart.width, vid.videoHeight - selectionStart.y),
+            swSize
+          ));
+          app.selection.x = selectionStart.x + selectionStart.width - newSize;
+          app.selection.width = newSize;
+          app.selection.height = newSize;
+          break;
+        case 'se':
+          // Use the larger delta to maintain square from bottom-right
+          const seDelta = Math.max(deltaX, deltaY);
+          newSize = Math.max(50, Math.min(
+            Math.min(vid.videoWidth - app.selection.x, vid.videoHeight - app.selection.y),
+            selectionStart.width + seDelta
+          ));
+          app.selection.width = newSize;
+          app.selection.height = newSize;
+          break;
+      }
     }
-    if(resizing){
-      const s=Math.max(40, Math.min(rect0.width+dx, rect0.height+dy));
-      crop.style.width=crop.style.height=s+'px';
+    
+    // Round to integers and ensure square
+    app.selection.x = Math.round(app.selection.x);
+    app.selection.y = Math.round(app.selection.y);
+    app.selection.width = Math.round(app.selection.width);
+    app.selection.height = app.selection.width; // Ensure height equals width
+    
+    updateSelectionBox();
+  });
+  
+  document.addEventListener('mouseup', ()=>{
+    isDragging = false;
+    isResizing = false;
+    resizeHandle = null;
+  });
+  
+  // Update selection box when window resizes
+  window.addEventListener('resize', ()=>{
+    if(app.selection.active) updateSelectionBox();
+  });
+
+  function policyPromptIfNeeded(){
+    if(!app.outDirHandle) return Promise.resolve('overwrite');
+    if(app.policy) return Promise.resolve(app.policy);
+    return new Promise(resolve=>{
+      const choice = confirm("Existing outputs may be present. Click OK to OVERWRITE, or Cancel to choose APPEND/SKIP in the next prompt.")
+        ? 'overwrite'
+        : prompt('Type "append" to continue from last, or "skip" to leave as-is.','append');
+      app.policy = (choice==='append'||choice==='skip'||choice==='overwrite') ? choice : 'append';
+      resolve(app.policy);
+    });
+  }
+
+  async function runExtractionCanvas(){
+    const log = $('#logExtract');
+    log.textContent = '';
+    const bar = $('#barExtract'); bar.style.width = '0%';
+    if(!app.videoFile){ alert('Pick a video first.'); return; }
+    
+    // Check if we have a persona selected
+    if(!app.currentPersona) {
+      alert('Please select a persona from the top bar first');
+      return;
+    }
+    
+    await policyPromptIfNeeded();
+
+    // Get or create shared visualizer frames directory
+    let rawDir=null;
+    
+    if(app.outDirHandle) {
+      // Using File System API (browser) - user manually selected folder
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:true});
+        rawDir = await vizFramesDir.getDirectoryHandle('raw', {create:true});
+        console.log('[Visualizer] Created/accessed shared raw directory for extraction');
+      } catch(err) {
+        console.error('[Visualizer] Failed to create raw directory:', err);
+        // Continue anyway - we'll store in memory
+      }
+    } else {
+      console.log('[Visualizer] No file system access - frames will be stored in memory only');
+      console.log('[Visualizer] To save to disk, click "Choose Folder" and select:', app.personaPath);
+    }
+
+    const fps = app.fps;
+    app.rawFrames = [];
+
+    await new Promise(res=>{
+      if(vid.readyState>=1) res(); else vid.onloadedmetadata=res;
+    });
+    const duration = vid.duration;
+    // Ensure we're extracting at exactly 12 fps (not more)
+    const frameInterval = 1.0 / fps; // Time between frames in seconds
+    const totalFrames = Math.floor(duration * fps);
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Use selection dimensions if active, otherwise full video
+    const extractWidth = app.selection.active ? app.selection.width : vid.videoWidth;
+    const extractHeight = app.selection.active ? app.selection.height : vid.videoHeight;
+    const extractX = app.selection.active ? app.selection.x : 0;
+    const extractY = app.selection.active ? app.selection.y : 0;
+    
+    canvas.width = extractWidth;
+    canvas.height = extractHeight;
+
+    let extracted = 0;
+    for(let i=0;i<totalFrames;i++){
+      // Calculate exact timestamp for each frame at 12 fps
+      const t = i * frameInterval; // Use frame interval instead of division
+      if(t > duration) break; // Stop if we exceed video duration
+      
+      vid.currentTime = t;
+      await new Promise(r=>vid.onseeked=r);
+      
+      // Draw only the selected region
+      ctx.drawImage(vid, extractX, extractY, extractWidth, extractHeight, 0, 0, extractWidth, extractHeight);
+      
+      const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
+      const frameNum = i + 1; // Frame numbers start at 1
+      const name = `Video${app.videoIndex}_Frame${frameNum}.png`;
+      app.rawFrames.push({id: frameNum, videoIndex: app.videoIndex, blob, name});
+      
+      // Save frame to disk
+      if(rawDir){
+        // Using File System API
+        try {
+          const fh = await rawDir.getFileHandle(name,{create:true});
+          const ws = await fh.createWritable(); 
+          await ws.write(blob); 
+          await ws.close();
+          if(i === 0) console.log('[Visualizer] Successfully saved first frame to disk:', name);
+        } catch(err) {
+          console.error('[Visualizer] Failed to save frame:', name, err);
+        }
+      } else if(app.autoSelectedDir) {
+        // For Electron - save directly to shared persona folder
+        const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+        if(electronAPI?.saveFile) {
+          // Ensure shared directories exist (once)
+          if(i === 0) {
+            try {
+              await electronAPI.ensureDirectory(`${app.personaPath}\\visualizer frames\\raw`);
+              await electronAPI.ensureDirectory(`${app.personaPath}\\visualizer frames\\proc120`);
+              await electronAPI.ensureDirectory(`${app.personaPath}\\visualizer frames\\descriptors`);
+            } catch(err) { console.error('[Visualizer] Failed to ensure shared dirs:', err); }
+          }
+          const filePath = `${app.personaPath}\\visualizer frames\\raw\\${name}`;
+          try {
+            // Convert blob to buffer for Electron API
+            const buffer = await blob.arrayBuffer();
+            await electronAPI.saveFile(filePath, new Uint8Array(buffer));
+          if(i === 0) console.log('[Visualizer] Saved first frame via Electron API:', filePath);
+        } catch(err) {
+            console.error('[Visualizer] Failed to save via Electron API:', name, err);
+          }
+        }
+      } else {
+        // Store in memory only
+        if(i === 0) console.log('[Visualizer] Storing frames in memory (no file system access)');
+      }
+      extracted++;
+      bar.style.width = ((extracted/totalFrames)*100).toFixed(1)+'%';
+      if(i%12===0) log.textContent = `Extracted ${extracted}/${totalFrames}`;
+    }
+    if(rawDir || app.autoSelectedDir) {
+      log.textContent += `\nDone. Video ${app.videoIndex}: ${extracted} frames saved to visualizer frames/raw/ at ${fps} fps.`;
+    } else {
+      log.textContent += `\nDone. Video ${app.videoIndex}: ${extracted} frames extracted and stored in memory at ${fps} fps.`;
+      log.textContent += `\nTo save to disk: Click "Choose Folder" and navigate to the persona folder.`;
+    }
+    app.stats.totalFrames = extracted;
+    
+    // Only update the video index file AFTER successful extraction
+    if(extracted > 0) {
+      await writeVideoIndexFile(app.videoIndex + 1);
+      console.log('[Visualizer] Updated video index after successful extraction');
+      // Update the UI to show the next video index
+      $('#videoIndexDisplay').textContent = app.videoIndex + 1;
+    }
+    
+    updateCounts();
+  }
+
+  async function runExtractionFFmpeg(){
+    if(!window.api?.ffmpegExtract){
+      alert('ffmpeg bridge not available. Running in-app extraction instead.');
+      return runExtractionCanvas();
+    }
+    const log = $('#logExtract'); log.textContent='';
+    const bar = $('#barExtract'); bar.style.width='0%';
+    await policyPromptIfNeeded();
+    const outRoot = $('#outPath').textContent;
+    const res = await window.api.ffmpegExtract({ videoPath: app.videoFile?.path, outRoot, fps: app.fps });
+    bar.style.width='100%';
+    log.textContent = `ffmpeg extraction complete: ${res.count} frames.`;
+    app.stats.totalFrames = res.count;
+    updateCounts();
+  }
+
+  $('#extractCanvas').addEventListener('click', runExtractionCanvas);
+  $('#extractFFmpeg').addEventListener('click', runExtractionFFmpeg);
+
+  /* ==========================
+     Downscale to 120×120 (letterbox)
+  ========================== */
+  $('#useLetterbox').addEventListener('change', e=> app.letterbox = e.target.checked);
+
+  async function downscaleAll(){
+    const log = $('#logDown'); log.textContent='';
+    const bar = $('#barDown'); bar.style.width='0%';
+    
+    // Check if we have a persona selected
+    if(!app.currentPersona) {
+      alert('Please select a persona from the top bar first');
+      return;
+    }
+    
+    await policyPromptIfNeeded();
+    if(app.rawFrames.length===0){
+      log.textContent = 'No raw frames in memory';
+      if(app.outDirHandle) {
+        log.textContent += '; attempting to read from raw/ in output folder…';
+        try {
+          const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+          const rawDir = await vizFramesDir.getDirectoryHandle('raw', {create:false});
+          const allFrames = await listPngs(rawDir);
+          // Filter to only frames from the current video
+          app.rawFrames = allFrames.filter(f => f.videoIndex === app.videoIndex);
+          log.textContent += `\nLoaded ${app.rawFrames.length} frames from Video ${app.videoIndex} (${allFrames.length} total frames on disk).`;
+        } catch(err) {
+          console.error('[Visualizer] Could not read raw frames from disk:', err);
+        }
+      } else if(app.autoSelectedDir) {
+        // For Electron, read from shared directory and filter by video
+        const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+        if(electronAPI?.listFiles) {
+          try {
+            const rawPath = `${app.personaPath}\\visualizer frames\\raw`;
+            const rawFiles = await electronAPI.listFiles(rawPath);
+            if(Array.isArray(rawFiles)) {
+              app.rawFrames = [];
+              for(const name of rawFiles) {
+                const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+                if(match) {
+                  const videoIndex = parseInt(match[1], 10);
+                  const frameNum = parseInt(match[2], 10);
+                  // Only include frames from current video
+                  if(videoIndex === app.videoIndex) {
+                    app.rawFrames.push({id: frameNum, videoIndex, name});
+                  }
+                }
+              }
+              app.rawFrames.sort((a,b) => a.id - b.id);
+              log.textContent += `\nLoaded ${app.rawFrames.length} frames from Video ${app.videoIndex}.`;
+            }
+          } catch(err) {
+            console.error('[Visualizer] Could not read raw frames via Electron API:', err);
+          }
+        }
+      }
+      if(app.rawFrames.length===0){ 
+        alert('No frames found for Video ' + app.videoIndex + '. Run extraction first.'); 
+        return; 
+      }
+    }
+
+    // Create shared proc120 directory if we have file system access
+    let procDir = null;
+    
+    if(app.outDirHandle) {
+      // Using File System API - user manually selected folder
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:true});
+        procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:true});
+        console.log('[Visualizer] Created/accessed shared proc120 directory for downscaling');
+      } catch(err) {
+        console.error('[Visualizer] Failed to create proc120 directory:', err);
+        // Continue anyway - we'll store in memory
+      }
+    } else {
+      console.log('[Visualizer] No file system access - downscaled frames will be stored in memory only');
+    }
+    const firstC = $('#first120').getContext('2d');
+    const lastC = $('#last120').getContext('2d');
+
+    app.procFrames = [];
+    let i=0;
+    for(const rf of app.rawFrames){
+      const bmp = await createImageBitmap(rf.blob || await blobFromDir(app.outDirHandle,'raw',rf.name));
+      const c = document.createElement('canvas'); c.width=120; c.height=120; const ctx=c.getContext('2d');
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,120,120);
+      if(app.letterbox){
+        const s = Math.min(120/bmp.width, 120/bmp.height);
+        const w = Math.round(bmp.width*s), h=Math.round(bmp.height*s);
+        const dx = Math.floor((120-w)/2); const dy=Math.floor((120-h)/2);
+        ctx.drawImage(bmp, dx, dy, w, h);
+      }else{
+        const s = Math.min(bmp.width, bmp.height);
+        const sx = Math.floor((bmp.width - s)/2);
+        const sy = Math.floor((bmp.height - s)/2);
+        ctx.drawImage(bmp, sx, sy, s, s, 0, 0, 120, 120);
+      }
+      const blob = await new Promise(r=>c.toBlob(r,'image/png'));
+      // Use the same naming convention as raw frames
+      const procName = rf.name || `Video${rf.videoIndex || app.videoIndex}_Frame${rf.id}.png`;
+      app.procFrames.push({id:rf.id, videoIndex: rf.videoIndex || app.videoIndex, blob, name:procName});
+      
+      // Save downscaled frame
+      if(procDir){
+        // Using File System API
+        try {
+          const fh = await procDir.getFileHandle(procName, {create:true});
+          const ws = await fh.createWritable(); 
+          await ws.write(blob); 
+          await ws.close();
+          if(i === 0) console.log('[Visualizer] Successfully saved first downscaled frame to disk:', procName);
+        } catch(err) {
+          console.error('[Visualizer] Failed to save downscaled frame:', err);
+        }
+      } else if(app.autoSelectedDir) {
+        // For Electron - save directly to shared persona folder
+        const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+        if(electronAPI?.saveFile) {
+          const filePath = `${app.personaPath}\\visualizer frames\\proc120\\${procName}`;
+          try {
+            // Convert blob to buffer for Electron API
+            const buffer = await blob.arrayBuffer();
+            await electronAPI.saveFile(filePath, new Uint8Array(buffer));
+          if(i === 0) console.log('[Visualizer] Saved first downscaled frame via Electron API:', filePath);
+        } catch(err) {
+            console.error('[Visualizer] Failed to save downscaled via Electron API:', err);
+          }
+        }
+      } else {
+        // Store in memory only
+        if(i === 0) console.log('[Visualizer] Storing downscaled frames in memory (no file system access)');
+      }
+      i++; bar.style.width=((i/app.rawFrames.length)*100)+'%';
+      if(rf.id===1){ firstC.clearRect(0,0,120,120); firstC.drawImage(c,0,0); }
+      if(rf.id===app.rawFrames.length){ lastC.clearRect(0,0,120,120); lastC.drawImage(c,0,0); }
+    }
+    if(procDir || app.autoSelectedDir) {
+      log.textContent = `Wrote ${app.procFrames.length} PNGs to proc120/ (Video ${app.videoIndex} frames).`;
+    } else {
+      log.textContent = `Processed ${app.procFrames.length} frames and stored in memory.`;
+      log.textContent += `\nTo save to disk: Click "Choose Folder" and navigate to the persona folder.`;
+    }
+    updateCounts();
+  }
+
+  $('#downscaleBtn').addEventListener('click', downscaleAll);
+
+  /* ==========================
+     Chunking (6 frames)
+  ========================== */
+  $('#makeChunks').addEventListener('click', makeChunks);
+
+  async function makeChunks(){
+    const n = app.procFrames.length || app.rawFrames.length || app.stats.totalFrames;
+    if(!n){ alert('No frames to chunk.'); return; }
+    
+    // Check if we have a persona selected
+    if(!app.currentPersona) {
+      alert('Please select a persona from the top bar first');
+      return;
+    }
+    
+    const videoIndex = app.videoIndex || 1;
+    
+    // Try to load existing chunks.json file
+    let existingChunks = [];
+    try {
+      const chunksPath = `visualizer frames/chunks.json`;
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI || window.electron;
+      if(electronAPI?.readFile) {
+        const fullPath = `${app.personaPath}\\visualizer frames\\chunks.json`;
+        const content = await electronAPI.readFile(fullPath);
+        existingChunks = JSON.parse(content);
+        console.log('[Visualizer] Loaded existing chunks.json with', existingChunks.length, 'chunks');
+      } else if(app.outDirHandle) {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const chunksFile = await vizFramesDir.getFileHandle('chunks.json', {create:false});
+        const file = await chunksFile.getFile();
+        existingChunks = JSON.parse(await file.text());
+        console.log('[Visualizer] Loaded existing chunks.json with', existingChunks.length, 'chunks');
+      }
+    } catch(err) {
+      console.log('[Visualizer] No existing chunks.json found, creating new one');
+    }
+    
+    // Create new chunks for this video with labeled frame names
+    const newChunks = [];
+    let frameId = 1;
+    const totalChunks = Math.ceil(n/6);
+    
+    for(let c = 1; c <= totalChunks; c++){
+      const frames = [];
+      for(let j = 0; j < 6 && frameId <= n; j++, frameId++) {
+        // Use the Video{N}_Frame{M} naming convention
+        frames.push(`Video${videoIndex}_Frame${frameId}`);
+      }
+      newChunks.push({
+        chunkNumber: existingChunks.length + c,
+        frames: frames
+      });
+    }
+    
+    // Merge with existing chunks
+    const allChunks = [...existingChunks, ...newChunks];
+    app.chunks = allChunks;
+    
+    $('#chunkInfo').textContent = `Total chunks: ${allChunks.length} (added ${newChunks.length} new chunks for Video ${videoIndex})`;
+    
+    // Save merged chunks to single chunks.json file
+    try {
+      await writeJSON('visualizer frames/chunks.json', allChunks);
+      console.log('[Visualizer] Successfully saved chunks.json with', allChunks.length, 'total chunks');
+      $('#chunkInfo').textContent += ` - Saved to chunks.json`;
+    } catch(err) {
+      console.error('[Visualizer] Failed to save chunks.json:', err);
+      // Store in app state for later use even if save fails
+      console.log('[Visualizer] Chunks created and stored in memory:', allChunks.length, 'chunks');
+    }
+    
+    populateChunkSelect();
+    updateCounts();
+  }
+
+  function populateChunkSelect(){
+    const sel = $('#chunkSelect'); sel.innerHTML='';
+    app.chunks.forEach(c=>{
+      const opt=document.createElement('option');
+      opt.value=c.chunkNumber;
+      // Show which video the chunk belongs to based on first frame name
+      const firstFrame = c.frames[0];
+      const videoMatch = firstFrame?.match(/Video(\d+)/);
+      const videoNum = videoMatch ? videoMatch[1] : '?';
+      opt.textContent=`Chunk ${c.chunkNumber} (Video ${videoNum})`;
+      sel.appendChild(opt);
+    });
+  }
+
+  /* ==========================
+     Analyze: call model, produce per-frame descriptors
+  ========================== */
+  $('#startAnalyze').addEventListener('click', startAnalysis);
+  $('#retryAll').addEventListener('click', processRetryQueue);
+  $('#openNextFailed').addEventListener('click', openNextFailedInReview);
+  
+  // Populate video selection dropdown when switching to Analyze tab
+  async function populateAnalyzeVideoSelect() {
+    const select = $('#analyzeVideoSelect');
+    const info = $('#analyzeVideoInfo');
+    
+    if(!app.currentPersona) {
+      select.innerHTML = '<option value="">Please select a persona first</option>';
+      info.textContent = 'No persona selected';
+      return;
+    }
+    
+    // Scan for available videos in proc120 folder
+    const videos = new Map(); // videoIndex -> frameCount
+    
+    if(app.outDirHandle) {
+      // Using File System API - scan proc120 directory
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:false});
+        
+        for await(const [name, handle] of procDir) {
+          const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+          if(match) {
+            const videoIndex = parseInt(match[1], 10);
+            const frameNum = parseInt(match[2], 10);
+            if(!videos.has(videoIndex) || videos.get(videoIndex) < frameNum) {
+              videos.set(videoIndex, frameNum);
+            }
+          }
+        }
+      } catch(err) {
+        console.log('[Visualizer] Could not scan proc120 directory:', err);
+      }
+    } else if(app.autoSelectedDir) {
+      // For Electron - use API to list files
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.listFiles) {
+        try {
+          const procPath = `${app.personaPath}\\visualizer frames\\proc120`;
+          const procFiles = await electronAPI.listFiles(procPath);
+          if(Array.isArray(procFiles)) {
+            for(const name of procFiles) {
+              const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+              if(match) {
+                const videoIndex = parseInt(match[1], 10);
+                const frameNum = parseInt(match[2], 10);
+                if(!videos.has(videoIndex) || videos.get(videoIndex) < frameNum) {
+                  videos.set(videoIndex, frameNum);
+                }
+              }
+            }
+          }
+        } catch(err) {
+          console.log('[Visualizer] Could not scan proc120 via Electron API:', err);
+        }
+      }
+    }
+    
+    // Check in-memory frames as well
+    if(app.procFrames.length > 0) {
+      for(const frame of app.procFrames) {
+        const videoIndex = frame.videoIndex || app.videoIndex;
+        const frameNum = frame.id;
+        if(!videos.has(videoIndex) || videos.get(videoIndex) < frameNum) {
+          videos.set(videoIndex, frameNum);
+        }
+      }
+    }
+    
+    // Populate dropdown
+    select.innerHTML = '';
+    if(videos.size === 0) {
+      select.innerHTML = '<option value="">No processed videos found</option>';
+      info.textContent = 'Process videos in Ingest tab first';
+    } else {
+      // Sort videos by index
+      const sortedVideos = Array.from(videos.entries()).sort((a, b) => a[0] - b[0]);
+      
+      // Add "All Videos" option
+      const allFramesCount = sortedVideos.reduce((sum, [_, frames]) => sum + frames, 0);
+      const opt = document.createElement('option');
+      opt.value = 'all';
+      opt.textContent = `All Videos (${allFramesCount} total frames)`;
+      select.appendChild(opt);
+      
+      // Add individual video options
+      for(const [videoIndex, frameCount] of sortedVideos) {
+        const opt = document.createElement('option');
+        opt.value = videoIndex;
+        opt.textContent = `Video ${videoIndex} (${frameCount} frames)`;
+        select.appendChild(opt);
+      }
+      
+      // Select the current video by default if available
+      if(videos.has(app.videoIndex)) {
+        select.value = app.videoIndex;
+        info.textContent = `${frameCount} frames ready for analysis`;
+      } else {
+        select.value = 'all';
+        info.textContent = `${allFramesCount} total frames across ${videos.size} video(s)`;
+      }
+    }
+  }
+  
+  // Update info when selection changes
+  $('#analyzeVideoSelect').addEventListener('change', (e) => {
+    const value = e.target.value;
+    const info = $('#analyzeVideoInfo');
+    
+    if(value === 'all') {
+      info.textContent = 'Will analyze all available videos';
+    } else if(value) {
+      info.textContent = `Will analyze frames from Video ${value}`;
+    } else {
+      info.textContent = 'No videos available';
     }
   });
 
-  // ---- main flow ----
-  const file=$('file'), vid=$('vid');
-  file.onchange=()=>{ 
-    if(file.files[0]){
-      const url=URL.createObjectURL(file.files[0]); 
-      vid.src=url; 
-      log('📹 Loaded: '+file.files[0].name);
-    } 
-  };
+  async function adapterTest(){
+    const v = $('#modelSelect').value;
+    if(v.startsWith('openai:')){
+      const key = $('#openaiKey').value.trim();
+      const base = ($('#openaiBase').value.trim())||'https://api.openai.com';
+      if(!key) { alert('Enter OpenAI key.'); return false; }
+      const url = base.replace(/\/$/,'') + '/v1/models';
+      const res = await fetch(url,{headers:{'Authorization':'Bearer '+key}});
+      return res.ok;
+    }else{
+      const host = $('#ollamaHost').value.trim()||'http://localhost:11434';
+      const res = await fetch(host.replace(/\/$/,'')+'/api/tags').catch(()=>({ok:false}));
+      return !!res?.ok;
+    }
+  }
 
-  let abortFlag=false;
-  
-  // Persona selection handler
-  $('personaSelect').onchange = () => {
-    const selected = $('personaSelect').value;
-    if (selected) {
-      appState.setPersona(selected);
-      log('👤 Selected persona: ' + selected);
-    } else {
-      appState.setPersona(null);
-      log('❌ No persona selected');
-    }
-  };
-  
-  // Refresh personas button
-  $('refreshPersonas').onclick = async () => {
-    log('🔄 Refreshing personas list...');
-    await loadPersonasList();
+  async function startAnalysis(){
+    const log = $('#logAnalyze'); log.textContent='';
+    const bar = $('#barAnalyze'); bar.style.width='0%';
+    const conc = Math.max(1, Math.min(8, +$('#concurrency').value||3));
+    const maxRetries = Math.max(0, Math.min(5, +$('#maxRetries').value||1));
     
-    // Restore selection if it was saved
-    const saved = sessionStorage.getItem('selectedPersona');
-    if (saved) {
-      $('personaSelect').value = saved;
-      appState.setPersona(saved);
-    }
-  };
-  
-  // Re-describe all images button
-  $('redescribe').onclick = async () => {
-    if (!appState.outFolder || !appState.personaName) {
-      log('❌ Select a persona first');
+    // Get selected video from dropdown
+    const selectedVideo = $('#analyzeVideoSelect').value;
+    if(!selectedVideo) {
+      alert('Please select a video to analyze');
       return;
     }
     
-    if (!confirm(`Re-describe ALL images for persona "${appState.personaName}"?\n\nThis will update the descriptions for all existing images in the visualizer frames folder.`)) {
-      return;
-    }
-    
+    // Load chunks.json to get proper chunk associations
     try {
-      $('redescribe').disabled = true;
-      log('🔄 Starting re-description process...');
+      const chunks = await readJSON('visualizer frames/chunks.json');
+      app.chunks = chunks;
+      console.log('[Analyze] Loaded chunks.json with', chunks.length, 'chunks');
+    } catch(err) {
+      console.log('[Analyze] Could not load chunks.json, will use fallback calculation');
+    }
+    
+    // Ensure model configuration is up to date
+    const v = $('#modelSelect').value;
+    if(v.startsWith('openai:')){
+      app.model.kind='openai';
+      app.model.name = v.split(':')[1];
       
-      // Get all existing images from the folder
-      const result = await api.getExistingImages(appState.outFolder);
-      if (!result || !result.images || result.images.length === 0) {
-        log('❌ No images found to re-describe');
-        return;
+      // Try to get key from Electron API if not in input field
+      let key = $('#openaiKey').value.trim();
+      if(!key) {
+        const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+        if(electronAPI?.getOpenAIKey) {
+          try {
+            key = await electronAPI.getOpenAIKey();
+            console.log('[Analyze] Retrieved OpenAI key from Electron API');
+            if(key) {
+              app.model.key = key;
+              $('#openaiKey').value = key;
+              localStorage.setItem('openaiKey', key);
+            }
+          } catch(err) {
+            console.error('[Analyze] Failed to get OpenAI key from Electron:', err);
+          }
+        }
+      } else {
+        app.model.key = key;
       }
       
-      log(`📊 Found ${result.images.length} images to re-describe`);
+      app.model.base = ($('#openaiBase').value.trim())||'https://api.openai.com';
       
-      // Process in batches
-      const batchSize = parseInt($('batch').value || 20, 10);
-      const described = await redescribeImages(result.images, batchSize);
-      
-      // Update the index
-      await api.updateDescriptions(appState.outFolder, described);
-      
-      log(`✅ Re-described ${described.length} images`);
-      
-      // Refresh the index display
-      await scanIndex();
-      
-    } catch (e) {
-      console.error('Re-describe error:', e);
-      log('❌ Re-describe failed: ' + e.message);
-    } finally {
-      $('redescribe').disabled = false;
-    }
-  };
-  
-  $('scanIndex').onclick = scanIndex;
-  $('abort').onclick = () => { 
-    abortFlag = true; 
-    log('🛑 Abort requested...'); 
-  };
-
-  async function scanIndex() {
-    if (!appState.outFolder) { 
-      log('❌ Select a persona first.'); 
-      return; 
+      if(!app.model.key) {
+        alert('OpenAI key not found. Please ensure the key is configured in the main application settings.');
+        return;
+      }
+    }else{
+      app.model.kind='ollama';
+      app.ollama.host = $('#ollamaHost').value.trim()||'http://localhost:11434';
+      app.ollama.model='llava';
     }
     
+    let frames = [];
+    
+    // Try to get frames from File System API
+    if(app.outDirHandle) {
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:false});
+        frames = await listPngs(procDir);
+        console.log('[Analyze] Loaded frames from File System API:', frames.length);
+      } catch(err) {
+        console.log('[Analyze] Could not load frames from File System API:', err);
+      }
+    }
+    
+    // Try to get frames via Electron API if File System API didn't work
+    if(frames.length === 0 && app.autoSelectedDir) {
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.listFiles) {
+        try {
+          const procPath = `${app.personaPath}\\visualizer frames\\proc120`;
+          const procFiles = await electronAPI.listFiles(procPath);
+          if(Array.isArray(procFiles)) {
+            for(const name of procFiles) {
+              const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+              if(match) {
+                const videoIndex = parseInt(match[1], 10);
+                const frameNum = parseInt(match[2], 10);
+                frames.push({id: frameNum, videoIndex, name});
+              }
+            }
+            frames.sort((a,b) => {
+              if(a.videoIndex !== b.videoIndex) return a.videoIndex - b.videoIndex;
+              return a.id - b.id;
+            });
+            console.log('[Analyze] Loaded frames from Electron API:', frames.length);
+          }
+        } catch(err) {
+          console.log('[Analyze] Could not load frames via Electron API:', err);
+        }
+      }
+    }
+    
+    // Fall back to in-memory frames if available
+    if(frames.length === 0 && app.procFrames.length > 0) {
+      frames = [...app.procFrames];
+      console.log('[Analyze] Using in-memory frames:', frames.length);
+    }
+    
+    // Check if we have any frames at all
+    if(frames.length === 0) {
+      alert('No processed frames found. Please run downscale first or check that the proc120 folder contains frames.');
+      return;
+    }
+    
+    // Filter frames based on selected video
+    if(selectedVideo !== 'all') {
+      const videoIndex = parseInt(selectedVideo, 10);
+      frames = frames.filter(f => f.videoIndex === videoIndex);
+      log.textContent = `Analyzing Video ${videoIndex} (${frames.length} frames)\n`;
+    } else {
+      log.textContent = `Analyzing all videos (${frames.length} total frames)\n`;
+    }
+    
+    if(frames.length === 0) {
+      alert('No frames found for the selected video');
+      return;
+    }
+    
+    frames.sort((a,b)=>a.id-b.id);
+
+    app.retryQueue = [];
+    app.descriptors = new Map();
+    app.stats.outOfBounds=0; app.stats.finalFailures=0;
+
+    let done=0; const t0=performance.now();
+    $('#retryList').innerHTML='';
+
+    const queue = [...frames];
+
+    async function worker(){
+      while(queue.length){
+        const f = queue.shift();
+        const ok = await analyzeOne(f, maxRetries);
+        done++;
+        bar.style.width=((done/frames.length)*100)+'%';
+        if(done%5===0) log.textContent = `Processed ${done}/${frames.length}`;
+      }
+    }
+
+    await Promise.all(Array.from({length:conc}, worker));
+    const t1=performance.now();
+    app.stats.avgLatencyMs = Math.round((t1-t0)/Math.max(1,frames.length));
+
+    log.textContent += `\nOut-of-bounds corrections: ${app.stats.outOfBounds}`;
+    log.textContent += `\nFinal failures: ${app.stats.finalFailures}`;
+
+    // Save all descriptors to shared directory with Video{N}_Frame{M} naming
     try {
-      const idx = await api.readIndex(appState.outFolder);
-      if (idx) {
-        if (typeof idx.nextId === 'number') { 
-          appState.nextId = idx.nextId;
+      for(const [id,obj] of app.descriptors){
+        const videoIndex = obj.videoIndex || app.videoIndex;
+        const filename = `Video${videoIndex}_Frame${id}.json`;
+        await writeJSON(`visualizer frames/descriptors/${filename}`, obj);
+      }
+      console.log('[Visualizer] Saved all descriptors with Video_Frame naming');
+    } catch(err) {
+      console.error('[Visualizer] Failed to save descriptors:', err);
+    }
+    updateCounts();
+  }
+
+  async function analyzeOne(frame, maxRetries){
+    const id = frame.id;
+    const videoIndex = frame.videoIndex || app.videoIndex;
+    let imgBlob = frame.blob;
+    
+    // Find the correct chunk for this frame
+    const frameKey = `Video${videoIndex}_Frame${id}`;
+    let chunkNumber = Math.ceil(id/6); // Default fallback
+    let frameNumberInChunk = ((id-1)%6)+1; // Default fallback
+    
+    // Look up from loaded chunks if available
+    if(app.chunks && app.chunks.length > 0) {
+      for(const chunk of app.chunks) {
+        const frameIndex = chunk.frames.indexOf(frameKey);
+        if(frameIndex !== -1) {
+          chunkNumber = chunk.chunkNumber;
+          frameNumberInChunk = frameIndex + 1;
+          break;
+        }
+      }
+    }
+    
+    // Enhanced logging for debugging
+    console.log('[Analyze] Starting analyzeOne for frame:', id, 'videoIndex:', videoIndex, 'hasBlob:', !!imgBlob);
+    
+    if(!imgBlob && app.outDirHandle) {
+      console.log('[Analyze] Attempting to read from File System API');
+      // Try with the specific video index from the frame
+      try {
+        imgBlob = await blobFromDir(app.outDirHandle,'proc120',`Video${videoIndex}_Frame${id}.png`);
+        console.log('[Analyze] Successfully loaded frame via File System API');
+      } catch(err1) {
+        console.log('[Analyze] First attempt failed:', err1.message);
+        // Try with current app video index
+        try {
+          imgBlob = await blobFromDir(app.outDirHandle,'proc120',`Video${app.videoIndex}_Frame${id}.png`);
+          console.log('[Analyze] Successfully loaded frame with app.videoIndex');
+        } catch(err2) {
+          console.log('[Analyze] Second attempt failed:', err2.message);
+          // Fallback to old naming
+          try {
+            imgBlob = await blobFromDir(app.outDirHandle,'proc120',`frame_${String(id).padStart(6,'0')}.png`);
+            console.log('[Analyze] Successfully loaded frame with old naming');
+          } catch(err3) {
+            console.log('[Analyze] All File System API attempts failed:', err3.message);
+          }
+        }
+      }
+    }
+    
+    // If still no blob and we're using Electron, try to read the file directly
+    if(!imgBlob && app.autoSelectedDir) {
+      console.log('[Analyze] Attempting to read via Electron API');
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.readFile) {
+        // Try multiple file naming patterns
+        const filePatterns = [
+          `${app.personaPath}\\visualizer frames\\proc120\\Video${videoIndex}_Frame${id}.png`,
+          `${app.personaPath}\\visualizer frames\\proc120\\Video${app.videoIndex}_Frame${id}.png`,
+          `${app.personaPath}\\visualizer frames\\proc120\\frame_${String(id).padStart(6,'0')}.png`
+        ];
+        
+        for(const filePath of filePatterns) {
+          try {
+            console.log('[Analyze] Trying to read file:', filePath);
+            const buffer = await electronAPI.readFile(filePath);
+            
+            // Enhanced buffer handling with better type checking
+            let uint8Array;
+            
+            // Log the actual type we received
+            console.log('[Analyze] Buffer type received:', typeof buffer, 
+                       'isArrayBuffer:', buffer instanceof ArrayBuffer,
+                       'isUint8Array:', buffer instanceof Uint8Array,
+                       'isArray:', Array.isArray(buffer),
+                       'isString:', typeof buffer === 'string');
+            
+            if(buffer instanceof ArrayBuffer) {
+              uint8Array = new Uint8Array(buffer);
+            } else if(buffer instanceof Uint8Array) {
+              uint8Array = buffer;
+            } else if(Array.isArray(buffer)) {
+              uint8Array = new Uint8Array(buffer);
+            } else if(typeof buffer === 'string') {
+              // The IPC handler now returns base64 strings for binary files
+              // Decode the base64 string to binary
+              try {
+                const binaryString = atob(buffer);
+                uint8Array = new Uint8Array(binaryString.length);
+                for(let i = 0; i < binaryString.length; i++) {
+                  uint8Array[i] = binaryString.charCodeAt(i);
+                }
+                console.log('[Analyze] Successfully decoded base64 string, size:', uint8Array.length);
+              } catch(decodeErr) {
+                console.error('[Analyze] Failed to decode base64:', decodeErr);
+                throw new Error('Failed to decode base64 image data');
+              }
+            } else if(buffer && buffer.data) {
+              // Handle wrapped buffer object
+              if(buffer.data instanceof ArrayBuffer) {
+                uint8Array = new Uint8Array(buffer.data);
+              } else if(buffer.data instanceof Uint8Array) {
+                uint8Array = buffer.data;
+              } else if(Array.isArray(buffer.data)) {
+                uint8Array = new Uint8Array(buffer.data);
+              } else if(typeof buffer.data === 'string') {
+                // Handle base64 encoded string in data property
+                try {
+                  const binaryString = atob(buffer.data);
+                  uint8Array = new Uint8Array(binaryString.length);
+                  for(let i = 0; i < binaryString.length; i++) {
+                    uint8Array[i] = binaryString.charCodeAt(i);
+                  }
+                } catch(decodeErr) {
+                  console.error('[Analyze] Failed to decode base64 from data property:', decodeErr);
+                  throw new Error('Failed to decode base64 image data from data property');
+                }
+              } else {
+                // Try to convert whatever we have
+                uint8Array = new Uint8Array(buffer.data);
+              }
+            } else {
+              console.error('[Analyze] Unknown buffer format:', typeof buffer, buffer);
+              throw new Error('Unknown buffer format from Electron API');
+            }
+            
+            // Verify we have valid data
+            if(!uint8Array || uint8Array.length === 0) {
+              throw new Error('Buffer conversion resulted in empty data');
+            }
+            
+            // Convert buffer to blob
+            imgBlob = new Blob([uint8Array], {type: 'image/png'});
+            console.log('[Analyze] Successfully created blob from Electron buffer, size:', imgBlob.size);
+            break; // Success, exit the loop
+          } catch(err) {
+            console.log('[Analyze] Failed to read file:', filePath, 'Error:', err.message);
+            // Continue to next pattern
+          }
+        }
+      } else {
+        console.log('[Analyze] Electron API readFile method not available');
+      }
+    }
+    
+    // If still no blob, try to use in-memory frames as last resort
+    if(!imgBlob && app.procFrames.length > 0) {
+      console.log('[Analyze] Attempting to find frame in memory');
+      const memFrame = app.procFrames.find(f => f.id === id);
+      if(memFrame && memFrame.blob) {
+        imgBlob = memFrame.blob;
+        console.log('[Analyze] Found frame in memory');
+      }
+    }
+    
+    if(!imgBlob) {
+      console.error('[Analyze] No image blob available for frame:', id, 'after all attempts');
+      console.error('[Analyze] Debug info:', {
+        hasOutDirHandle: !!app.outDirHandle,
+        autoSelectedDir: app.autoSelectedDir,
+        personaPath: app.personaPath,
+        procFramesCount: app.procFrames.length,
+        frameVideoIndex: videoIndex,
+        appVideoIndex: app.videoIndex
+      });
+      throw new Error(`No image data available for frame ${id}. Please ensure frames are properly extracted and downscaled.`);
+    }
+
+    let attempt=0;
+    while(attempt<=maxRetries){
+      try{
+        const raw = await callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk);
+        const txt = (raw||'').replace(/^```\s*json|^```|```$/g,'').trim();
+        let parsed = JSON.parse(txt);
+        
+        // Ensure the parsed descriptor has the correct video index and chunk info
+        parsed.videoIndex = videoIndex;
+        parsed.chunkNumber = chunkNumber;
+        parsed.frameNumberInChunk = frameNumberInChunk;
+        
+        parsed = sanitizeDescriptor(parsed);
+        const errs = validateDescriptor(parsed);
+        if(errs.length){ throw new Error('Schema errors: '+errs.join('; ')); }
+        app.descriptors.set(id, parsed);
+        return true;
+      }catch(e){
+        attempt++;
+        if(attempt>maxRetries){
+          app.retryQueue.push(id);
+          app.stats.finalFailures++;
+          addRetryItem(id, e.message||String(e));
+          return false;
+        }
+        await sleep(300);
+      }
+    }
+  }
+
+  function addRetryItem(id, reason){
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML = `<b>Frame ${id}</b><div class="muted">${reason}</div>`;
+    div.addEventListener('click',()=>{ openInReview(id); });
+    $('#retryList').appendChild(div);
+  }
+
+  async function processRetryQueue(){
+    const q=[...new Set(app.retryQueue)]; app.retryQueue=[]; $('#retryList').innerHTML='';
+    const bar = $('#barAnalyze'); const log = $('#logAnalyze');
+    let done=0;
+    for(const id of q){
+      const ok = await analyzeOne({id}, 0);
+      done++;
+      bar.style.width=((done/q.length)*100)+'%';
+    }
+    log.textContent += `\nRetry complete. Remaining: ${app.retryQueue.length}.`;
+  }
+
+  async function callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk){
+    const b64 = await blobToBase64(imgBlob);
+    
+    // Use provided chunk info or calculate fallback
+    if(!chunkNumber) chunkNumber = Math.ceil(id/6);
+    if(!frameNumberInChunk) frameNumberInChunk = ((id-1)%6)+1;
+    if(!videoIndex) videoIndex = app.videoIndex;
+
+    const sys = app.promptText;
+
+    if(app.model.kind==='openai'){
+      if(!app.model.key) throw new Error('Missing OpenAI key');
+      const url = app.model.base.replace(/\/$/,'') + '/v1/chat/completions';
+      const body = {
+        model: app.model.name,
+        messages: [
+          {role:'system', content: sys},
+          {role:'user', content:[
+            {type:'text', text:`frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}. Return ONLY JSON.`},
+            {type:'image_url', image_url:{url:`data:image/png;base64,${b64}`}}
+          ]}
+        ],
+        temperature: 0.2,
+        max_tokens: 300
+      };
+      
+      console.log('[OpenAI Request] Frame', id, '- URL:', url);
+      console.log('[OpenAI Request] Model:', body.model);
+      console.log('[OpenAI Request] Message structure:', JSON.stringify(body.messages.map(m => ({role: m.role, contentType: Array.isArray(m.content) ? 'array' : typeof m.content})), null, 2));
+      console.log('[OpenAI Request] Image data length:', b64.length);
+      
+      const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+app.model.key},body:JSON.stringify(body)});
+      
+      if(!res.ok) {
+        const errorText = await res.text();
+        console.error('[OpenAI Error] Frame', id, '- Status:', res.status);
+        console.error('[OpenAI Error] Response:', errorText);
+        console.error('[OpenAI Error] Request body sample:', JSON.stringify({...body, messages: body.messages.map(m => ({...m, content: Array.isArray(m.content) ? m.content.map(c => ({...c, image_url: c.image_url ? {...c.image_url, url: 'BASE64_DATA_TRUNCATED'} : c.image_url})) : m.content}))}, null, 2));
+        throw new Error(`OpenAI API error ${res.status}: ${errorText}`);
+      }
+      
+      const j = await res.json();
+      console.log('[OpenAI Success] Frame', id, '- Response received');
+      const txt = j.choices?.[0]?.message?.content || '';
+      return txt;
+    }else{
+      const host = app.ollama.host.replace(/\/$/,'');
+      const prompt = sys + `\nReturn ONLY JSON. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}.`;
+      const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
+      const res = await fetch(host+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!res.ok) throw new Error('Ollama error '+res.status);
+      const j = await res.json();
+      return j.response || '';
+    }
+  }
+
+  async function blobToBase64(blob){
+    const ab = await blob.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(ab);
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+    }
+    return btoa(binary);
+  }
+
+  async function listPngs(dirHandle){
+    const arr=[];
+    for await(const [name, handle] of dirHandle){
+      if(name.toLowerCase().endsWith('.png')){
+        const file = await handle.getFile();
+        
+        // Parse Video{N}_Frame{M}.png format
+        const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+        if(match) {
+          const videoIndex = parseInt(match[1], 10);
+          const frameNum = parseInt(match[2], 10);
+          arr.push({id: frameNum, videoIndex, name, blob: file});
         } else {
-          appState.nextId = 1;
+          // Fallback for old format frame_000001.png
+          const id = parseInt(name.match(/frame_(\d+)/)?.[1]||'1');
+          arr.push({id, name, blob: file});
+        }
+      }
+    }
+    // Sort by video index first, then by frame ID
+    arr.sort((a,b) => {
+      if(a.videoIndex && b.videoIndex) {
+        if(a.videoIndex !== b.videoIndex) return a.videoIndex - b.videoIndex;
+      }
+      return a.id - b.id;
+    });
+    return arr;
+  }
+
+  async function blobFromDir(root, sub, name){
+    try {
+      // Enhanced logging
+      console.log('[blobFromDir] Attempting to read:', {sub, name});
+      
+      // If sub includes 'visualizer frames', we need to handle the nested structure
+      let dir = root;
+      if(sub.includes('/')) {
+        const parts = sub.split('/');
+        for(const part of parts) {
+          dir = await dir.getDirectoryHandle(part, {create:false});
+        }
+      } else {
+        // For backward compatibility, check if we need visualizer frames prefix
+        try {
+          const vizFramesDir = await root.getDirectoryHandle('visualizer frames', {create:false});
+          dir = await vizFramesDir.getDirectoryHandle(sub, {create:false});
+          console.log('[blobFromDir] Found directory with visualizer frames prefix');
+        } catch(err) {
+          console.log('[blobFromDir] Trying without visualizer frames prefix');
+          dir = await root.getDirectoryHandle(sub, {create:false});
+        }
+      }
+      const fh = await dir.getFileHandle(name, {create:false});
+      const file = await fh.getFile();
+      console.log('[blobFromDir] Successfully read file, size:', file.size);
+      return file;
+    } catch(err) {
+      console.error('[blobFromDir] Failed to read file:', sub, name, 'Error:', err.message);
+      throw err;
+    }
+  }
+
+  async function readJSON(path) {
+    // Try Electron API first if available and persona is selected
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    console.log('[readJSON] Debug:', {
+      outDirHandle: app.outDirHandle,
+      autoSelectedDir: app.autoSelectedDir,
+      electronAPIExists: !!electronAPI,
+      hasReadFile: !!(electronAPI?.readFile),
+      typeOfReadFile: typeof electronAPI?.readFile
+    });
+    if(!app.outDirHandle && app.autoSelectedDir && electronAPI?.readFile) {
+      const fullPath = `${app.personaPath}\\${path.replace(/\//g, '\\')}`;
+      try {
+        console.log('[Visualizer] Attempting to read JSON from:', fullPath);
+        const result = await electronAPI.readFile(fullPath);
+        
+        // Handle different response types from Electron API
+        let text;
+        if(typeof result === 'string') {
+          // If it's already a string, use it directly
+          text = result;
+        } else if(result instanceof ArrayBuffer || result instanceof Uint8Array) {
+          // If it's a buffer, decode it
+          text = new TextDecoder().decode(result);
+        } else if(result && typeof result === 'object' && result.data) {
+          // If it's wrapped in an object with data property
+          if(typeof result.data === 'string') {
+            text = result.data;
+          } else {
+            text = new TextDecoder().decode(result.data);
+          }
+        } else {
+          // Try to use it as-is
+          text = String(result);
         }
         
-        // Count existing frames
-        const frameCount = idx.frames ? Object.keys(idx.frames).length : 0;
-        $('nextId').textContent = `Next ID: ${appState.nextId} (${frameCount} existing)`;
-        log(`🔍 Scanned. Next ID = ${appState.nextId}, Existing frames = ${frameCount}`);
-      } else { 
-        appState.nextId = 1;
-        $('nextId').textContent = 'Next ID: 1 (new library)';
-        log('📝 New library. Starting at ID 1');
+        console.log('[Visualizer] Read JSON content:', text.substring(0, 100) + '...');
+        const parsed = JSON.parse(text);
+        console.log('[Visualizer] Successfully parsed JSON:', parsed);
+        return parsed;
+      } catch(err) {
+        console.error('[Visualizer] Failed to read JSON via Electron API:', fullPath, err);
+        throw err;
       }
-    } catch(e) {
-      console.error('Scan error:', e);
-      appState.nextId = 1;
-      $('nextId').textContent = 'Next ID: 1 (new)';
-      log('📝 New library. Starting at ID 1');
-    }
-  }
-  
-  async function redescribeImages(images, batchSize) {
-    const out = [];
-    let done = 0;
-    
-    for (let i = 0; i < images.length; i += batchSize) {
-      if (abortFlag) break;
-      
-      const batch = images.slice(i, i + batchSize);
-      const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
-      
-      // Load image data for batch
-      const payload = [];
-      for (const img of batch) {
-        // For re-description, we need to load the actual image data
-        // This would require reading from disk via Electron
-        payload.push({ 
-          id: img.id, 
-          image: img.dataUrl || img.path, // Use existing data or path
-          prompt: promptHeader 
-        });
-      }
-      
-      const desc = await api.describeImages(payload);
-      out.push(...batch.map((b, ix) => ({ 
-        id: b.id,
-        filename: b.filename,
-        meta: desc[ix] 
-      })));
-      
-      done += batch.length;
-      $('counts').textContent = `re-describing: ${done}/${images.length}`;
-      setBar((done / images.length) * 100);
-      await sleep(15);
     }
     
-    return out;
+    // Use File System API if available
+    if(app.outDirHandle) {
+      try {
+        const parts = path.split('/');
+        let dir = app.outDirHandle;
+        
+        // Navigate through the path
+        for(let i=0;i<parts.length-1;i++){
+          dir = await dir.getDirectoryHandle(parts[i], {create:false});
+        }
+        
+        // Read the file
+        const fh = await dir.getFileHandle(parts.at(-1), {create:false});
+        const file = await fh.getFile();
+        const text = await file.text();
+        return JSON.parse(text);
+      } catch(err) {
+        throw err;
+      }
+    }
+    
+    throw new Error('No file system access available');
   }
 
-  $('start').onclick = async () => {
-    try { 
-      abortFlag = false; 
-      setBar(0); 
-      $('counts').textContent = 'frames:0, saved:0, described:0';
-      $('start').disabled = true;
-      
-      if (!file.files[0]) {
-        log('❌ Choose a video first.');
+  async function writeJSON(path, obj){
+    // Try Electron API first if available and persona is selected
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    if(!app.outDirHandle && app.autoSelectedDir && electronAPI?.saveFile) {
+      const fullPath = `${app.personaPath}\\${path.replace(/\//g, '\\')}`;
+      try {
+        const jsonString = JSON.stringify(obj, null, 2);
+        const buffer = new TextEncoder().encode(jsonString);
+        await electronAPI.saveFile(fullPath, buffer);
+        console.log('[Visualizer] Saved JSON via Electron API:', fullPath);
         return;
+      } catch(err) {
+        console.error('[Visualizer] Failed to save JSON via Electron API:', err);
       }
-      if (!appState.outFolder) {
-        log('❌ Choose an output folder first.');
-        return;
-      }
-      if (appState.nextId == null) {
-        await scanIndex();
-      }
-      
-      const fps = parseInt($('fps').value || 20, 10); 
-      const scale = $('scale').value; 
-      const batchSize = parseInt($('batch').value || 20, 10);
-      
-      const frames = await extractFrames({video: vid, fps, scale});
-      if (abortFlag) {
-        log('🛑 Aborted before LLM.');
-        return;
-      }
-      
-      const described = await describeInBatches(frames, batchSize);
-      if (abortFlag) {
-        log('🛑 Aborted before save.');
-        return;
-      }
-      
-      const saved = await saveToLibrary(described);
-      log(`✅ Done. Saved ${saved} frames.`);
-      
-    } catch(e) { 
-      console.error(e); 
-      log('❌ Error: ' + e.message); 
-    } finally {
-      $('start').disabled = false;
     }
-  };
-
-  async function extractFrames({video, fps, scale}) {
-    log(`⚙️ Extracting at ${fps} fps...`);
-    const duration = video.duration; 
-    if (!isFinite(duration) || duration <= 0) await once(video, 'loadedmetadata');
-    const dur = video.duration; 
-    const total = Math.floor(dur * fps);
-    const paneRect = pane.getBoundingClientRect(); 
-    const cropRect = crop.getBoundingClientRect();
-    const paneW = paneRect.width, paneH = paneRect.height; 
-    const cx = cropRect.left - paneRect.left, cy = cropRect.top - paneRect.top, cs = cropRect.width;
-
-    const work = document.createElement('canvas');
-    const ctx = work.getContext('2d');
-    const out = document.createElement('canvas'); 
-    out.width = 80; 
-    out.height = 80; 
-    const octx = out.getContext('2d');
-    if (scale === 'nearest') { 
-      octx.imageSmoothingEnabled = false; 
-    }
-
-    const thumbs = $('thumbs'); 
-    thumbs.innerHTML = '';
-    const results = [];
     
-    for (let i = 0; i < total; i++) {
-      if (abortFlag) break;
-      const t = i / fps; 
-      video.currentTime = Math.min(t, dur - 0.0001);
-      await once(video, 'seeked');
-      
-      work.width = paneW; 
-      work.height = paneH; 
-      ctx.drawImage(video, 0, 0, paneW, paneH);
-      const imgData = ctx.getImageData(cx, cy, cs, cs);
-      
-      const tmp = document.createElement('canvas'); 
-      tmp.width = cs; 
-      tmp.height = cs; 
-      tmp.getContext('2d').putImageData(imgData, 0, 0);
-      
-      octx.imageSmoothingEnabled = scale !== 'nearest';
-      octx.clearRect(0, 0, 80, 80); 
-      octx.drawImage(tmp, 0, 0, 80, 80);
-      
-      const d = octx.getImageData(0, 0, 80, 80); 
-      const a = d.data;
-      for (let p = 0; p < a.length; p += 4) { 
-        const y = 0.2126 * a[p] + 0.7152 * a[p+1] + 0.0722 * a[p+2]; 
-        a[p] = a[p+1] = a[p+2] = y; 
-      }
-      octx.putImageData(d, 0, 0);
-      
-      const dataURL = out.toDataURL('image/png');
-      const tempId = `t${i}`;
-      results.push({ tempId, timeMs: Math.round(1000 * t), png: dataURL });
-      
-      if (thumbs.children.length < 24) { 
-        const img = new Image(); 
-        img.src = dataURL; 
-        thumbs.appendChild(img);
-      }
-      
-      if (i % 5 === 0) { 
-        $('counts').textContent = `frames:${i+1}/${total}, saved:0, described:0`; 
-        setBar(((i+1) / total) * 30); 
-      }
+    // If we don't have a directory handle and no Electron API, just log and return
+    if(!app.outDirHandle) {
+      console.log('[Visualizer] No file system access - data stored in memory only');
+      return;
     }
-    log(`📊 Extracted ${results.length} frames.`);
-    return results;
+    
+    try {
+      const parts = path.split('/');
+      let dir = app.outDirHandle;
+      
+      // Navigate through the path, creating directories as needed
+      for(let i=0;i<parts.length-1;i++){
+        dir = await dir.getDirectoryHandle(parts[i], {create:true});
+      }
+      
+      // Write the file
+      const fh = await dir.getFileHandle(parts.at(-1), {create:true});
+      const ws = await fh.createWritable();
+      await ws.write(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}));
+      await ws.close();
+      console.log('[Visualizer] Successfully wrote JSON:', path);
+    } catch(err) {
+      console.error('[Visualizer] Failed to write JSON:', path, err);
+      throw err;
+    }
   }
 
-  async function describeInBatches(frames, batchSize) {
-    log('🤖 Describing frames via LLM...');
-    const out = []; 
-    let done = 0;
-    for (let i = 0; i < frames.length; i += batchSize) {
-      if (abortFlag) break;
-      const batch = frames.slice(i, i + batchSize);
-      const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
-      const payload = batch.map(b => ({ id: b.tempId, image: b.png, prompt: promptHeader }));
-      const desc = await api.describeImages(payload);
-      out.push(...batch.map((b, ix) => ({ ...b, meta: desc[ix] })));
-      done += batch.length; 
-      $('counts').textContent = `frames:${frames.length}, saved:0, described:${done}`; 
-      setBar(30 + (done / frames.length) * 40);
-      await sleep(15);
+  /* ==========================
+     Validate Schema (manual)
+  ========================== */
+  $('#validateSchema').addEventListener('click', async()=>{
+    try{
+      const [h] = await window.showOpenFilePicker?.({types:[{description:'JSON',accept:{'application/json':['.json']}}]}) || [];
+      if(!h) return;
+      const file = await h.getFile(); const text = await file.text();
+      const obj = JSON.parse(text);
+      const errs = validateDescriptor(obj);
+      if(errs.length) alert('FAIL:\n'+errs.join('\n'));
+      else alert('PASS: Schema OK');
+    }catch(e){ alert('Error: '+e.message); }
+  });
+
+  /* ==========================
+     Review panel: draw, edit, save
+  ========================== */
+  const canvas = $('#frameCanvas'); const ctx = canvas.getContext('2d');
+  const scale = 3; // 120*3 = 360
+  canvas.width = 120*scale; canvas.height=120*scale;
+
+  $('#prevFrame').addEventListener('click',()=>{ openInReview(app.curFrame-1); });
+  $('#nextFrame').addEventListener('click',()=>{ openInReview(app.curFrame+1); });
+  $('#chunkSelect').addEventListener('change',()=>{
+    const c = +$('#chunkSelect').value; const id = (c-1)*6 + 1; openInReview(id);
+  });
+  $('#gotoBtn').addEventListener('click',()=>{
+    const id = +$('#gotoFrame').value; if(id>0) openInReview(id);
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowLeft') openInReview(app.curFrame-1);
+    if(e.key==='ArrowRight') openInReview(app.curFrame+1);
+    if(e.key==='['||e.key=== '/') openInReview(app.curFrame-6);
+    if(e.key===']') openInReview(app.curFrame+6);
+    if(['l','L'].includes(e.key)) app.curPoint='leftEye';
+    if(['r','R'].includes(e.key)) app.curPoint='rightEye';
+    if(['m','M'].includes(e.key)) app.curPoint='mouth';
+  });
+
+  canvas.addEventListener('click', async(ev)=>{
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((ev.clientX - rect.left)/scale);
+    const y = Math.floor((ev.clientY - rect.top)/scale);
+    const d = app.descriptors.get(app.curFrame) || descriptorSkeleton(app.curFrame, app.videoIndex);
+    d.coords[app.curPoint] = {x,y,confidence:1};
+    app.descriptors.set(app.curFrame, d);
+    drawCurrent();
+    $('#saveStamp').textContent = `edited ${new Date().toLocaleTimeString()}`;
+    refreshJsonView();
+  });
+
+  $('#saveFrame').addEventListener('click', async()=>{
+    const d = app.descriptors.get(app.curFrame);
+    if(!d) return;
+    const errs = validateDescriptor(d);
+    if(errs.length){ alert('Fix schema before saving:\n'+errs.join('\n')); return; }
+    const videoIndex = d.videoIndex || app.videoIndex;
+    const filename = `Video${videoIndex}_Frame${app.curFrame}.json`;
+    await writeJSON(`visualizer frames/descriptors/${filename}`, d);
+    $('#saveStamp').textContent = `saved ${new Date().toLocaleTimeString()}`;
+  });
+
+  $('#qaEyes').addEventListener('change',()=>{
+    const d = app.descriptors.get(app.curFrame) || descriptorSkeleton(app.curFrame, app.videoIndex);
+    d.actions.eyes = wordClamp($('#qaEyes').value||'',5);
+    app.descriptors.set(app.curFrame,d);
+    refreshJsonView();
+  });
+  $('#qaMouth').addEventListener('change',()=>{
+    const d = app.descriptors.get(app.curFrame) || descriptorSkeleton(app.curFrame, app.videoIndex);
+    d.actions.mouth = wordClamp($('#qaMouth').value||'',5);
+    app.descriptors.set(app.curFrame,d);
+    refreshJsonView();
+  });
+
+  async function openInReview(id){
+    const n = app.procFrames.length || app.rawFrames.length || app.stats.totalFrames;
+    if(!n) return;
+    id = clamp(id,1,n); app.curFrame=id;
+    let d = app.descriptors.get(id);
+    if(!d && app.outDirHandle){
+      // Try to load with new naming convention first
+      for(let vid = 1; vid <= 10; vid++) { // Try up to 10 video indices
+        try{
+          const file = await blobFromDir(app.outDirHandle,`visualizer frames/descriptors`,`Video${vid}_Frame${id}.json`);
+          d = JSON.parse(await file.text());
+          app.descriptors.set(id,d);
+          break;
+        }catch{}
+      }
+      // Fallback to old naming if not found
+      if(!d) {
+        try{
+          const file = await blobFromDir(app.outDirHandle,`visualizer frames/descriptors`,`frame_${String(id).padStart(6,'0')}.json`);
+          d = JSON.parse(await file.text());
+          app.descriptors.set(id,d);
+        }catch{}
+      }
     }
-    log('🏷️ Descriptions complete.');
-    return out;
+    await drawCurrent();
+    refreshJsonView();
+    if(app.chunks.length){
+      // Find the correct chunk for this frame
+      let cnum = Math.ceil(id/6); // Default
+      for(const chunk of app.chunks) {
+        // Check all frames in chunk for any video
+        for(const frame of chunk.frames) {
+          const match = frame.match(/Video\d+_Frame(\d+)$/);
+          if(match && parseInt(match[1]) === id) {
+            cnum = chunk.chunkNumber;
+            break;
+          }
+        }
+      }
+      $('#chunkSelect').value = String(cnum);
+    }
   }
 
-  async function saveToLibrary(frames) {
-    log('💾 Saving to library...');
-    const records = []; 
-    let curId = appState.nextId || 1;
-    
-    // Prepare frame data
-    for (const f of frames) {
-      const id = curId++; 
-      const name = String(id).padStart(6, '0');
-      records.push({ id, filename: `${name}.png`, timeMs: f.timeMs, meta: f.meta });
+  async function drawCurrent(){
+    const id = app.curFrame; ctx.imageSmoothingEnabled=false;
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    let blob = null;
+    const p = app.procFrames.find(f=>f.id===id);
+    if(p) blob = p.blob; 
+    else if(app.outDirHandle){ 
+      // Try multiple naming conventions for compatibility
+      // First try to find any Video*_Frame{id}.png file
+      let found = false;
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:false});
+        
+        // Look for any video number with this frame ID
+        for await(const [name, handle] of procDir) {
+          const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+          if(match && parseInt(match[2], 10) === id) {
+            const file = await handle.getFile();
+            blob = file;
+            found = true;
+            break;
+          }
+        }
+      } catch {}
+      
+      // If not found, fallback to old naming
+      if(!found) {
+        try {
+          blob = await blobFromDir(app.outDirHandle,`visualizer frames/proc120`,`frame_${String(id).padStart(6,'0')}.png`); 
+        } catch {}
+      }
     }
-    
-    // Try to save frames
-    const saveResult = await api.saveFrames(appState.outFolder, { 
-      images: frames.map((f, ix) => ({ 
-        id: records[ix].id, 
-        filename: records[ix].filename, 
-        blob: f.png 
-      })), 
-      records 
+    if(!blob) return;
+    const bmp = await createImageBitmap(blob);
+    ctx.drawImage(bmp,0,0,120*scale,120*scale);
+    const d = app.descriptors.get(id);
+    if(d){
+      function dot(px,py,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(px*scale,py*scale,4,0,Math.PI*2); ctx.fill(); }
+      dot(d.coords.leftEye.x, d.coords.leftEye.y, '#ffd166');
+      dot(d.coords.rightEye.x, d.coords.rightEye.y, '#ffd166');
+      dot(d.coords.mouth.x, d.coords.mouth.y, '#ff7dd8');
+    }
+  }
+
+  function refreshJsonView(){
+    const d = app.descriptors.get(app.curFrame) || descriptorSkeleton(app.curFrame, app.videoIndex);
+    $('#jsonView').textContent = JSON.stringify(d,null,2);
+  }
+
+  function openNextFailedInReview(){
+    const id = app.retryQueue.shift();
+    if(id){ openInReview(id); }
+  }
+
+  /* ==========================
+     Audits & timing
+  ========================== */
+  $('#findLowConf').addEventListener('click',()=>{
+    const th = +$('#lowConfThresh').value || 0.5;
+    const ids = [];
+    for(const [id,d] of app.descriptors){
+      const arr = [d.coords.leftEye.confidence, d.coords.rightEye.confidence, d.coords.mouth.confidence];
+      if(Math.min(...arr) < th) ids.push(id);
+    }
+    renderAudit(ids, `Low confidence < ${th}`);
+  });
+
+  $('#findMissing').addEventListener('click',()=>{
+    const n = app.procFrames.length || app.rawFrames.length || app.stats.totalFrames;
+    const missing=[];
+    for(let i=1;i<=n;i++){ if(!app.descriptors.has(i)) missing.push(i); }
+    renderAudit(missing, 'Missing JSON');
+  });
+
+  $('#findOOR').addEventListener('click',()=>{
+    const ids=[];
+    for(const [id,d] of app.descriptors){
+      const bad = ['leftEye','rightEye','mouth'].some(p=>{
+        const c=d.coords[p];
+        return (c.x<0||c.x>119||c.y<0||c.y>119||c.confidence<0||c.confidence>1);
+      });
+      if(bad) ids.push(id);
+    }
+    renderAudit(ids,'Out of range values');
+  });
+
+  function renderAudit(ids, label){
+    const list = $('#auditList'); list.innerHTML='';
+    const title = document.createElement('div'); title.className='muted'; title.textContent = `${label}: ${ids.length}`; list.appendChild(title);
+    ids.forEach(id=>{
+      const div=document.createElement('div'); div.className='item';
+      div.textContent = 'Frame '+id; div.addEventListener('click',()=>openInReview(id));
+      list.appendChild(div);
     });
-    
-    if (!saveResult) {
-      log('❌ Save failed. Electron backend not properly configured.');
-      log('⚠️ Images processed but not saved to disk.');
-      
-      // Offer to save as single ZIP file instead
-      if (confirm('Direct save failed. Create downloadable ZIP archive instead?')) {
-        await createZipDownload(frames, records);
-      }
-      return 0;
-    } 
-    
-    log(`✅ Saved ${records.length} frames to ${appState.outFolder}`);
-    
-    // Update index
-    const indexResult = await api.writeIndex(appState.outFolder, { nextId: curId });
-    if (!indexResult) {
-      log('⚠️ Could not update index.json');
-    }
-    
-    appState.nextId = curId; 
-    $('nextId').textContent = 'ID: ' + appState.nextId;
-    $('counts').textContent = `frames:${frames.length}, saved:${records.length}, described:${frames.length}`; 
-    setBar(100);
-    return records.length;
-  }
-  
-  async function createZipDownload(frames, records) {
-    log('📦 Creating ZIP archive (requires manual extraction)...');
-    // Create a single JSON file with all data as a workaround
-    const exportData = {
-      frames: frames.map((f, i) => ({
-        ...records[i],
-        imageData: f.png
-      })),
-      nextId: appState.nextId + frames.length
-    };
-    
-    const jsonStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonStr], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `frames_export_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    log('📥 Downloaded frames_export.json - extract manually with a script');
   }
 
-  function once(el, ev) { 
-    return new Promise(res => { 
-      const h = () => { 
-        el.removeEventListener(ev, h); 
-        res(); 
-      }; 
-      el.addEventListener(ev, h, {once: true}); 
-    }); 
+  /* ==========================
+     Report export
+  ========================== */
+  $('#exportReport').addEventListener('click', async()=>{
+    const totalFrames = app.procFrames.length || app.rawFrames.length || app.stats.totalFrames;
+    const report = {
+      videoFile: app.videoFile?.name || 'unknown',
+      processedAt: new Date().toISOString(),
+      totalFrames,
+      totalChunks: app.chunks.length,
+      adapterUsed: app.model.kind==='openai'? `openai:${app.model.name}` : `ollama:${app.ollama.model}`,
+      failures: app.stats.finalFailures,
+      outOfBoundsCorrections: app.stats.outOfBounds,
+      avgModelLatencyMs: app.stats.avgLatencyMs,
+      audits: {
+        missing: (function(){ let c=0; for(let i=1;i<=totalFrames;i++){ if(!app.descriptors.has(i)) c++; } return c; })(),
+      },
+      promptHash: app.promptHash
+    };
+    await writeJSON(`visualizer frames/report-${new Date().toISOString().replace(/[:.]/g,'-')}.json`, report);
+    alert(`Report saved to visualizer frames/`)
+  });
+
+  /* ==========================
+     Run All pipeline
+  ========================== */
+  $('#runAllIngest').addEventListener('click', async()=>{
+    // Check if we have a persona selected
+    if(!app.currentPersona) {
+      alert('Please select a persona from the top bar first');
+      return;
+    }
+    
+    console.log('[Visualizer] Starting Run All Ingest process...');
+    await runExtractionCanvas();
+    await sleep(500); // Small delay to ensure files are written
+    await downscaleAll();
+    await sleep(500);
+    await makeChunks();
+    console.log('[Visualizer] Completed all ingest steps');
+    document.querySelector('[data-tab="analyze"]').click();
+    updateStepper();
+  });
+
+  async function runAll(){
+    await runExtractionCanvas();
+    await downscaleAll();
+    await makeChunks();
+    document.querySelector('[data-tab="analyze"]').click();
+    updateStepper();
+    await startAnalysis();
+    document.querySelector('[data-tab="review"]').click();
+    updateStepper();
+    openInReview(1);
   }
+
+  /* ==========================
+     Guided stepper & footer controls
+  ========================== */
+  function currentStage(){
+    if(!app.videoFile) return 0;
+    if((app.rawFrames?.length||0)===0) return 0.5;
+    if((app.procFrames?.length||0)===0) return 1;
+    if((app.chunks?.length||0)===0) return 2;
+    if(app.descriptors.size===0) return 3;
+    return 4;
+  }
+  function updateStepper(){
+    const steps = $$('#stepper .step');
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+    steps.forEach(s=>s.classList.remove('active'));
+    if(activeTab==='ingest') steps[0].classList.add('active');
+    if(activeTab==='analyze') steps[1].classList.add('active');
+    if(activeTab==='review') steps[2].classList.add('active');
+    const st = currentStage();
+    const hint = $('#guideHint');
+    if(!hint) return;
+    if(!app.currentPersona) hint.textContent = '👉 First, select a persona from the top bar';
+    else if(st===0) hint.textContent = '📹 Now load a video file in the Ingest tab';
+    else if(st===0.5) hint.textContent = '▶️ Click "Run Extraction" to extract frames at 12 fps';
+    else if(st===1) hint.textContent = '🔄 Click "Run Downscale" to resize frames to 120×120';
+    else if(st===2) hint.textContent = '📦 Click "Create chunks.json" to group frames for processing';
+    else if(st===3) hint.textContent = '🤖 Switch to Analyze tab → Test Adapter → Start Analysis';
+    else hint.textContent = '✅ Review results, fix any errors, and export your report';
+  }
+  $('#prevStep').addEventListener('click',()=>{
+    const active = document.querySelector('.tab-btn.active')?.dataset.tab;
+    if(active==='analyze') document.querySelector('[data-tab="ingest"]').click();
+    else if(active==='review') document.querySelector('[data-tab="analyze"]').click();
+    updateStepper();
+  });
+  $('#nextStep').addEventListener('click',()=>{
+    const active = document.querySelector('.tab-btn.active')?.dataset.tab;
+    if(active==='ingest') document.querySelector('[data-tab="analyze"]').click();
+    else if(active==='analyze') document.querySelector('[data-tab="review"]').click();
+    updateStepper();
+  });
+  $('#doNext').addEventListener('click',()=>{
+    const st = currentStage();
+    if(st===0 || st===0.5){ document.querySelector('[data-tab="ingest"]').click(); $('#extractCanvas').scrollIntoView({behavior:'smooth'}); }
+    else if(st===1){ document.querySelector('[data-tab="ingest"]').click(); $('#downscaleBtn').scrollIntoView({behavior:'smooth'}); }
+    else if(st===2){ document.querySelector('[data-tab="ingest"]').click(); $('#makeChunks').scrollIntoView({behavior:'smooth'}); }
+    else if(st===3){ document.querySelector('[data-tab="analyze"]').click(); $('#startAnalyze').scrollIntoView({behavior:'smooth'}); }
+    else { document.querySelector('[data-tab="review"]').click(); $('#frameCanvas').scrollIntoView({behavior:'smooth'}); }
+    updateStepper();
+  });
+  // Footer panel toggle mirror
+  $('#toggleSidebarFooter').addEventListener('click',()=>{ document.body.classList.toggle('collapsed'); });
+
+  // Function to retrieve OpenAI key with retry
+  async function tryGetOpenAIKey() {
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    
+    if(electronAPI?.getOpenAIKey) {
+      try {
+        console.log('[Visualizer] Attempting to retrieve OpenAI key from Electron API...');
+        const key = await electronAPI.getOpenAIKey();
+        if(key) {
+          console.log('[Visualizer] ✓ Successfully retrieved OpenAI key from Electron API');
+          console.log('[Visualizer] Key starts with:', key.substring(0, 10) + '...');
+          // Store the key
+          app.model.key = key;
+          $('#openaiKey').value = key;
+          localStorage.setItem('openaiKey', key);
+          return key;
+        } else {
+          console.log('[Visualizer] ✗ Electron API returned null/empty key');
+        }
+      } catch(err) {
+        console.log('[Visualizer] ✗ Could not get OpenAI key from Electron API:', err);
+      }
+    } else {
+      console.log('[Visualizer] getOpenAIKey function not available yet');
+    }
+    return null;
+  }
+  
+  // Initialize on load
+  window.addEventListener('DOMContentLoaded', async () => {
+    // Try to get OpenAI key - with retry after a delay if not immediately available
+    let openAIKey = await tryGetOpenAIKey();
+    
+    // If not available, try again after a short delay (in case iframe loads before parent API is ready)
+    if(!openAIKey) {
+      setTimeout(async () => {
+        openAIKey = await tryGetOpenAIKey();
+      }, 1000);
+    }
+    
+    // Load saved model configuration from localStorage
+    const savedModel = localStorage.getItem('modelSelect') || 'openai:gpt-4o-mini';
+    const savedKey = openAIKey || localStorage.getItem('openaiKey');
+    const savedBase = localStorage.getItem('openaiBase');
+    const savedOllamaHost = localStorage.getItem('ollamaHost');
+    
+    $('#modelSelect').value = savedModel;
+    if(savedModel.startsWith('openai:')) {
+      app.model.kind = 'openai';
+      app.model.name = savedModel.split(':')[1];
+      if(savedKey) {
+        app.model.key = savedKey;
+        $('#openaiKey').value = savedKey;
+        // Save to localStorage if we got it from Electron
+        if(openAIKey) {
+          localStorage.setItem('openaiKey', openAIKey);
+        }
+      }
+      if(savedBase) {
+        app.model.base = savedBase;
+        $('#openaiBase').value = savedBase;
+      } else {
+        app.model.base = 'https://api.openai.com';
+      }
+      $('#openaiCfg').classList.remove('hidden');
+      $('#ollamaCfg').classList.add('hidden');
+    } else {
+      app.model.kind = 'ollama';
+      if(savedOllamaHost) {
+        app.ollama.host = savedOllamaHost;
+        $('#ollamaHost').value = savedOllamaHost;
+      }
+      $('#openaiCfg').classList.add('hidden');
+      $('#ollamaCfg').classList.remove('hidden');
+    }
+    
+    await loadAvailablePersonas();
+    updateStepper();
+  });
   </script>
 </body>
 </html>
