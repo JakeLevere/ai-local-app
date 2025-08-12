@@ -581,10 +581,14 @@ Rules:
     }
     
     return {
-      frameId:id, 
+      frameId:id,
       videoIndex: videoIndex || app.videoIndex,
-      chunkNumber, 
+      chunkNumber,
       frameNumberInChunk,
+      mouthViseme:'SIL',
+      mood:'neutral',
+      energy:0.5,
+      note:'',
       coords:{
         leftEye:{x:60,y:50,confidence:0.5},
         rightEye:{x:90,y:50,confidence:0.5},
@@ -620,6 +624,12 @@ Rules:
         if(wc>5) errors.push(`actions.${a} exceeds 5 words`);
       }
     }
+    if(typeof obj.mouthViseme !== 'string') errors.push('mouthViseme must be string');
+    if(typeof obj.mood !== 'string') errors.push('mood must be string');
+    if(typeof obj.note !== 'string') errors.push('note must be string');
+    if(!isNum(obj.energy) || obj.energy < 0 || obj.energy > 1) errors.push('energy out of [0,1]');
+    const noteWords = String(obj.note||'').trim().split(/\s+/).filter(Boolean).length;
+    if(noteWords>12) errors.push('note exceeds 12 words');
     if(!obj.meta) errors.push('meta missing');
     else{
       for(const m of ['src','w','h','model']) if(obj.meta[m]===undefined) errors.push(`meta.${m} missing`);
@@ -646,6 +656,10 @@ Rules:
     }
     obj.actions.eyes = wordClamp(obj.actions.eyes||'',5);
     obj.actions.mouth = wordClamp(obj.actions.mouth||'',5);
+    obj.mouthViseme = wordClamp(obj.mouthViseme||'',1);
+    obj.mood = wordClamp(obj.mood||'',1);
+    obj.note = wordClamp(obj.note||'',12);
+    obj.energy = clamp(+obj.energy||0,0,1);
     const after = JSON.stringify(obj);
     if(before!==after) app.stats.outOfBounds++;
     return obj;
@@ -2287,7 +2301,20 @@ Rules:
       const sanitized = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
         validated, clamp, wordClamp
       );
-      
+
+      // Obtain qualitative description for this frame via LLM
+      try {
+        const q = await describeFrame(imgBlob, id);
+        if (q) {
+          sanitized.descriptor.mouthViseme = wordClamp(q.mouthViseme||'SIL',1);
+          sanitized.descriptor.mood = wordClamp(q.mood||'neutral',1);
+          sanitized.descriptor.energy = clamp(+q.energy||0,0,1);
+          sanitized.descriptor.note = wordClamp(q.note||'',12);
+        }
+      } catch(err) {
+        console.error(`[Analyze] Qualitative analysis failed for frame ${id}:`, err);
+      }
+
       // Calculate overall confidence score
       const avgConfidence = analysisResult.confidence || ((
         sanitized.descriptor.coords.leftEye.confidence +
@@ -2370,6 +2397,21 @@ Rules:
       bar.style.width=((done/q.length)*100)+'%';
     }
     log.textContent += `\nRetry complete. Remaining: ${app.retryQueue.length}.`;
+  }
+
+  // Describe a single frame using the backend LLM helper
+  async function describeFrame(imgBlob, id){
+    const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+    if(!electronAPI?.invoke) return null;
+    try{
+      const b64 = await blobToBase64(imgBlob);
+      const batch = [{ id, image:`data:image/png;base64,${b64}` }];
+      const res = await electronAPI.invoke('llm.describeImages', { batch });
+      return res?.[0]?.desc || null;
+    }catch(err){
+      console.error('[Analyze] describeFrame failed:', err);
+      return null;
+    }
   }
 
   async function callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk){
