@@ -2414,62 +2414,6 @@ Rules:
     }
   }
 
-  async function callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk){
-    const b64 = await window.FacialDetectionEnhancements.blobToBase64(imgBlob);
-    
-    // Use provided chunk info or calculate fallback
-    if(!chunkNumber) chunkNumber = Math.ceil(id/6);
-    if(!frameNumberInChunk) frameNumberInChunk = ((id-1)%6)+1;
-    if(!videoIndex) videoIndex = app.videoIndex;
-
-    const sys = app.promptText;
-
-    if(app.model.kind==='openai'){
-      if(!app.model.key) throw new Error('Missing OpenAI key');
-      const url = app.model.base.replace(/\/$/,'') + '/v1/chat/completions';
-      const body = {
-        model: app.model.name,
-        messages: [
-          {role:'system', content: sys},
-          {role:'user', content:[
-            {type:'text', text:`frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}. Return ONLY JSON.`},
-            {type:'image_url', image_url:{url:`data:image/png;base64,${b64}`}}
-          ]}
-        ],
-        temperature: 0.2,
-        max_tokens: 300
-      };
-      
-      console.log('[OpenAI Request] Frame', id, '- URL:', url);
-      console.log('[OpenAI Request] Model:', body.model);
-      console.log('[OpenAI Request] Message structure:', JSON.stringify(body.messages.map(m => ({role: m.role, contentType: Array.isArray(m.content) ? 'array' : typeof m.content})), null, 2));
-      console.log('[OpenAI Request] Image data length:', b64.length);
-      
-      const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+app.model.key},body:JSON.stringify(body)});
-      
-      if(!res.ok) {
-        const errorText = await res.text();
-        console.error('[OpenAI Error] Frame', id, '- Status:', res.status);
-        console.error('[OpenAI Error] Response:', errorText);
-        console.error('[OpenAI Error] Request body sample:', JSON.stringify({...body, messages: body.messages.map(m => ({...m, content: Array.isArray(m.content) ? m.content.map(c => ({...c, image_url: c.image_url ? {...c.image_url, url: 'BASE64_DATA_TRUNCATED'} : c.image_url})) : m.content}))}, null, 2));
-        throw new Error(`OpenAI API error ${res.status}: ${errorText}`);
-      }
-      
-      const j = await res.json();
-      console.log('[OpenAI Success] Frame', id, '- Response received');
-      const txt = j.choices?.[0]?.message?.content || '';
-      return txt;
-    }else{
-      const host = app.ollama.host.replace(/\/$/,'');
-      const prompt = sys + `\nReturn ONLY JSON. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}.`;
-      const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
-      const res = await fetch(host+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!res.ok) throw new Error('Ollama error '+res.status);
-      const j = await res.json();
-      return j.response || '';
-    }
-  }
-
   async function listPngs(dirHandle){
     const arr=[];
     for await(const [name, handle] of dirHandle){
