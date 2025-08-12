@@ -47,9 +47,9 @@
     .folder-preview .dot{width:8px;height:8px;border-radius:50%;background:#5ac8ff}
     .log{font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto;background:#0b0f1e;border:1px solid var(--border);border-radius:8px;padding:8px}
   /* Review canvas pane */
-  .review{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:14px}
-  #previewWrap{background:#0b0f1e;border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
-  #frameCanvas{image-rendering: pixelated;image-rendering: crisp-edges;background:#000;border:1px solid #2c3255;border-radius:10px;max-width:100%;width:100%;height:auto}
+  .review{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px}
+  #previewWrap{background:#0b0f1e;border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;max-width:384px}
+  #frameCanvas{image-rendering: pixelated;image-rendering: crisp-edges;background:#000;border:1px solid #2c3255;border-radius:10px;width:360px;height:360px;display:block}
   
   /* Frame selection overlay */
   .video-container{position:relative;display:inline-block;width:100%;margin-top:8px}
@@ -358,6 +358,33 @@
       <div id="tab-review" class="hidden">
         <div class="guide-hint" style="margin:8px 0">✏️ <b>REVIEW PHASE</b> — Check results, fix errors, and finalize data. Use keyboard shortcuts: L/R/M for points, ←/→ for frames</div>
 
+        <div class="card" style="margin-bottom:12px">
+          <h3>🎬 Video Selection & Playback</h3>
+          <div class="row" style="margin-bottom:10px">
+            <label style="margin:0;font-weight:600;color:var(--accent)">Select Analyzed Video:</label>
+            <select id="reviewVideoSelect" style="min-width:200px;margin-left:10px">
+              <option value="">Loading analyzed videos...</option>
+            </select>
+            <div class="space"></div>
+            <span class="muted" id="reviewVideoInfo">No analyzed videos found</span>
+          </div>
+          <div class="row">
+            <button id="playVideo" class="primary">▶ Play Video</button>
+            <button id="pauseVideo">⏸ Pause</button>
+            <button id="stopVideo">⏹ Stop</button>
+            <div class="space"></div>
+            <label>Playback Speed:</label>
+            <select id="playbackSpeed" style="width:80px">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+            </select>
+            <div class="space"></div>
+            <span class="muted" id="playbackStatus">Stopped</span>
+          </div>
+        </div>
+
         <div class="review">
           <div id="previewWrap">
             <div class="row">
@@ -366,6 +393,8 @@
               <div class="space"></div>
               <label>Chunk</label>
               <select id="chunkSelect"></select>
+              <div class="space"></div>
+              <span class="muted">Frame: <b id="currentFrameNum">1</b></span>
             </div>
             <canvas id="frameCanvas" width="360" height="360"></canvas>
             <div class="overlay-legend">
@@ -467,9 +496,19 @@
     videoIndex: 1, // Track which video number we're on
     storedVideoIndex: 1, // Preserve the initial loaded index from file
     globalChunks: [], // Master chunks array across all videos
+    // Review playback state
+    reviewVideoIndex: null, // Currently selected video for review
+    isPlaying: false,
+    playbackInterval: null,
+    playbackSpeed: 1,
+    analyzedVideos: new Map(), // videoIndex -> {frameCount, hasDescriptors}
   };
 
   function defaultPrompt(){
+    // Use enhanced prompt if available, otherwise fallback to original
+    if (window.FacialDetectionEnhancements) {
+      return window.FacialDetectionEnhancements.enhancedDefaultPrompt();
+    }
     return `You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with this schema:
 {
   "frameId": <int 1-based>,
@@ -589,6 +628,15 @@ Rules:
   }
 
   function sanitizeDescriptor(obj){
+    // Use enhanced sanitization if available
+    if (window.FacialDetectionEnhancements) {
+      const result = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
+        obj, clamp, wordClamp
+      );
+      if(result.changed) app.stats.outOfBounds++;
+      return result.descriptor;
+    }
+    // Fallback to original implementation
     const before = JSON.stringify(obj);
     for(const p of ['leftEye','rightEye','mouth']){
       const c=obj.coords[p];
@@ -619,6 +667,11 @@ Rules:
     // Populate video dropdown when switching to Analyze tab
     if(tab === 'analyze') {
       await populateAnalyzeVideoSelect();
+    }
+    
+    // Populate review dropdown when switching to Review tab
+    if(tab === 'review') {
+      await populateReviewVideoSelect();
     }
     
     updateStepper();
@@ -1988,6 +2041,13 @@ Rules:
   }
 
   async function analyzeOne(frame, maxRetries){
+    // Require enhanced analysis for accurate coordinates
+    if (!window.FacialDetectionEnhancements) {
+      console.error('[Analyze] Enhanced facial detection not loaded. Cannot proceed with analysis.');
+      alert('Enhanced facial detection module is required but not loaded. Please ensure facial-detection-enhancements.js is available.');
+      throw new Error('Enhanced facial detection module required');
+    }
+    
     const id = frame.id;
     const videoIndex = frame.videoIndex || app.videoIndex;
     let imgBlob = frame.blob;
@@ -2155,33 +2215,141 @@ Rules:
       throw new Error(`No image data available for frame ${id}. Please ensure frames are properly extracted and downscaled.`);
     }
 
-    let attempt=0;
-    while(attempt<=maxRetries){
-      try{
-        const raw = await callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk);
-        const txt = (raw||'').replace(/^```\s*json|^```|```$/g,'').trim();
-        let parsed = JSON.parse(txt);
-        
-        // Ensure the parsed descriptor has the correct video index and chunk info
-        parsed.videoIndex = videoIndex;
-        parsed.chunkNumber = chunkNumber;
-        parsed.frameNumberInChunk = frameNumberInChunk;
-        
-        parsed = sanitizeDescriptor(parsed);
-        const errs = validateDescriptor(parsed);
-        if(errs.length){ throw new Error('Schema errors: '+errs.join('; ')); }
-        app.descriptors.set(id, parsed);
-        return true;
-      }catch(e){
-        attempt++;
-        if(attempt>maxRetries){
-          app.retryQueue.push(id);
-          app.stats.finalFailures++;
-          addRetryItem(id, e.message||String(e));
-          return false;
-        }
-        await sleep(300);
+    // Prepare enhanced configuration
+    const enhancedConfig = {
+      model: app.model,
+      ollama: app.ollama,
+      promptText: app.promptText,
+      videoIndex: videoIndex,
+      chunkNumber: chunkNumber,
+      frameNumberInChunk: frameNumberInChunk,
+      maxRetries: maxRetries || 2,
+      imgBlob: imgBlob,
+      frameId: id
+    };
+    
+    // Use enhanced multi-pass analysis with confidence tracking
+    console.log(`[Analyze] Starting enhanced analysis for frame ${id}`);
+    
+    try {
+      // First validate and enhance image quality if needed
+      const quality = await window.FacialDetectionEnhancements.validateImageQuality(imgBlob);
+      console.log(`[Analyze] Frame ${id} image quality:`, {
+        avgBrightness: quality.avgBrightness.toFixed(1),
+        contrast: quality.contrast.toFixed(1),
+        isValid: quality.isValid
+      });
+      
+      // Enhance image if quality is poor
+      if(!quality.isValid) {
+        console.log(`[Analyze] Enhancing image quality for frame ${id}`);
+        imgBlob = await window.FacialDetectionEnhancements.enhanceImageForDetection(imgBlob);
       }
+      
+      // Use the enhanced analysis function with confidence tracking
+      const analysisResult = await window.FacialDetectionEnhancements.analyzeWithConfidenceTracking(
+        {
+          id: id,
+          blob: imgBlob,
+          videoIndex: videoIndex,
+          chunkNumber: chunkNumber,
+          frameNumberInChunk: frameNumberInChunk
+        },
+        maxRetries || 2,
+        {
+          model: app.model,
+          ollama: app.ollama,
+          promptText: window.FacialDetectionEnhancements.enhancedDefaultPrompt(), // Use enhanced prompt
+          videoIndex: videoIndex
+        }
+      );
+      
+      if(!analysisResult.success) {
+        throw new Error('Enhanced analysis failed to produce valid results');
+      }
+      
+      const consensus = analysisResult.descriptor
+      
+      // Apply enhanced validation and boundary checks
+      const validated = window.FacialDetectionEnhancements.validateAndRefineCoordinates(consensus, {
+        imageWidth: 120,
+        imageHeight: 120,
+        enforceAnatomicalConstraints: true
+      });
+      
+      // Ensure proper metadata
+      validated.videoIndex = videoIndex;
+      validated.chunkNumber = chunkNumber;
+      validated.frameNumberInChunk = frameNumberInChunk;
+      validated.frameId = id;
+      
+      // Apply enhanced sanitization with precision preservation
+      const sanitized = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
+        validated, clamp, wordClamp
+      );
+      
+      // Calculate overall confidence score
+      const avgConfidence = analysisResult.confidence || ((
+        sanitized.descriptor.coords.leftEye.confidence +
+        sanitized.descriptor.coords.rightEye.confidence +
+        sanitized.descriptor.coords.mouth.confidence
+      ) / 3);
+      
+      // Validate final descriptor
+      const errs = validateDescriptor(sanitized.descriptor);
+      if(errs.length) {
+        console.warn(`[Analyze] Validation errors for frame ${id}:`, errs);
+        
+        // If confidence is high enough despite validation errors, attempt correction
+        if(avgConfidence > 0.7) {
+          console.log(`[Analyze] Attempting automatic correction for frame ${id}`);
+          const corrected = window.FacialDetectionEnhancements.autoCorrectDescriptor(
+            sanitized.descriptor,
+            { preserveHighConfidence: true }
+          );
+          app.descriptors.set(id, corrected);
+          console.log(`[Analyze] Frame ${id} auto-corrected with confidence: ${avgConfidence.toFixed(2)}`);
+          return true;
+        } else {
+          throw new Error('Validation failed with low confidence: ' + errs.join('; '));
+        }
+      }
+      
+      // Store the high-quality descriptor
+      app.descriptors.set(id, sanitized.descriptor);
+      
+      // Log success with detailed metrics
+      console.log(`[Analyze] Frame ${id} completed successfully:`, {
+        confidence: avgConfidence.toFixed(2),
+        leftEye: `(${sanitized.descriptor.coords.leftEye.x.toFixed(1)}, ${sanitized.descriptor.coords.leftEye.y.toFixed(1)}) conf: ${sanitized.descriptor.coords.leftEye.confidence.toFixed(2)}`,
+        rightEye: `(${sanitized.descriptor.coords.rightEye.x.toFixed(1)}, ${sanitized.descriptor.coords.rightEye.y.toFixed(1)}) conf: ${sanitized.descriptor.coords.rightEye.confidence.toFixed(2)}`,
+        mouth: `(${sanitized.descriptor.coords.mouth.x.toFixed(1)}, ${sanitized.descriptor.coords.mouth.y.toFixed(1)}) conf: ${sanitized.descriptor.coords.mouth.confidence.toFixed(2)}`,
+        actions: sanitized.descriptor.actions,
+        attempts: analysisResult.attempts ? analysisResult.attempts.length : 1
+      });
+      
+      // Track quality metrics
+      if(avgConfidence < 0.5) {
+        console.warn(`[Analyze] Low confidence warning for frame ${id}: ${avgConfidence.toFixed(2)}`);
+      }
+      
+      return true;
+      
+    } catch(error) {
+      console.error(`[Analyze] Enhanced analysis failed for frame ${id}:`, error);
+      
+      // Attempt recovery with fallback strategies
+      if(maxRetries > 0) {
+        console.log(`[Analyze] Retrying frame ${id} with ${maxRetries - 1} attempts remaining`);
+        await sleep(500); // Longer delay for retry
+        return analyzeOne(frame, maxRetries - 1);
+      }
+      
+      // Final failure - add to retry queue
+      app.retryQueue.push(id);
+      app.stats.finalFailures++;
+      addRetryItem(id, `Enhanced analysis failed: ${error.message}`);
+      return false;
     }
   }
 
@@ -2523,40 +2691,80 @@ Rules:
     refreshJsonView();
   });
 
-  async function openInReview(id){
-    const n = app.procFrames.length || app.rawFrames.length || app.stats.totalFrames;
-    if(!n) return;
-    id = clamp(id,1,n); app.curFrame=id;
-    let d = app.descriptors.get(id);
-    if(!d && app.outDirHandle){
-      // Try to load with new naming convention first
-      for(let vid = 1; vid <= 10; vid++) { // Try up to 10 video indices
-        try{
-          const file = await blobFromDir(app.outDirHandle,`visualizer frames/descriptors`,`Video${vid}_Frame${id}.json`);
-          d = JSON.parse(await file.text());
-          app.descriptors.set(id,d);
-          break;
-        }catch{}
-      }
-      // Fallback to old naming if not found
-      if(!d) {
-        try{
-          const file = await blobFromDir(app.outDirHandle,`visualizer frames/descriptors`,`frame_${String(id).padStart(6,'0')}.json`);
-          d = JSON.parse(await file.text());
-          app.descriptors.set(id,d);
-        }catch{}
-      }
+  async function openInReview(id, videoIndex){
+    // If videoIndex is provided, use it; otherwise use current review video or app video
+    const targetVideo = videoIndex || app.reviewVideoIndex || app.videoIndex;
+    
+    // Only load video frames if switching videos
+    if(targetVideo !== app.reviewVideoIndex) {
+      await loadVideoFramesForReview(targetVideo);
     }
+    
+    // Get the frame count for the current video
+    const videoData = app.analyzedVideos.get(targetVideo);
+    const maxFrames = videoData ? videoData.frameCount : (app.stats.totalFrames || 100);
+    
+    if(maxFrames === 0) {
+      console.warn('[Review] No frames available for video:', targetVideo);
+      return;
+    }
+    
+    id = clamp(id, 1, maxFrames); 
+    app.curFrame = id;
+    
+    // Update current frame number display
+    $('#currentFrameNum').textContent = id;
+    
+    console.log('[Review] Opening frame:', id, 'of video:', targetVideo);
+    
+    // Try to load descriptor for this frame and video
+    let d = app.descriptors.get(id);
+    if(!d){
+      // Try loading from disk with video-specific naming
+      if(app.outDirHandle){
+        try{
+          const file = await blobFromDir(app.outDirHandle,`visualizer frames/descriptors`,`Video${targetVideo}_Frame${id}.json`);
+          d = JSON.parse(await file.text());
+          app.descriptors.set(id,d);
+          console.log('[Review] Loaded descriptor from disk');
+        }catch(err){
+          console.log('[Review] No descriptor found for frame:', id);
+        }
+      } else if(app.autoSelectedDir) {
+        // For Electron API
+        const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+        if(electronAPI?.readFile) {
+          try {
+            const fullPath = `${app.personaPath}\\visualizer frames\\descriptors\\Video${targetVideo}_Frame${id}.json`;
+            const content = await electronAPI.readFile(fullPath);
+            let text;
+            if(typeof content === 'string') {
+              text = content;
+            } else {
+              text = new TextDecoder().decode(content);
+            }
+            d = JSON.parse(text);
+            app.descriptors.set(id,d);
+            console.log('[Review] Loaded descriptor via Electron API');
+          } catch(err) {
+            console.log('[Review] No descriptor found via Electron API for frame:', id);
+          }
+        }
+      }
+    } else {
+      console.log('[Review] Using cached descriptor for frame:', id);
+    }
+    
     await drawCurrent();
     refreshJsonView();
+    
+    // Update chunk selector
     if(app.chunks.length){
-      // Find the correct chunk for this frame
       let cnum = Math.ceil(id/6); // Default
       for(const chunk of app.chunks) {
-        // Check all frames in chunk for any video
         for(const frame of chunk.frames) {
-          const match = frame.match(/Video\d+_Frame(\d+)$/);
-          if(match && parseInt(match[1]) === id) {
+          const match = frame.match(/Video(\d+)_Frame(\d+)$/);
+          if(match && parseInt(match[1]) === targetVideo && parseInt(match[2]) === id) {
             cnum = chunk.chunkNumber;
             break;
           }
@@ -2567,47 +2775,136 @@ Rules:
   }
 
   async function drawCurrent(){
-    const id = app.curFrame; ctx.imageSmoothingEnabled=false;
+    const id = app.curFrame; 
+    const targetVideo = app.reviewVideoIndex || app.videoIndex;
+    ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
     let blob = null;
-    const p = app.procFrames.find(f=>f.id===id);
-    if(p) blob = p.blob; 
-    else if(app.outDirHandle){ 
-      // Try multiple naming conventions for compatibility
-      // First try to find any Video*_Frame{id}.png file
-      let found = false;
+    
+    console.log('[Review] Drawing frame:', id, 'for video:', targetVideo);
+    
+    // First check in-memory frames
+    const p = app.procFrames.find(f=>f.id===id && (f.videoIndex === targetVideo || !f.videoIndex));
+    if(p) {
+      blob = p.blob;
+      console.log('[Review] Found frame in memory');
+    } else if(app.outDirHandle){ 
+      // Try to load from disk with video-specific naming
       try {
         const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
         const procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:false});
         
-        // Look for any video number with this frame ID
-        for await(const [name, handle] of procDir) {
-          const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
-          if(match && parseInt(match[2], 10) === id) {
-            const file = await handle.getFile();
-            blob = file;
-            found = true;
-            break;
+        // First try exact video and frame match
+        try {
+          const targetName = `Video${targetVideo}_Frame${id}.png`;
+          const file = await procDir.getFileHandle(targetName, {create:false});
+          blob = await file.getFile();
+          console.log('[Review] Loaded frame from disk:', targetName);
+        } catch {
+          // Look for any video number with this frame ID
+          for await(const [name, handle] of procDir) {
+            const match = name.match(/Video(\d+)_Frame(\d+)\.png$/i);
+            if(match && parseInt(match[2], 10) === id) {
+              const file = await handle.getFile();
+              blob = file;
+              console.log('[Review] Found frame with different video index:', name);
+              break;
+            }
           }
         }
-      } catch {}
-      
-      // If not found, fallback to old naming
-      if(!found) {
+      } catch(err) {
+        console.error('[Review] Error loading from File System API:', err);
+      }
+    } else if(app.autoSelectedDir) {
+      // For Electron API
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.readFile) {
         try {
-          blob = await blobFromDir(app.outDirHandle,`visualizer frames/proc120`,`frame_${String(id).padStart(6,'0')}.png`); 
-        } catch {}
+          const fullPath = `${app.personaPath}\\visualizer frames\\proc120\\Video${targetVideo}_Frame${id}.png`;
+          console.log('[Review] Attempting to read via Electron API:', fullPath);
+          const buffer = await electronAPI.readFile(fullPath);
+          
+          // Handle different buffer formats from Electron API
+          let uint8Array;
+          if(typeof buffer === 'string') {
+            // Base64 encoded string
+            try {
+              const binaryString = atob(buffer);
+              uint8Array = new Uint8Array(binaryString.length);
+              for(let i = 0; i < binaryString.length; i++) {
+                uint8Array[i] = binaryString.charCodeAt(i);
+              }
+            } catch(decodeErr) {
+              console.error('[Review] Failed to decode base64:', decodeErr);
+            }
+          } else if(buffer instanceof ArrayBuffer) {
+            uint8Array = new Uint8Array(buffer);
+          } else if(buffer instanceof Uint8Array) {
+            uint8Array = buffer;
+          } else if(Array.isArray(buffer)) {
+            uint8Array = new Uint8Array(buffer);
+          } else if(buffer && buffer.data) {
+            // Handle wrapped buffer
+            if(typeof buffer.data === 'string') {
+              const binaryString = atob(buffer.data);
+              uint8Array = new Uint8Array(binaryString.length);
+              for(let i = 0; i < binaryString.length; i++) {
+                uint8Array[i] = binaryString.charCodeAt(i);
+              }
+            } else {
+              uint8Array = new Uint8Array(buffer.data);
+            }
+          }
+          
+          if(uint8Array && uint8Array.length > 0) {
+            blob = new Blob([uint8Array], {type: 'image/png'});
+            console.log('[Review] Created blob from Electron buffer, size:', blob.size);
+          }
+        } catch(err) {
+          console.error('[Review] Error loading via Electron API:', err);
+        }
       }
     }
-    if(!blob) return;
-    const bmp = await createImageBitmap(blob);
-    ctx.drawImage(bmp,0,0,120*scale,120*scale);
+    
+    if(!blob) {
+      console.warn('[Review] No image blob found for frame:', id);
+      // Draw a placeholder or frame number
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#666';
+      ctx.font = '20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Frame ${id}`, canvas.width/2, canvas.height/2 - 10);
+      ctx.fillText('(No image)', canvas.width/2, canvas.height/2 + 15);
+      return;
+    }
+    
+    try {
+      const bmp = await createImageBitmap(blob);
+      ctx.drawImage(bmp,0,0,120*scale,120*scale);
+      console.log('[Review] Successfully drew frame image');
+    } catch(err) {
+      console.error('[Review] Error creating image bitmap:', err);
+    }
+    
     const d = app.descriptors.get(id);
     if(d){
-      function dot(px,py,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(px*scale,py*scale,4,0,Math.PI*2); ctx.fill(); }
+      function dot(px,py,color){ 
+        ctx.fillStyle=color; 
+        ctx.beginPath(); 
+        ctx.arc(px*scale,py*scale,6,0,Math.PI*2); 
+        ctx.fill(); 
+        // Add a white border for better visibility
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
       dot(d.coords.leftEye.x, d.coords.leftEye.y, '#ffd166');
       dot(d.coords.rightEye.x, d.coords.rightEye.y, '#ffd166');
       dot(d.coords.mouth.x, d.coords.mouth.y, '#ff7dd8');
+      console.log('[Review] Drew coordinate dots');
+    } else {
+      console.log('[Review] No descriptor found for frame');
     }
   }
 
@@ -2770,7 +3067,284 @@ Rules:
     updateStepper();
   });
   // Footer panel toggle mirror
-  $('#toggleSidebarFooter').addEventListener('click',()=>{ document.body.classList.toggle('collapsed'); });
+  $('#toggleSidebarFooter').addEventListener('click',()=> { document.body.classList.toggle('collapsed'); });
+
+  /* ==========================
+     Review Video Selection and Playback
+  ========================== */
+  
+  // Populate review video dropdown with analyzed videos
+  async function populateReviewVideoSelect() {
+    const select = $('#reviewVideoSelect');
+    const info = $('#reviewVideoInfo');
+    
+    if(!app.currentPersona) {
+      select.innerHTML = '<option value="">Please select a persona first</option>';
+      info.textContent = 'No persona selected';
+      return;
+    }
+    
+    // Clear analyzed videos map
+    app.analyzedVideos.clear();
+    
+    // Scan for videos with descriptors in descriptors folder
+    if(app.outDirHandle) {
+      // Using File System API
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const descDir = await vizFramesDir.getDirectoryHandle('descriptors', {create:false});
+        
+        for await(const [name, handle] of descDir) {
+          const match = name.match(/Video(\d+)_Frame(\d+)\.json$/i);
+          if(match) {
+            const videoIndex = parseInt(match[1], 10);
+            const frameNum = parseInt(match[2], 10);
+            
+            if(!app.analyzedVideos.has(videoIndex)) {
+              app.analyzedVideos.set(videoIndex, {frameCount: 0, hasDescriptors: true});
+            }
+            const current = app.analyzedVideos.get(videoIndex);
+            if(frameNum > current.frameCount) {
+              current.frameCount = frameNum;
+            }
+          }
+        }
+      } catch(err) {
+        console.log('[Review] Could not scan descriptors directory:', err);
+      }
+    } else if(app.autoSelectedDir) {
+      // For Electron - use API to list files
+      const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+      if(electronAPI?.listFiles) {
+        try {
+          const descPath = `${app.personaPath}\\visualizer frames\\descriptors`;
+          const descFiles = await electronAPI.listFiles(descPath);
+          if(Array.isArray(descFiles)) {
+            for(const name of descFiles) {
+              const match = name.match(/Video(\d+)_Frame(\d+)\.json$/i);
+              if(match) {
+                const videoIndex = parseInt(match[1], 10);
+                const frameNum = parseInt(match[2], 10);
+                
+                if(!app.analyzedVideos.has(videoIndex)) {
+                  app.analyzedVideos.set(videoIndex, {frameCount: 0, hasDescriptors: true});
+                }
+                const current = app.analyzedVideos.get(videoIndex);
+                if(frameNum > current.frameCount) {
+                  current.frameCount = frameNum;
+                }
+              }
+            }
+          }
+        } catch(err) {
+          console.log('[Review] Could not scan descriptors via Electron API:', err);
+        }
+      }
+    }
+    
+    // Populate dropdown
+    select.innerHTML = '';
+    if(app.analyzedVideos.size === 0) {
+      select.innerHTML = '<option value="">No analyzed videos found</option>';
+      info.textContent = 'Analyze videos first to review them';
+    } else {
+      // Sort videos by index
+      const sortedVideos = Array.from(app.analyzedVideos.entries()).sort((a, b) => a[0] - b[0]);
+      
+      for(const [videoIndex, data] of sortedVideos) {
+        const opt = document.createElement('option');
+        opt.value = videoIndex;
+        opt.textContent = `Video ${videoIndex} (${data.frameCount} frames analyzed)`;
+        select.appendChild(opt);
+      }
+      
+      // Select first video by default
+      if(sortedVideos.length > 0) {
+        select.value = sortedVideos[0][0];
+        app.reviewVideoIndex = sortedVideos[0][0];
+        info.textContent = `${sortedVideos[0][1].frameCount} frames ready for review`;
+      }
+    }
+  }
+  
+  // Handle video selection change
+  $('#reviewVideoSelect').addEventListener('change', async (e) => {
+    const videoIndex = parseInt(e.target.value);
+    if(!isNaN(videoIndex)) {
+      app.reviewVideoIndex = videoIndex;
+      const data = app.analyzedVideos.get(videoIndex);
+      $('#reviewVideoInfo').textContent = data ? `${data.frameCount} frames ready for review` : 'Loading...';
+      
+      // Stop any ongoing playback
+      stopVideoPlayback();
+      
+      // Load first frame of selected video
+      await openInReview(1, videoIndex);
+      
+      // Load chunks for this video
+      await loadVideoFramesForReview(videoIndex);
+    }
+  });
+  
+  // Load frames for a specific video for review
+  async function loadVideoFramesForReview(videoIndex) {
+    console.log('[Review] Loading frames for video:', videoIndex);
+    
+    // Update review video index
+    app.reviewVideoIndex = videoIndex;
+    
+    // Clear memory frames to force loading from disk
+    app.procFrames = [];
+    app.rawFrames = [];
+    
+    // Try to load some frames into memory for smoother playback
+    if(app.outDirHandle) {
+      try {
+        const vizFramesDir = await app.outDirHandle.getDirectoryHandle('visualizer frames', {create:false});
+        const procDir = await vizFramesDir.getDirectoryHandle('proc120', {create:false});
+        
+        // Load first 10 frames of this video into memory for quick access
+        for(let i = 1; i <= 10; i++) {
+          try {
+            const fileName = `Video${videoIndex}_Frame${i}.png`;
+            const file = await procDir.getFileHandle(fileName, {create:false});
+            const blob = await file.getFile();
+            app.procFrames.push({id: i, videoIndex, blob, name: fileName});
+          } catch {
+            // Frame doesn't exist, stop loading
+            break;
+          }
+        }
+        console.log('[Review] Preloaded', app.procFrames.length, 'frames into memory');
+      } catch(err) {
+        console.log('[Review] Could not preload frames:', err);
+      }
+    }
+    
+    // Try to load chunks to get proper frame ordering
+    try {
+      const chunks = await readJSON('visualizer frames/chunks.json');
+      app.chunks = chunks;
+      
+      // Filter chunks for this video
+      const videoChunks = chunks.filter(chunk => {
+        const firstFrame = chunk.frames[0];
+        const match = firstFrame?.match(/Video(\d+)/);
+        return match && parseInt(match[1]) === videoIndex;
+      });
+      
+      // Update chunk selector with filtered chunks
+      const sel = $('#chunkSelect');
+      sel.innerHTML = '';
+      videoChunks.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.chunkNumber;
+        opt.textContent = `Chunk ${c.chunkNumber}`;
+        sel.appendChild(opt);
+      });
+      console.log('[Review] Loaded', videoChunks.length, 'chunks for this video');
+    } catch(err) {
+      console.log('[Review] Could not load chunks for video', videoIndex);
+    }
+    
+    // Get and store the actual frame count for this video
+    const videoData = app.analyzedVideos.get(videoIndex);
+    if(videoData) {
+      app.stats.totalFrames = videoData.frameCount;
+      console.log('[Review] Video has', videoData.frameCount, 'frames');
+    }
+    return videoData ? videoData.frameCount : 0;
+  }
+  
+  // Video playback controls
+  let playbackTimer = null;
+  
+  $('#playVideo').addEventListener('click', () => {
+    startVideoPlayback();
+  });
+  
+  $('#pauseVideo').addEventListener('click', () => {
+    pauseVideoPlayback();
+  });
+  
+  $('#stopVideo').addEventListener('click', () => {
+    stopVideoPlayback();
+  });
+  
+  $('#playbackSpeed').addEventListener('change', (e) => {
+    app.playbackSpeed = parseFloat(e.target.value);
+    if(app.isPlaying) {
+      // Restart playback with new speed
+      stopVideoPlayback();
+      startVideoPlayback();
+    }
+  });
+  
+  function startVideoPlayback() {
+    if(app.isPlaying) return;
+    
+    const videoData = app.analyzedVideos.get(app.reviewVideoIndex);
+    if(!videoData || videoData.frameCount === 0) {
+      alert('No frames available for this video');
+      return;
+    }
+    
+    app.isPlaying = true;
+    $('#playbackStatus').textContent = `Playing at ${app.playbackSpeed}x`;
+    $('#playVideo').disabled = true;
+    $('#pauseVideo').disabled = false;
+    $('#stopVideo').disabled = false;
+    
+    // Calculate interval based on fps and playback speed
+    const baseInterval = 1000 / app.fps; // 12 fps = ~83ms per frame
+    const interval = baseInterval / app.playbackSpeed;
+    
+    playbackTimer = setInterval(async () => {
+      const nextFrame = app.curFrame + 1;
+      const maxFrame = videoData.frameCount;
+      
+      if(nextFrame > maxFrame) {
+        // Loop back to beginning or stop
+        stopVideoPlayback();
+        $('#playbackStatus').textContent = 'Playback complete';
+      } else {
+        await openInReview(nextFrame, app.reviewVideoIndex);
+      }
+    }, interval);
+  }
+  
+  function pauseVideoPlayback() {
+    if(!app.isPlaying) return;
+    
+    app.isPlaying = false;
+    if(playbackTimer) {
+      clearInterval(playbackTimer);
+      playbackTimer = null;
+    }
+    
+    $('#playbackStatus').textContent = 'Paused';
+    $('#playVideo').disabled = false;
+    $('#pauseVideo').disabled = true;
+    $('#stopVideo').disabled = false;
+  }
+  
+  function stopVideoPlayback() {
+    if(playbackTimer) {
+      clearInterval(playbackTimer);
+      playbackTimer = null;
+    }
+    
+    app.isPlaying = false;
+    $('#playbackStatus').textContent = 'Stopped';
+    $('#playVideo').disabled = false;
+    $('#pauseVideo').disabled = true;
+    $('#stopVideo').disabled = true;
+    
+    // Reset to first frame
+    if(app.reviewVideoIndex) {
+      openInReview(1, app.reviewVideoIndex);
+    }
+  }
 
   // Function to retrieve OpenAI key with retry
   async function tryGetOpenAIKey() {
@@ -2852,5 +3426,7 @@ Rules:
     updateStepper();
   });
   </script>
+  <!-- Include facial detection enhancements -->
+  <script src="facial-detection-enhancements.js"></script>
 </body>
 </html>

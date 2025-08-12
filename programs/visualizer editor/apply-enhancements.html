@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Apply Facial Detection Enhancements</title>
+  <style>
+    body {
+      background: #0f1220;
+      color: #e8ecff;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #8ad1ff;
+      border-bottom: 2px solid #262c49;
+      padding-bottom: 10px;
+    }
+    .status {
+      background: #161a2b;
+      border: 1px solid #262c49;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .success {
+      color: #35d49b;
+    }
+    .error {
+      color: #ff6b6b;
+    }
+    .info {
+      color: #8ad1ff;
+    }
+    .warning {
+      color: #ffd166;
+    }
+    pre {
+      background: #0b0f1e;
+      border: 1px solid #262c49;
+      border-radius: 4px;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    button {
+      background: #233056;
+      color: #e8ecff;
+      border: 1px solid #2f3a6a;
+      border-radius: 6px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #2f3a6a;
+    }
+    .instructions {
+      background: linear-gradient(135deg, #0b0f1e, #151938);
+      border: 1px dashed #8ad1ff;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Facial Detection Enhancement Integration</h1>
+  
+  <div class="instructions">
+    <h2>📋 How to Use These Enhancements</h2>
+    <ol>
+      <li><strong>Include the enhancement script</strong> in your visualizer editor HTML:
+        <pre>&lt;script src="facial-detection-enhancements.js"&gt;&lt;/script&gt;</pre>
+      </li>
+      <li><strong>Update your existing functions</strong> to use the enhanced versions (see examples below)</li>
+      <li><strong>Configure your model settings</strong> for better accuracy</li>
+      <li><strong>Run the test</strong> to verify the enhancements are working</li>
+    </ol>
+  </div>
+
+  <div class="status">
+    <h3>🔧 Integration Examples</h3>
+    
+    <h4>1. Replace the default prompt:</h4>
+    <pre><code>// In your visualizer editor, replace:
+function defaultPrompt() { ... }
+
+// With:
+function defaultPrompt() {
+  return window.FacialDetectionEnhancements.enhancedDefaultPrompt();
+}</code></pre>
+
+    <h4>2. Update sanitizeDescriptor:</h4>
+    <pre><code>// Replace your sanitizeDescriptor function with:
+function sanitizeDescriptor(obj) {
+  const result = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
+    obj, clamp, wordClamp
+  );
+  if(result.changed) app.stats.outOfBounds++;
+  return result.descriptor;
+}</code></pre>
+
+    <h4>3. Enhance analyzeOne function:</h4>
+    <pre><code>// Add image quality check and enhancement:
+async function analyzeOne(frame, maxRetries) {
+  const enhancements = window.FacialDetectionEnhancements;
+  
+  // Validate and enhance image quality
+  const quality = await enhancements.validateImageQuality(frame.blob);
+  if(!quality.isValid) {
+    frame.blob = await enhancements.enhanceImageForDetection(frame.blob);
+  }
+  
+  // Use enhanced analysis with confidence tracking
+  const config = {
+    model: app.model,
+    ollama: app.ollama,
+    promptText: app.promptText,
+    videoIndex: app.videoIndex
+  };
+  
+  const result = await enhancements.analyzeWithConfidenceTracking(
+    frame, maxRetries, config
+  );
+  
+  if(result.success) {
+    app.descriptors.set(frame.id, result.descriptor);
+    return true;
+  }
+  
+  return false;
+}</code></pre>
+
+    <h4>4. Update drawing functions:</h4>
+    <pre><code>// In your drawCurrent function, replace coordinate drawing with:
+async function drawCurrent() {
+  // ... existing code to draw frame ...
+  
+  const d = app.descriptors.get(id) || descriptorSkeleton(id, videoIndex);
+  const enhancements = window.FacialDetectionEnhancements;
+  
+  // Draw enhanced coordinate markers
+  enhancements.drawEnhancedCoordinate(
+    ctx, d.coords.leftEye.x, d.coords.leftEye.y, 
+    d.coords.leftEye.confidence, 'L', scale
+  );
+  enhancements.drawEnhancedCoordinate(
+    ctx, d.coords.rightEye.x, d.coords.rightEye.y,
+    d.coords.rightEye.confidence, 'R', scale
+  );
+  enhancements.drawEnhancedCoordinate(
+    ctx, d.coords.mouth.x, d.coords.mouth.y,
+    d.coords.mouth.confidence, 'M', scale
+  );
+  
+  // Draw alignment guides
+  enhancements.drawAlignmentGuides(ctx, d, scale);
+}</code></pre>
+
+    <h4>5. Generate analysis report:</h4>
+    <pre><code>// After analysis completes, generate a report:
+const report = window.FacialDetectionEnhancements.generateAnalysisReport(results);
+console.log('Analysis Report:', report);
+
+// Display recommendations
+if(report.recommendations.length > 0) {
+  alert('Recommendations:\n' + report.recommendations.join('\n'));
+}</code></pre>
+  </div>
+
+  <div class="status">
+    <h3>⚙️ Recommended Settings</h3>
+    <ul>
+      <li class="info">🤖 <strong>Model:</strong> Use GPT-4o instead of GPT-4o-mini for better accuracy</li>
+      <li class="info">🔄 <strong>Retries:</strong> Set to 2-3 attempts for low-confidence frames</li>
+      <li class="info">⚡ <strong>Concurrency:</strong> Keep at 3-4 for optimal balance</li>
+      <li class="info">🎯 <strong>Temperature:</strong> The enhancement automatically adjusts (0.3-0.5)</li>
+      <li class="info">📊 <strong>Max Tokens:</strong> Increased to 500 for detailed analysis</li>
+    </ul>
+  </div>
+
+  <div class="status">
+    <h3>🧪 Test the Enhancements</h3>
+    <button onclick="testEnhancements()">Run Test</button>
+    <button onclick="testImageQuality()">Test Image Quality Validator</button>
+    <button onclick="testPrompt()">View Enhanced Prompt</button>
+    <div id="testResults"></div>
+  </div>
+
+  <script src="facial-detection-enhancements.js"></script>
+  <script>
+    function testEnhancements() {
+      const results = document.getElementById('testResults');
+      results.innerHTML = '<p class="info">Testing enhancements...</p>';
+      
+      try {
+        // Check if enhancements are loaded
+        if(!window.FacialDetectionEnhancements) {
+          throw new Error('Enhancements not loaded! Make sure facial-detection-enhancements.js is included.');
+        }
+        
+        const tests = [];
+        
+        // Test each function exists
+        const functions = [
+          'enhancedDefaultPrompt',
+          'enhancedSanitizeDescriptor',
+          'validateImageQuality',
+          'enhanceImageForDetection',
+          'enhancedCallModel',
+          'analyzeWithConfidenceTracking',
+          'drawEnhancedCoordinate',
+          'drawAlignmentGuides',
+          'processBatchWithProgress',
+          'generateAnalysisReport'
+        ];
+        
+        functions.forEach(fn => {
+          if(typeof window.FacialDetectionEnhancements[fn] === 'function') {
+            tests.push(`<span class="success">✓ ${fn} loaded</span>`);
+          } else {
+            tests.push(`<span class="error">✗ ${fn} not found</span>`);
+          }
+        });
+        
+        // Test prompt generation
+        const prompt = window.FacialDetectionEnhancements.enhancedDefaultPrompt();
+        if(prompt && prompt.includes('precise facial landmark detector')) {
+          tests.push('<span class="success">✓ Enhanced prompt generates correctly</span>');
+        } else {
+          tests.push('<span class="error">✗ Prompt generation failed</span>');
+        }
+        
+        // Test sanitization
+        const testDescriptor = {
+          coords: {
+            leftEye: {x: 45.7, y: 48.3, confidence: 0.9},
+            rightEye: {x: 85.2, y: 49.1, confidence: 0.85},
+            mouth: {x: 65.5, y: 85.8, confidence: 0.75}
+          },
+          actions: {eyes: "looking forward", mouth: "neutral expression"}
+        };
+        
+        const sanitized = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
+          testDescriptor, 
+          (n, lo, hi) => Math.max(lo, Math.min(hi, n)),
+          (str, max) => str.split(' ').slice(0, max).join(' ')
+        );
+        
+        if(sanitized.descriptor.coords.leftEye.x === 45.7) {
+          tests.push('<span class="success">✓ Precision preserved for high confidence</span>');
+        } else {
+          tests.push('<span class="warning">⚠ Precision test unexpected result</span>');
+        }
+        
+        results.innerHTML = '<h4>Test Results:</h4>' + tests.join('<br>');
+        
+      } catch(err) {
+        results.innerHTML = `<p class="error">Test failed: ${err.message}</p>`;
+      }
+    }
+    
+    async function testImageQuality() {
+      const results = document.getElementById('testResults');
+      results.innerHTML = '<p class="info">Create a test image and check quality...</p>';
+      
+      try {
+        // Create a test canvas with varying brightness
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        
+        // Create gradient for test
+        const gradient = ctx.createLinearGradient(0, 0, 120, 120);
+        gradient.addColorStop(0, '#222');
+        gradient.addColorStop(1, '#ccc');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 120, 120);
+        
+        // Convert to blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve));
+        
+        // Test quality validation
+        const quality = await window.FacialDetectionEnhancements.validateImageQuality(blob);
+        
+        results.innerHTML = `
+          <h4>Image Quality Test:</h4>
+          <p>Valid: <span class="${quality.isValid ? 'success' : 'error'}">${quality.isValid}</span></p>
+          <p>Average Brightness: ${quality.avgBrightness.toFixed(1)}</p>
+          <p>Contrast: ${quality.contrast.toFixed(1)}</p>
+          <p class="info">Thresholds: Brightness 30-225, Contrast > 50</p>
+        `;
+        
+      } catch(err) {
+        results.innerHTML = `<p class="error">Quality test failed: ${err.message}</p>`;
+      }
+    }
+    
+    function testPrompt() {
+      const results = document.getElementById('testResults');
+      const prompt = window.FacialDetectionEnhancements.enhancedDefaultPrompt();
+      results.innerHTML = `
+        <h4>Enhanced Prompt:</h4>
+        <pre style="max-height: 400px; overflow-y: auto;">${prompt}</pre>
+        <p class="success">✓ This prompt provides detailed guidance for accurate facial landmark detection</p>
+      `;
+    }
+    
+    // Auto-run test on load
+    window.addEventListener('load', () => {
+      setTimeout(testEnhancements, 500);
+    });
+  </script>
+</body>
+</html>
