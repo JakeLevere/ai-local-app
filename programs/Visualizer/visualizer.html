@@ -204,7 +204,9 @@
       const promptHeader = `You are labeling frames for a portrait persona. For each image, return a compact JSON object with: mouthViseme (one of SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen 0..1, headYaw -30..30, headPitch -20..20, eyes(one of left,right,center,down,up), brow(neutral,up,down), mood(neutral,warm,angry,sad,excited), energy 0..1, note(<=12 words). Keep it terse.`;
       const payload = batch.map(b=>({ id:b.tempId, image:b.png, prompt: promptHeader }));
       const desc = await api.describeImages(payload);
-      out.push(...batch.map((b,ix)=>({ ...b, meta: desc[ix] })));
+      const lookup = {};
+      for (const result of desc) lookup[result.id] = result;
+      out.push(...batch.map(b => ({ ...b, meta: lookup[b.tempId] })));
       done += batch.length; $('counts').textContent=`frames:${frames.length}, saved:0, described:${done}`; setBar(30 + (done/frames.length)*40);
       await sleep(15);
     }
