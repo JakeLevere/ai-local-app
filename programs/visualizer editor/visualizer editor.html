@@ -2404,7 +2404,7 @@ Rules:
     const electronAPI = window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
     if(!electronAPI?.invoke) return null;
     try{
-      const b64 = await blobToBase64(imgBlob);
+      const b64 = await window.FacialDetectionEnhancements.blobToBase64(imgBlob);
       const batch = [{ id, image:`data:image/png;base64,${b64}` }];
       const res = await electronAPI.invoke('llm.describeImages', { batch });
       return res?.[0]?.desc || null;
@@ -2415,7 +2415,7 @@ Rules:
   }
 
   async function callModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk){
-    const b64 = await blobToBase64(imgBlob);
+    const b64 = await window.FacialDetectionEnhancements.blobToBase64(imgBlob);
     
     // Use provided chunk info or calculate fallback
     if(!chunkNumber) chunkNumber = Math.ceil(id/6);
@@ -2468,17 +2468,6 @@ Rules:
       const j = await res.json();
       return j.response || '';
     }
-  }
-
-  async function blobToBase64(blob){
-    const ab = await blob.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(ab);
-    const chunk=0x8000;
-    for(let i=0;i<bytes.length;i+=chunk){
-      binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
-    }
-    return btoa(binary);
   }
 
   async function listPngs(dirHandle){

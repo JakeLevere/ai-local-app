@@ -189,7 +189,7 @@ async function enhanceImageForDetection(imgBlob) {
 // ENHANCED MODEL CALLING WITH RETRY LOGIC
 // ============================================================================
 async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk, attemptNum = 0, config) {
-  const b64 = await blobToBase64(imgBlob);
+  const b64 = await window.FacialDetectionEnhancements.blobToBase64(imgBlob);
   
   // Use provided chunk info or calculate fallback
   if(!chunkNumber) chunkNumber = Math.ceil(id/6);
@@ -583,7 +583,7 @@ function generateAnalysisReport(results) {
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-async function blobToBase64(blob) {
+async function fdBlobToBase64(blob) {
   const ab = await blob.arrayBuffer();
   let binary = '';
   const bytes = new Uint8Array(ab);
@@ -761,7 +761,7 @@ window.FacialDetectionEnhancements = {
   drawAlignmentGuides,
   processBatchWithProgress,
   generateAnalysisReport,
-  blobToBase64,
+  blobToBase64: fdBlobToBase64,
   computeConsensusCoordinates,
   validateAndRefineCoordinates,
   autoCorrectDescriptor
