@@ -464,6 +464,9 @@
     <button id="toggleSidebarFooter" class="tab-btn" title="Hide/Show left panel">☰ Panel</button>
   </footer>
 
+  <!-- Load Face-API Coordinate Detection Module -->
+  <script src="face-api-coordinate-detection.js"></script>
+  
   <script>
   /* ==========================
      State & utilities
@@ -2056,11 +2059,11 @@ Rules:
   }
 
   async function analyzeOne(frame, maxRetries){
-    // Require enhanced analysis for accurate coordinates
-    if (!window.FacialDetectionEnhancements) {
-      console.error('[Analyze] Enhanced facial detection not loaded. Cannot proceed with analysis.');
-      alert('Enhanced facial detection module is required but not loaded. Please ensure facial-detection-enhancements.js is available.');
-      throw new Error('Enhanced facial detection module required');
+    // Check if face-api coordinate detection is available
+    if (!window.FaceAPICoordinateDetection) {
+      console.error('[Analyze] Face-API coordinate detection not loaded. Cannot proceed with analysis.');
+      alert('Face-API coordinate detection module is required but not loaded. Please ensure face-api-coordinate-detection.js is available.');
+      throw new Error('Face-API coordinate detection module required');
     }
     
     const id = frame.id;
@@ -2261,61 +2264,39 @@ Rules:
         imgBlob = await window.FacialDetectionEnhancements.enhanceImageForDetection(imgBlob);
       }
       
-      // Use the enhanced analysis function with confidence tracking
-      const analysisResult = await window.FacialDetectionEnhancements.analyzeWithConfidenceTracking(
-        {
-          id: id,
-          blob: imgBlob,
-          videoIndex: videoIndex,
-          chunkNumber: chunkNumber,
-          frameNumberInChunk: frameNumberInChunk
-        },
-        maxRetries || 2,
+      // Use hybrid analysis: face-api for coordinates, LLM for qualitative descriptions
+      const analysisResult = await window.FaceAPICoordinateDetection.performHybridAnalysis(
+        imgBlob,
+        id,
+        videoIndex,
+        chunkNumber,
+        frameNumberInChunk,
         {
           model: app.model,
           ollama: app.ollama,
-          promptText: window.FacialDetectionEnhancements.enhancedDefaultPrompt(), // Use enhanced prompt
           videoIndex: videoIndex
         }
       );
       
       if(!analysisResult.success) {
-        throw new Error('Enhanced analysis failed to produce valid results');
+        throw new Error('Hybrid analysis failed to produce valid results');
       }
       
-      const consensus = analysisResult.descriptor
+      // The hybrid analysis already provides the complete descriptor with coordinates and qualitative data
+      const finalDescriptor = analysisResult.descriptor;
       
-      // Apply enhanced validation and boundary checks
-      const validated = window.FacialDetectionEnhancements.validateAndRefineCoordinates(consensus, {
+      // Apply final validation and boundary checks
+      const validated = window.FacialDetectionEnhancements.validateAndRefineCoordinates(finalDescriptor, {
         imageWidth: 120,
         imageHeight: 120,
         enforceAnatomicalConstraints: true
       });
       
-      // Ensure proper metadata
-      validated.videoIndex = videoIndex;
-      validated.chunkNumber = chunkNumber;
-      validated.frameNumberInChunk = frameNumberInChunk;
-      validated.frameId = id;
-      
-      // Apply enhanced sanitization with precision preservation
+      // Apply final sanitization
       const sanitized = window.FacialDetectionEnhancements.enhancedSanitizeDescriptor(
         validated, clamp, wordClamp
       );
-
-      // Obtain qualitative description for this frame via LLM
-      try {
-        const q = await describeFrame(imgBlob, id);
-        if (q) {
-          sanitized.descriptor.mouthViseme = wordClamp(q.mouthViseme||'SIL',1);
-          sanitized.descriptor.mood = wordClamp(q.mood||'neutral',1);
-          sanitized.descriptor.energy = clamp(+q.energy||0,0,1);
-          sanitized.descriptor.note = wordClamp(q.note||'',12);
-        }
-      } catch(err) {
-        console.error(`[Analyze] Qualitative analysis failed for frame ${id}:`, err);
-      }
-
+      
       // Calculate overall confidence score
       const avgConfidence = analysisResult.confidence || ((
         sanitized.descriptor.coords.leftEye.confidence +

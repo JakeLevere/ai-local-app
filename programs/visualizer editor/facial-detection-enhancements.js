@@ -218,7 +218,7 @@ async function enhanceImageForDetection(imgBlob) {
 }
 
 // ============================================================================
-// ENHANCED MODEL CALLING WITH RETRY LOGIC
+// QUALITATIVE DESCRIPTION MODEL CALLING (LLM ONLY)
 // ============================================================================
 async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumberInChunk, attemptNum = 0, config) {
   const b64 = await window.FacialDetectionEnhancements.blobToBase64(imgBlob);
@@ -228,20 +228,26 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
   if(!frameNumberInChunk) frameNumberInChunk = ((id-1)%6)+1;
   if(!videoIndex) videoIndex = config.videoIndex;
 
-  const sys = config.promptText || enhancedDefaultPrompt();
+  // Use qualitative description prompt instead of coordinate detection
+  const sys = `You are analyzing facial expressions for qualitative descriptions. Given a 120x120 face crop, return ONLY a JSON object with these exact fields:
+{
+  "mouthViseme": "one of: SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S",
+  "mood": "one of: neutral,warm,angry,sad,excited,confused,determined",
+  "energy": "number between 0-1",
+  "note": "max 12 words describing the expression"
+}
+Focus on subtle facial expressions, micro-expressions, and emotional cues. Be precise and descriptive in your analysis.`;
   
   // Add additional context for retries
   const retryHint = attemptNum > 0 ? 
-    `\nThis is attempt ${attemptNum + 1}. Please be especially precise with coordinate detection. Look carefully for the exact center of pupils and the midpoint of lips.` : '';
+    `\nThis is attempt ${attemptNum + 1}. Please be especially attentive to subtle emotional cues and micro-expressions.` : '';
 
   if(config.model.kind === 'openai'){
     if(!config.model.key) throw new Error('Missing OpenAI key');
     const url = config.model.base.replace(/\/$/,'') + '/v1/chat/completions';
     
-    // Use better model and parameters for improved accuracy
-    // For coordinate detection, use GPT-4o for better precision, but allow GPT-5-mini if specifically selected
-    const modelName = config.model.name === 'gpt-5-mini' ? 'gpt-5-mini' : 
-                     (config.model.name.includes('mini') ? 'gpt-4o' : config.model.name);
+    // Use GPT-5-mini for qualitative descriptions
+    const modelName = config.model.name;
     
     const body = {
       model: modelName,
@@ -250,25 +256,22 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
         {role:'user', content:[
           {
             type:'text', 
-            text:`Analyze this facial image precisely. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}. 
-                  Carefully locate the exact center of each eye's pupil and the center point of the mouth. 
-                  Focus on precision - look for the darkest part of each eye (the pupil) and the midline of the lips.
-                  Pay attention to facial asymmetry and head orientation. If the face is turned, adjust coordinates accordingly.
-                  For eyes: find the center of the iris/pupil, not the corner of the eye.
-                  For mouth: find the center point between upper and lower lips, not the corners.
-                  Return ONLY JSON with accurate coordinates.`
+            text:`Analyze this facial expression for qualitative characteristics. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}. 
+                  Look for subtle cues like eyebrow position, eye openness, mouth shape, and overall emotional state. 
+                  Pay attention to micro-expressions and emotional nuances.
+                  Return ONLY JSON with qualitative descriptions.`
           },
           {type:'image_url', image_url:{url:`data:image/png;base64,${b64}`, detail: 'high'}}
         ]}
       ],
       temperature: 0.3 + (attemptNum * 0.1), // Slightly increase temperature on retries
-      max_tokens: 500, // Increased for more detailed analysis
+      max_tokens: 200, // Reduced for qualitative descriptions
       top_p: 0.95,
       frequency_penalty: 0,
       presence_penalty: 0
     };
     
-    console.log('[OpenAI Request] Frame', id, '- Attempt', attemptNum + 1);
+    console.log('[OpenAI Qualitative Request] Frame', id, '- Attempt', attemptNum + 1);
     
     const res = await fetch(url, {
       method:'POST',
@@ -290,7 +293,7 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
     return j.choices?.[0]?.message?.content || '';
     
   } else {
-    // Ollama implementation
+    // Ollama implementation for qualitative descriptions
     const host = config.ollama.host.replace(/\/$/,'');
     const prompt = sys + retryHint + `\nReturn ONLY JSON. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}.`;
     const body = { 
@@ -300,7 +303,7 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
       stream: false,
       options: {
         temperature: 0.3 + (attemptNum * 0.1),
-        num_predict: 500
+        num_predict: 200
       }
     };
     
@@ -317,10 +320,10 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
 }
 
 // ============================================================================
-// MULTI-PASS ANALYSIS WITH CONFIDENCE TRACKING
+// QUALITATIVE ANALYSIS WITH CONFIDENCE TRACKING (LLM ONLY)
 // ============================================================================
 async function analyzeWithConfidenceTracking(frame, maxRetries, config) {
-  let bestDescriptor = null;
+  let bestQualitativeDescriptor = null;
   let highestConfidence = 0;
   const attempts = [];
   
@@ -336,7 +339,7 @@ async function analyzeWithConfidenceTracking(frame, maxRetries, config) {
         imgBlob = await enhanceImageForDetection(imgBlob);
       }
       
-      // Call model with enhanced parameters
+      // Call LLM for qualitative descriptions only
       const raw = await enhancedCallModel(
         imgBlob, 
         frame.id, 
@@ -351,32 +354,28 @@ async function analyzeWithConfidenceTracking(frame, maxRetries, config) {
       const txt = (raw||'').replace(/^```\s*json|^```|```$/g,'').trim();
       const parsed = JSON.parse(txt);
       
-      // Calculate average confidence
-      const avgConfidence = (
-        parsed.coords.leftEye.confidence +
-        parsed.coords.rightEye.confidence +
-        parsed.coords.mouth.confidence
-      ) / 3;
+      // For qualitative analysis, confidence is based on response quality
+      const confidence = calculateQualitativeConfidence(parsed);
       
       attempts.push({
         attempt: attempt + 1,
-        confidence: avgConfidence,
+        confidence: confidence,
         descriptor: parsed
       });
       
       // Track best result
-      if(avgConfidence > highestConfidence) {
-        highestConfidence = avgConfidence;
-        bestDescriptor = parsed;
+      if(confidence > highestConfidence) {
+        highestConfidence = confidence;
+        bestQualitativeDescriptor = parsed;
       }
       
       // If we achieve high confidence, stop early
-      if(avgConfidence > 0.85) {
-        console.log(`[Analyze] Frame ${frame.id} achieved high confidence: ${avgConfidence.toFixed(2)} on attempt ${attempt + 1}`);
+      if(confidence > 0.8) {
+        console.log(`[Analyze] Frame ${frame.id} achieved high qualitative confidence: ${confidence.toFixed(2)} on attempt ${attempt + 1}`);
         return {
           success: true,
           descriptor: parsed,
-          confidence: avgConfidence,
+          confidence: confidence,
           attempts: attempts
         };
       }
@@ -387,11 +386,11 @@ async function analyzeWithConfidenceTracking(frame, maxRetries, config) {
   }
   
   // Return best result
-  if(bestDescriptor) {
-    console.log(`[Analyze] Frame ${frame.id} using best result with confidence: ${highestConfidence.toFixed(2)}`);
+  if(bestQualitativeDescriptor) {
+    console.log(`[Analyze] Frame ${frame.id} using best qualitative result with confidence: ${highestConfidence.toFixed(2)}`);
     return {
       success: true,
-      descriptor: bestDescriptor,
+      descriptor: bestQualitativeDescriptor,
       confidence: highestConfidence,
       attempts: attempts
     };
@@ -403,6 +402,34 @@ async function analyzeWithConfidenceTracking(frame, maxRetries, config) {
     confidence: 0,
     attempts: attempts
   };
+}
+
+// Calculate confidence for qualitative descriptions
+function calculateQualitativeConfidence(descriptor) {
+  let confidence = 0.5; // Base confidence
+  
+  // Check if all required fields are present
+  if(descriptor.mouthViseme && descriptor.mood && typeof descriptor.energy === 'number') {
+    confidence += 0.2;
+  }
+  
+  // Check if values are within expected ranges
+  if(descriptor.energy >= 0 && descriptor.energy <= 1) {
+    confidence += 0.1;
+  }
+  
+  // Check if note field is present and reasonable length
+  if(descriptor.note && descriptor.note.length > 0 && descriptor.note.length <= 100) {
+    confidence += 0.1;
+  }
+  
+  // Check for valid mouthViseme values
+  const validVisemes = ['SIL', 'BMP', 'FV', 'L', 'AA', 'AE', 'AO', 'IY', 'UW', 'TH', 'CH', 'R', 'N', 'S'];
+  if(validVisemes.includes(descriptor.mouthViseme)) {
+    confidence += 0.1;
+  }
+  
+  return Math.min(0.95, confidence);
 }
 
 // ============================================================================
@@ -846,7 +873,8 @@ window.FacialDetectionEnhancements = {
   computeConsensusCoordinates,
   validateAndRefineCoordinates,
   autoCorrectDescriptor,
-  calculateStandardDeviation
+  calculateStandardDeviation,
+  calculateQualitativeConfidence
 };
 
 console.log('[Facial Detection Enhancements] Module loaded successfully');
