@@ -170,6 +170,7 @@
         <h3>1️⃣ Model Configuration</h3>
         <label>AI Engine</label>
         <select id="modelSelect">
+          <option value="openai:gpt-5-mini">OpenAI — gpt-5-mini (Recommended)</option>
           <option value="openai:gpt-4o-mini">OpenAI — gpt-4o-mini</option>
           <option value="ollama:llava">Local — Ollama + LLaVA</option>
         </select>
@@ -484,7 +485,7 @@
     letterbox: true,
     curFrame: 1,
     curPoint: 'leftEye',
-    model: { kind:'openai', name:'gpt-4o-mini', base:'https://api.openai.com', key:'' },
+    model: { kind:'openai', name:'gpt-5-mini', base:'https://api.openai.com', key:'' },
     ollama: { host:'http://localhost:11434', model:'llava' },
     promptText: defaultPrompt(),
     promptHash: '(none)',
@@ -3362,7 +3363,7 @@ Rules:
     }
     
     // Load saved model configuration from localStorage
-    const savedModel = localStorage.getItem('modelSelect') || 'openai:gpt-4o-mini';
+    const savedModel = localStorage.getItem('modelSelect') || 'openai:gpt-5-mini';
     const savedKey = openAIKey || localStorage.getItem('openaiKey');
     const savedBase = localStorage.getItem('openaiBase');
     const savedOllamaHost = localStorage.getItem('ollamaHost');

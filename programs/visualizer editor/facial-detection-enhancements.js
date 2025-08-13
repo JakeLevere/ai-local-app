@@ -23,14 +23,16 @@ CRITICAL Rules for accurate detection:
 - The leftEye should be the pupil/iris center of the person's LEFT eye (viewer's right side)
 - The rightEye should be the pupil/iris center of the person's RIGHT eye (viewer's left side)
 - The mouth should be the center point between the upper and lower lips
-- Use high confidence (0.8-1.0) when features are clearly visible
-- Use medium confidence (0.5-0.7) when partially obscured
-- Use low confidence (0.2-0.4) when guessing position
+- Use high confidence (0.8-1.0) when features are clearly visible and well-lit
+- Use medium confidence (0.5-0.7) when partially obscured or in shadow
+- Use low confidence (0.2-0.4) when guessing position due to poor lighting or occlusion
 - For a typical forward-facing portrait:
   * Eyes are usually located at y: 35-55 (upper third of face)
   * Eyes are horizontally spaced at approximately x: 30-45 (left) and x: 75-90 (right)
   * Mouth is typically at y: 75-95 (lower third of face), x: 55-65 (center)
-- If the face is turned, adjust coordinates accordingly
+- If the face is turned, adjust coordinates accordingly - the turned eye will be more visible
+- Pay attention to lighting conditions - shadows can affect perceived feature positions
+- Look for the darkest part of the eye (pupil) and the most defined lip line
 - Output ONLY valid JSON, no markdown or extra text`;
 }
 
@@ -82,22 +84,52 @@ async function validateImageQuality(imgBlob) {
       let totalBrightness = 0;
       let minBrightness = 255;
       let maxBrightness = 0;
+      let edgePixels = 0;
+      let centerPixels = 0;
+      let centerBrightness = 0;
       
-      for(let i = 0; i < data.length; i += 4) {
-        const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
-        totalBrightness += brightness;
-        minBrightness = Math.min(minBrightness, brightness);
-        maxBrightness = Math.max(maxBrightness, brightness);
+      // Analyze center region (where face should be) vs edges
+      for(let y = 0; y < 120; y++) {
+        for(let x = 0; x < 120; x++) {
+          const i = (y * 120 + x) * 4;
+          const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+          totalBrightness += brightness;
+          minBrightness = Math.min(minBrightness, brightness);
+          maxBrightness = Math.max(maxBrightness, brightness);
+          
+          // Check if pixel is in center region (face area)
+          const inCenter = x >= 20 && x <= 100 && y >= 20 && y <= 100;
+          if(inCenter) {
+            centerPixels++;
+            centerBrightness += brightness;
+          } else {
+            edgePixels++;
+          }
+        }
       }
       
       const avgBrightness = totalBrightness / (data.length / 4);
       const contrast = maxBrightness - minBrightness;
+      const centerAvgBrightness = centerPixels > 0 ? centerBrightness / centerPixels : avgBrightness;
+      const brightnessRatio = centerAvgBrightness / avgBrightness;
+      
+      // Enhanced quality assessment
+      const isWellLit = avgBrightness > 40 && avgBrightness < 220;
+      const hasGoodContrast = contrast > 60;
+      const hasFaceLikeBrightness = brightnessRatio > 0.8 && brightnessRatio < 1.2; // Center should be similar to overall
+      const isNotTooDark = centerAvgBrightness > 30;
+      const isNotTooBright = centerAvgBrightness < 230;
+      
       URL.revokeObjectURL(url);
       
       resolve({
-        isValid: avgBrightness > 30 && avgBrightness < 225 && contrast > 50,
+        isValid: isWellLit && hasGoodContrast && hasFaceLikeBrightness && isNotTooDark && isNotTooBright,
         avgBrightness: avgBrightness,
-        contrast: contrast
+        contrast: contrast,
+        centerBrightness: centerAvgBrightness,
+        brightnessRatio: brightnessRatio,
+        qualityScore: (isWellLit ? 1 : 0) + (hasGoodContrast ? 1 : 0) + (hasFaceLikeBrightness ? 1 : 0) + (isNotTooDark ? 1 : 0) + (isNotTooBright ? 1 : 0)
+      });
       });
     };
     
@@ -148,7 +180,7 @@ async function enhanceImageForDetection(imgBlob) {
       }
       
       // Apply auto-levels and slight contrast boost
-      const scale = 255 / (highLevel - lowLevel);
+      const scale = 255 / Math.max(1, highLevel - lowLevel);
       for(let i = 0; i < data.length; i += 4) {
         // Apply levels adjustment
         data[i] = Math.max(0, Math.min(255, (data[i] - lowLevel) * scale));
@@ -207,7 +239,9 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
     const url = config.model.base.replace(/\/$/,'') + '/v1/chat/completions';
     
     // Use better model and parameters for improved accuracy
-    const modelName = config.model.name.includes('mini') ? 'gpt-4o' : config.model.name;
+    // For coordinate detection, use GPT-4o for better precision, but allow GPT-5-mini if specifically selected
+    const modelName = config.model.name === 'gpt-5-mini' ? 'gpt-5-mini' : 
+                     (config.model.name.includes('mini') ? 'gpt-4o' : config.model.name);
     
     const body = {
       model: modelName,
@@ -219,6 +253,9 @@ async function enhancedCallModel(imgBlob, id, videoIndex, chunkNumber, frameNumb
             text:`Analyze this facial image precisely. frameId=${id}, chunk=${chunkNumber}, inChunk=${frameNumberInChunk}. 
                   Carefully locate the exact center of each eye's pupil and the center point of the mouth. 
                   Focus on precision - look for the darkest part of each eye (the pupil) and the midline of the lips.
+                  Pay attention to facial asymmetry and head orientation. If the face is turned, adjust coordinates accordingly.
+                  For eyes: find the center of the iris/pupil, not the corner of the eye.
+                  For mouth: find the center point between upper and lower lips, not the corners.
                   Return ONLY JSON with accurate coordinates.`
           },
           {type:'image_url', image_url:{url:`data:image/png;base64,${b64}`, detail: 'high'}}
@@ -583,6 +620,14 @@ function generateAnalysisReport(results) {
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+function calculateStandardDeviation(values) {
+  if(values.length === 0) return 0;
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+  const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
 async function fdBlobToBase64(blob) {
   const ab = await blob.arrayBuffer();
   let binary = '';
@@ -611,10 +656,17 @@ function computeConsensusCoordinates(passes) {
     
     // Use median for robustness against outliers
     const medianIndex = Math.floor(xValues.length / 2);
+    
+    // Calculate confidence based on consistency across passes
+    const xStdDev = calculateStandardDeviation(xValues);
+    const yStdDev = calculateStandardDeviation(yValues);
+    const isConsistent = xStdDev < 10 && yStdDev < 10; // Low standard deviation indicates consistency
+    
     consensus.coords[point] = {
       x: xValues.length > 0 ? xValues[medianIndex] : 60,
       y: yValues.length > 0 ? yValues[medianIndex] : 60,
-      confidence: confValues.length > 0 ? confValues[medianIndex] : 0.5
+      confidence: confValues.length > 0 ? 
+        (isConsistent ? Math.min(0.95, confValues[medianIndex] * 1.1) : confValues[medianIndex] * 0.9) : 0.5
     };
   });
   
@@ -641,6 +693,21 @@ function validateAndRefineCoordinates(descriptor, options = {}) {
   if(!descriptor || !descriptor.coords) return descriptor;
   
   const refined = JSON.parse(JSON.stringify(descriptor)); // Deep clone
+  
+  // Check if face appears to be too small (indicating poor framing)
+  const eyeXDist = Math.abs(refined.coords.leftEye.x - refined.coords.rightEye.x);
+  const faceSize = eyeXDist * 2.5; // Approximate face width based on eye distance
+  const isFaceTooSmall = faceSize < 40; // Face should be at least 40px wide
+  
+  if(isFaceTooSmall) {
+    console.warn(`[Validate] Face appears too small (${faceSize.toFixed(1)}px), may need better framing`);
+    // Lower confidence for all points
+    ['leftEye', 'rightEye', 'mouth'].forEach(point => {
+      if(refined.coords[point]) {
+        refined.coords[point].confidence *= 0.6;
+      }
+    });
+
   
   // Ensure coordinates are within image bounds
   ['leftEye', 'rightEye', 'mouth'].forEach(point => {
@@ -694,6 +761,20 @@ function validateAndRefineCoordinates(descriptor, options = {}) {
     if(mouthXDiff > 20) {
       refined.coords.mouth.x = eyeCenterX;
       refined.coords.mouth.confidence *= 0.8;
+    }
+    
+    // Detect if face is turned too much (which can affect detection accuracy)
+    const eyeXDist = Math.abs(refined.coords.leftEye.x - refined.coords.rightEye.x);
+    const isFaceTurned = eyeXDist < 25; // Eyes too close together indicates face turned
+    
+    if(isFaceTurned) {
+      console.warn(`[Validate] Face appears to be turned (eye distance: ${eyeXDist.toFixed(1)}px), may affect detection accuracy`);
+      // Lower confidence for turned face
+      ['leftEye', 'rightEye', 'mouth'].forEach(point => {
+        if(refined.coords[point]) {
+          refined.coords[point].confidence *= 0.7;
+        }
+      });
     }
   }
   
@@ -764,7 +845,8 @@ window.FacialDetectionEnhancements = {
   blobToBase64: fdBlobToBase64,
   computeConsensusCoordinates,
   validateAndRefineCoordinates,
-  autoCorrectDescriptor
+  autoCorrectDescriptor,
+  calculateStandardDeviation
 };
 
 console.log('[Facial Detection Enhancements] Module loaded successfully');

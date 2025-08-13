@@ -862,7 +862,7 @@ function initialize(windowInstance, paths) {
     // LLM handler for describing images (used by visualizer editor)
     ipcMain.handle('llm.describeImages', async (event, { batch }) => {
         try {
-            console.log('[Visualizer] Describing', batch.length, 'images via GPT-4o-mini');
+            console.log('[Visualizer] Describing', batch.length, 'images via GPT-5-mini');
             await ensureAIService();
             
             // Import OpenAI directly for vision API
@@ -877,14 +877,14 @@ function initialize(windowInstance, paths) {
                     const messages = [
                         {
                             role: "system",
-                            content: "You are analyzing portrait frames for a virtual persona system. Analyze the facial features and return a JSON object with these exact fields: mouthViseme (one of: SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen (0-1), headYaw (-30 to 30), headPitch (-20 to 20), eyes (one of: left,right,center,down,up), brow (one of: neutral,up,down), mood (one of: neutral,warm,angry,sad,excited), energy (0-1), note (max 12 words describing the expression). Be precise and concise."
+                            content: "You are analyzing portrait frames for a virtual persona system. Analyze the facial features and return a JSON object with these exact fields: mouthViseme (one of: SIL,BMP,FV,L,AA,AE,AO,IY,UW,TH,CH,R,N,S), mouthOpen (0-1), headYaw (-30 to 30), headPitch (-20 to 20), eyes (one of: left,right,center,down,up), brow (one of: neutral,up,down), mood (one of: neutral,warm,angry,sad,excited), energy (0-1), note (max 12 words describing the expression). Focus on subtle facial expressions, micro-expressions, and emotional cues. Be precise and descriptive in your analysis."
                         },
                         {
                             role: "user",
                             content: [
                                 {
                                     type: "text",
-                                    text: item.prompt || "Analyze this facial expression and return the JSON object."
+                                    text: item.prompt || "Analyze this facial expression carefully. Look for subtle cues like eyebrow position, eye openness, mouth shape, and overall emotional state. Pay attention to micro-expressions and emotional nuances. Return the JSON object with precise values."
                                 },
                                 {
                                     type: "image_url",
@@ -900,7 +900,7 @@ function initialize(windowInstance, paths) {
                     console.log(`[Visualizer] Processing image ${item.id}...`);
                     
                     const response = await openai.chat.completions.create({
-                        model: "gpt-4o-mini", // Using mini model for cost efficiency
+                        model: "gpt-5-mini", // Using GPT-5-mini for better qualitative descriptions
                         messages: messages,
                         max_tokens: 150,
                         temperature: 0.3, // Lower temperature for more consistent output
