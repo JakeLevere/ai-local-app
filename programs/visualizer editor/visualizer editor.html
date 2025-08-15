@@ -96,6 +96,7 @@
     .step.active .num{background:var(--accent);border-color:var(--accent);color:#001020}
   .guide-hint{background:linear-gradient(135deg, #0b0f1e, #151938);border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;color:#cdd3ff;font-size:12px;box-shadow:0 2px 8px rgba(138,209,255,0.1)}
   </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
   <header>
@@ -199,7 +200,7 @@
       <div class="card">
         <h3>2️⃣ Analysis Prompt</h3>
         <label>Instructions for AI Model</label>
-        <textarea id="promptText" class="mono" placeholder="Instruction to model for coords/actions…"></textarea>
+        <textarea id="promptText" class="mono" placeholder="Instruction to model for actions only, no coordinates…">You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with actions description for eyes and mouth, using 5 words or fewer each, and do NOT include any coordinates or positioning data.</textarea>
         <div class="row">
           <button id="loadPromptFile">Load from file…</button>
           <button id="hashPrompt">Refresh hash</button>
@@ -329,19 +330,22 @@
             <div class="space"></div>
             <span class="muted" id="analyzeVideoInfo">No videos found</span>
           </div>
-          <div class="grid3">
-            <div>
-              <label>Concurrency</label>
-              <input id="concurrency" type="number" min="1" max="8" value="3" />
-            </div>
-            <div>
-              <label>Max retries / frame</label>
-              <input id="maxRetries" type="number" min="0" max="5" value="1" />
-            </div>
-            <div style="display:flex;align-items:flex-end">
-              <button id="startAnalyze" class="primary">Start Analysis</button>
-            </div>
-          </div>
+      <div class="grid3">
+        <div style="margin-bottom:12px; grid-column: span 3;">
+          <label><input id="testModeDisableFaceApi" type="checkbox" /> Test mode: Disable face-api</label>
+        </div>
+        <div>
+          <label>Concurrency</label>
+          <input id="concurrency" type="number" min="1" max="8" value="3" />
+        </div>
+        <div>
+          <label>Max retries / frame</label>
+          <input id="maxRetries" type="number" min="0" max="5" value="1" />
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button id="startAnalyze" class="primary">Start Analysis</button>
+        </div>
+      </div>
           <div class="bar" style="margin-top:10px"><i id="barAnalyze"></i></div>
           <div id="logAnalyze" class="log" style="margin-top:8px"></div>
           <div class="row" style="margin-top:6px">
@@ -442,6 +446,9 @@
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
+  // Track face-api model loading status
+  let faceApiModelsLoaded = false;
+
   const app = {
     outDirHandle: null, // File System Access API root
     policy: null,       // overwrite|append|skip
@@ -467,6 +474,9 @@
     videoIndex: 1, // Track which video number we're on
     storedVideoIndex: 1, // Preserve the initial loaded index from file
     globalChunks: [], // Master chunks array across all videos
+    faceApiReady: false,
+    faceApiLoadingMessageId: null,
+    faceDetectionStats: { successCount: 0, failureCount: 0 },
   };
 
   function defaultPrompt(){
@@ -486,7 +496,10 @@
 Rules:
 - Output ONLY JSON (no markdown, no prose, no code fences).
 - Clamp coords to image interior; if uncertain, set reasonable defaults and lower confidence.
-- Keep action strings at five words or fewer.`;
+- Keep action strings at five words or fewer.
+
+Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate or position data.
+`;
   }
 
   async function sha256(text){
@@ -1816,6 +1829,110 @@ Rules:
     }
   }
 
+  async function detectFaceCoordinates(blob){
+    if(!faceApiModelsLoaded) {
+      console.warn('Face API models not loaded');
+      return null;
+    }
+    try {
+      // Convert blob to HTMLImageElement
+      const img = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      // Run detection
+      const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+      if(!detection){
+        return null;
+      }
+
+      // Extract landmarks
+      const landmarks = detection.landmarks;
+      const points = landmarks.positions;
+
+      // Average eye landmark positions
+      function avgPoints(indices){
+        let x=0, y=0;
+        for(const i of indices){
+          x += points[i].x;
+          y += points[i].y;
+        }
+        return {x: x/indices.length, y: y/indices.length};
+      }
+
+      // Left eye: 36-41
+      const leftEyePos = avgPoints([36,37,38,39,40,41]);
+      // Right eye: 42-47
+      const rightEyePos = avgPoints([42,43,44,45,46,47]);
+      // Mouth: use center between 62 and 66 (center of the landmarks)
+      const mouthPos = avgPoints([62,63,64,65,66,67]);
+
+      // Normalize coordinates to 120x120 assuming input size
+      function normalize(value, max){
+        return Math.min(119, Math.max(0, Math.round(value * 120 / max)));
+      }
+
+      // face-api coordinates are relative to input image size
+      const width = img.width;
+      const height = img.height;
+
+      const leftEye = {x: normalize(leftEyePos.x, width), y: normalize(leftEyePos.y, height), confidence: detection.detection.score};
+      const rightEye = {x: normalize(rightEyePos.x, width), y: normalize(rightEyePos.y, height), confidence: detection.detection.score};
+      const mouth = {x: normalize(mouthPos.x, width), y: normalize(mouthPos.y, height), confidence: detection.detection.score};
+
+      return {leftEye, rightEye, mouth};
+    } catch(e) {
+      console.error('Error in detectFaceCoordinates:', e);
+      return null;
+    }
+  }
+
+  async function getLLMActions(imgBlob){
+    // Simplified prompt for actions only, no coords
+    const prompt = `Analyze the given 120x120 face image and return ONLY a JSON object with this structure:\n` +
+      `{ "actions": { "eyes": "<=5 words", "mouth": "<=5 words" } }\n` +
+      `Rules:\n- Only provide actions for eyes and mouth in 5 words or less.\n- Do NOT include any coordinates or positional data.\n- Output ONLY JSON.`;
+
+    // Prepare base64 of image
+    const b64 = await blobToBase64(imgBlob);
+
+    // Use OpenAI or Ollama
+    if(app.model.kind === 'openai') {
+      if(!app.model.key) throw new Error('Missing OpenAI key');
+      const url = app.model.base.replace(/\/$/, '') + '/v1/chat/completions';
+      const body = {
+        model: app.model.name,
+        messages: [
+          {role: 'system', content: prompt},
+          {role: 'user', content: [
+            {type: 'text', text: 'Return only action descriptions without coordinates.'},
+            {type: 'image_url', image_url: {url: `data:image/png;base64,${b64}`}}
+          ]}
+        ],
+        temperature: 0.2,
+        max_tokens: 150
+      };
+      const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + app.model.key}, body: JSON.stringify(body)});
+      if(!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenAI error ${res.status}: ${text}`);
+      }
+      const j = await res.json();
+      const txt = j.choices?.[0]?.message?.content || '';
+      return JSON.parse(txt);
+    } else {
+      const host = app.ollama.host.replace(/\/$/, '');
+      const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
+      const res = await fetch(host + '/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      if(!res.ok) throw new Error('Ollama error ' + res.status);
+      const j = await res.json();
+      return JSON.parse(j.response || '{}');
+    }
+  }
+
   async function startAnalysis(){
     const log = $('#logAnalyze'); log.textContent='';
     const bar = $('#barAnalyze'); bar.style.width='0%';
@@ -1950,28 +2067,121 @@ Rules:
     app.retryQueue = [];
     app.descriptors = new Map();
     app.stats.outOfBounds=0; app.stats.finalFailures=0;
+    app.faceDetectionStats = { successCount: 0, failureCount: 0 };
 
     let done=0; const t0=performance.now();
     $('#retryList').innerHTML='';
 
     const queue = [...frames];
 
+    // Run face detection synchronously on each frame (fast local)
+    for(const f of queue){
+      let coords = null;
+      if(window.testModeDisableFaceApi) {
+        coords = {
+          leftEye: {x: 60, y: 50, confidence: 0.3},
+          rightEye: {x: 90, y: 50, confidence: 0.3},
+          mouth: {x: 75, y: 85, confidence: 0.3}
+        };
+        app.faceDetectionStats.failureCount++;
+      } else {
+        coords = await detectFaceCoordinates(f.blob);
+        if(coords) app.faceDetectionStats.successCount++;
+        else {
+          app.faceDetectionStats.failureCount++;
+          coords = {
+          leftEye: {x: 60, y: 50, confidence: 0.3},
+          rightEye: {x: 90, y: 50, confidence: 0.3},
+          mouth: {x: 75, y: 85, confidence: 0.3}
+          };
+        }
+      }
+      f.faceApiCoords = coords; // Attach coordinates to frame
+    }
+
+    // LLM analysis runs concurrently with concurrency limit
+    let doneLLM = 0;
     async function worker(){
       while(queue.length){
         const f = queue.shift();
-        const ok = await analyzeOne(f, maxRetries);
-        done++;
-        bar.style.width=((done/frames.length)*100)+'%';
-        if(done%5===0) log.textContent = `Processed ${done}/${frames.length}`;
+        const coords = f.faceApiCoords;
+        let actions = null;
+        let success = false;
+        let attempt = 0;
+        while(attempt <= maxRetries && !success){
+          try {
+            const result = await getLLMActions(f.blob);
+            actions = result.actions || {eyes:'', mouth:''};
+            success = true;
+          } catch(e) {
+            attempt++;
+            if(attempt > maxRetries) {
+              app.retryQueue.push(f.id);
+              app.stats.finalFailures++;
+              addRetryItem(f.id, e.message||String(e));
+            } else {
+              await sleep(300);
+            }
+          }
+        }
+
+        // Merge face-api coordinates and LLM actions into descriptor
+        const frameKey = `Video${f.videoIndex || app.videoIndex}_Frame${f.id}`;
+        let chunkNumber = Math.ceil(f.id/6);
+        let frameNumberInChunk = ((f.id-1)%6)+1;
+        if(app.chunks && app.chunks.length > 0) {
+          for(const chunk of app.chunks) {
+            const frameIndex = chunk.frames.indexOf(frameKey);
+            if(frameIndex !== -1) {
+              chunkNumber = chunk.chunkNumber;
+              frameNumberInChunk = frameIndex + 1;
+              break;
+            }
+          }
+        }
+
+        const descriptor = {
+          frameId: f.id,
+          videoIndex: f.videoIndex || app.videoIndex,
+          chunkNumber,
+          frameNumberInChunk,
+          coords: coords,
+          actions: actions || {eyes: '', mouth: ''},
+          meta: {
+            src: f.name || frameKey + '.png',
+            w: 120,
+            h: 120,
+            model: 'dual face-api + llm'
+          }
+        };
+
+        const sanitized = sanitizeDescriptor(descriptor);
+        const validateErrs = validateDescriptor(sanitized);
+        if(validateErrs.length) {
+          app.stats.outOfBounds++;
+          console.warn('Descriptor validation errors:', validateErrs);
+        }
+
+        app.descriptors.set(f.id, sanitized);
+
+        doneLLM++;
+        bar.style.width = ((doneLLM / frames.length) * 100) + '%';
+
+        if(doneLLM % 5 === 0) {
+          log.textContent = `Processed ${doneLLM}/${frames.length}`;
+          log.textContent += `\nFace detection: Success ${app.faceDetectionStats.successCount}, Fail ${app.faceDetectionStats.failureCount}`;
+        }
       }
     }
 
-    await Promise.all(Array.from({length:conc}, worker));
-    const t1=performance.now();
-    app.stats.avgLatencyMs = Math.round((t1-t0)/Math.max(1,frames.length));
+    await Promise.all(Array.from({length: conc}, worker));
+    const t1 = performance.now();
+    app.stats.avgLatencyMs = Math.round((t1 - t0) / Math.max(1, frames.length));
 
     log.textContent += `\nOut-of-bounds corrections: ${app.stats.outOfBounds}`;
     log.textContent += `\nFinal failures: ${app.stats.finalFailures}`;
+    log.textContent += `\nFace detections successful: ${app.faceDetectionStats.successCount}`;
+    log.textContent += `\nFace detections failed: ${app.faceDetectionStats.failureCount}`;
 
     // Save all descriptors to shared directory with Video{N}_Frame{M} naming
     try {
@@ -1980,10 +2190,11 @@ Rules:
         const filename = `Video${videoIndex}_Frame${id}.json`;
         await writeJSON(`visualizer frames/descriptors/${filename}`, obj);
       }
-      console.log('[Visualizer] Saved all descriptors with Video_Frame naming');
+      console.log('[Visualizer] Saved all descriptors with dual system');
     } catch(err) {
       console.error('[Visualizer] Failed to save descriptors:', err);
     }
+
     updateCounts();
   }
 
@@ -2801,7 +3012,34 @@ Rules:
   }
   
   // Initialize on load
+  async function loadFaceApiModels() {
+    const loadingMessage = document.createElement('div');
+    loadingMessage.id = 'faceApiLoadingMessage';
+    loadingMessage.textContent = 'Loading face detection models...';
+    loadingMessage.style.color = '#8ad1ff';
+    loadingMessage.style.fontWeight = 'bold';
+    loadingMessage.style.margin = '10px 0';
+    const analyzeCard = document.querySelector('#tab-analyze .card');
+    if(analyzeCard) analyzeCard.prepend(loadingMessage);
+
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+      await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+      faceApiModelsLoaded = true;
+      app.faceApiReady = true;
+      loadingMessage.textContent = 'Face detection models loaded successfully';
+      setTimeout(() => {
+        loadingMessage.remove();
+      }, 3000);
+    } catch (e) {
+      loadingMessage.textContent = 'Error loading face detection models';
+      console.error(e);
+    }
+  }
+
   window.addEventListener('DOMContentLoaded', async () => {
+    await loadFaceApiModels();
+
     // Try to get OpenAI key - with retry after a delay if not immediately available
     let openAIKey = await tryGetOpenAIKey();
     
@@ -2851,6 +3089,23 @@ Rules:
     await loadAvailablePersonas();
     updateStepper();
   });
+  </script>
+  <script>
+    // Display selected LLM model name for Actions in Analyze tab
+    document.addEventListener('DOMContentLoaded', () => {
+      function updateModelName() {
+        const sel = document.getElementById('modelSelect');
+        const out = document.getElementById('selectedModelName');
+        if(!sel || !out) return;
+        if(sel.value.startsWith('openai:')) out.textContent = sel.value.split(':')[1];
+        else out.textContent = 'ollama llava';
+      }
+      const sel = document.getElementById('modelSelect');
+      if(sel) {
+        sel.addEventListener('change', updateModelName);
+        updateModelName();
+      }
+    });
   </script>
 </body>
 </html>
