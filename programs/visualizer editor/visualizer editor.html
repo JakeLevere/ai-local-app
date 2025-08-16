@@ -343,20 +343,13 @@
           <input id="maxRetries" type="number" min="0" max="5" value="1" />
         </div>
         <div style="display:flex;align-items:flex-end">
-          <button id="startAnalyze" class="primary">Start Analysis</button>
-        </div>
+        <button id="startAnalyze" class="primary">Start Analysis</button>
       </div>
-          <div class="bar" style="margin-top:10px"><i id="barAnalyze"></i></div>
-          <div id="logAnalyze" class="log" style="margin-top:8px"></div>
-          <div class="row" style="margin-top:6px">
-            <button id="validateSchema">Validate Schema…</button>
-            <div class="space"></div>
-            <button id="openNextFailed">Open next failed in Review</button>
-            <button id="retryAll">Retry All</button>
-          </div>
-          <div class="list" id="retryList" style="margin-top:8px"></div>
-        </div>
+      <div style="margin-top:8px; display:flex; gap:16px; font-size: 13px; color: var(--muted);">
+        <div id="faceDetectionProgress">Face Detection: Success 0, Fail 0</div>
+        <div id="llmAnalysisProgress">LLM Analysis: Success 0, Fail 0</div>
       </div>
+    </div>
 
       <!-- REVIEW TAB -->
       <div id="tab-review" class="hidden">
@@ -445,12 +438,14 @@
   const $ = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
+// Track face-api model loading status
+let faceApiModelsLoaded = false;
 
-  // Track face-api model loading status
-  let faceApiModelsLoaded = false;
 
+// Promise to track model loading completion
+let faceApiModelsReady = null;
+let resolveFaceApiModelsReady = null;
   const app = {
-    outDirHandle: null, // File System Access API root
     policy: null,       // overwrite|append|skip
     videoFile: null,
     rawFrames: [],      // {id, blob, name}
@@ -477,6 +472,7 @@
     faceApiReady: false,
     faceApiLoadingMessageId: null,
     faceDetectionStats: { successCount: 0, failureCount: 0 },
+    llmAnalysisStats: { successCount: 0, failureCount: 0 },
   };
 
   function defaultPrompt(){
@@ -1829,13 +1825,13 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
     }
   }
 
-  async function detectFaceCoordinates(blob){
-    if(!faceApiModelsLoaded) {
-      console.warn('Face API models not loaded');
+  async function detectFaceCoordinates(blob) {
+    if (!faceApiModelsLoaded) {
+      console.warn('Face API models not loaded, skipping face detection');
       return null;
     }
+    console.log('Face API models loaded, running face detection');
     try {
-      // Convert blob to HTMLImageElement
       const img = await createImageBitmap(blob);
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -1843,79 +1839,83 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Run detection
       const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-      if(!detection){
+
+      if (!detection) {
+        console.warn('No face detected in the frame');
         return null;
       }
 
-      // Extract landmarks
       const landmarks = detection.landmarks;
       const points = landmarks.positions;
 
-      // Average eye landmark positions
-      function avgPoints(indices){
-        let x=0, y=0;
-        for(const i of indices){
+      function avgPoints(indices) {
+        let x = 0, y = 0;
+        for (const i of indices) {
           x += points[i].x;
           y += points[i].y;
         }
-        return {x: x/indices.length, y: y/indices.length};
+        return { x: x / indices.length, y: y / indices.length };
       }
 
-      // Left eye: 36-41
-      const leftEyePos = avgPoints([36,37,38,39,40,41]);
-      // Right eye: 42-47
-      const rightEyePos = avgPoints([42,43,44,45,46,47]);
-      // Mouth: use center between 62 and 66 (center of the landmarks)
-      const mouthPos = avgPoints([62,63,64,65,66,67]);
+      const leftEyePos = avgPoints([36, 37, 38, 39, 40, 41]);
+      const rightEyePos = avgPoints([42, 43, 44, 45, 46, 47]);
+      const mouthPos = avgPoints([62, 63, 64, 65, 66, 67]);
 
-      // Normalize coordinates to 120x120 assuming input size
-      function normalize(value, max){
+      function normalize(value, max) {
         return Math.min(119, Math.max(0, Math.round(value * 120 / max)));
       }
 
-      // face-api coordinates are relative to input image size
       const width = img.width;
       const height = img.height;
 
-      const leftEye = {x: normalize(leftEyePos.x, width), y: normalize(leftEyePos.y, height), confidence: detection.detection.score};
-      const rightEye = {x: normalize(rightEyePos.x, width), y: normalize(rightEyePos.y, height), confidence: detection.detection.score};
-      const mouth = {x: normalize(mouthPos.x, width), y: normalize(mouthPos.y, height), confidence: detection.detection.score};
+      const leftEye = { x: normalize(leftEyePos.x, width), y: normalize(leftEyePos.y, height), confidence: detection.detection.score };
+      const rightEye = { x: normalize(rightEyePos.x, width), y: normalize(rightEyePos.y, height), confidence: detection.detection.score };
+      const mouth = { x: normalize(mouthPos.x, width), y: normalize(mouthPos.y, height), confidence: detection.detection.score };
 
-      return {leftEye, rightEye, mouth};
-    } catch(e) {
+      console.log(`Using face-api coordinates: leftEye(${leftEye.x},${leftEye.y}), rightEye(${rightEye.x},${rightEye.y}), mouth(${mouth.x},${mouth.y})`);
+
+      return { leftEye, rightEye, mouth };
+
+    } catch (e) {
       console.error('Error in detectFaceCoordinates:', e);
       return null;
     }
   }
 
-  async function getLLMActions(imgBlob){
-    // Simplified prompt for actions only, no coords
-    const prompt = `Analyze the given 120x120 face image and return ONLY a JSON object with this structure:\n` +
-      `{ "actions": { "eyes": "<=5 words", "mouth": "<=5 words" } }\n` +
-      `Rules:\n- Only provide actions for eyes and mouth in 5 words or less.\n- Do NOT include any coordinates or positional data.\n- Output ONLY JSON.`;
 
-    // Prepare base64 of image
+
+  async function getLLMActionsOnly(imgBlob){
+    // Simplified prompt for ONLY actions, no coords
+    const prompt = `You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with the following properties exactly:
+{ "eyes": "<= 5 words", "mouth": "<= 5 words" }
+Rules:
+- Do NOT include any coordinate or position data.
+- Actions must be briefly described in 5 words or fewer.
+- Output ONLY JSON, no markdown or extra text.`;
+
     const b64 = await blobToBase64(imgBlob);
 
-    // Use OpenAI or Ollama
     if(app.model.kind === 'openai') {
       if(!app.model.key) throw new Error('Missing OpenAI key');
       const url = app.model.base.replace(/\/$/, '') + '/v1/chat/completions';
       const body = {
         model: app.model.name,
         messages: [
-          {role: 'system', content: prompt},
-          {role: 'user', content: [
-            {type: 'text', text: 'Return only action descriptions without coordinates.'},
-            {type: 'image_url', image_url: {url: `data:image/png;base64,${b64}`}}
-          ]}
+          { role: 'system', content: prompt },
+          { role: 'user', content: [
+            { type: 'text', text: 'Return only eye and mouth action descriptions.' },
+            { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } }
+          ] }
         ],
         temperature: 0.2,
         max_tokens: 150
       };
-      const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + app.model.key}, body: JSON.stringify(body)});
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + app.model.key },
+        body: JSON.stringify(body)
+      });
       if(!res.ok) {
         const text = await res.text();
         throw new Error(`OpenAI error ${res.status}: ${text}`);
@@ -1926,14 +1926,17 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
     } else {
       const host = app.ollama.host.replace(/\/$/, '');
       const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
-      const res = await fetch(host + '/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      const res = await fetch(host + '/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
       if(!res.ok) throw new Error('Ollama error ' + res.status);
       const j = await res.json();
       return JSON.parse(j.response || '{}');
     }
   }
 
-  async function startAnalysis(){
     const log = $('#logAnalyze'); log.textContent='';
     const bar = $('#barAnalyze'); bar.style.width='0%';
     const conc = Math.max(1, Math.min(8, +$('#concurrency').value||3));
@@ -2052,17 +2055,14 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
     if(selectedVideo !== 'all') {
       const videoIndex = parseInt(selectedVideo, 10);
       frames = frames.filter(f => f.videoIndex === videoIndex);
-      log.textContent = `Analyzing Video ${videoIndex} (${frames.length} frames)\n`;
-    } else {
-      log.textContent = `Analyzing all videos (${frames.length} total frames)\n`;
     }
     
+    frames.sort((a,b)=>a.id-b.id);
+
     if(frames.length === 0) {
       alert('No frames found for the selected video');
       return;
     }
-    
-    frames.sort((a,b)=>a.id-b.id);
 
     app.retryQueue = [];
     app.descriptors = new Map();
@@ -2075,29 +2075,161 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
     const queue = [...frames];
 
     // Run face detection synchronously on each frame (fast local)
-    for(const f of queue){
-      let coords = null;
-      if(window.testModeDisableFaceApi) {
-        coords = {
-          leftEye: {x: 60, y: 50, confidence: 0.3},
-          rightEye: {x: 90, y: 50, confidence: 0.3},
-          mouth: {x: 75, y: 85, confidence: 0.3}
-        };
-        app.faceDetectionStats.failureCount++;
-      } else {
-        coords = await detectFaceCoordinates(f.blob);
-        if(coords) app.faceDetectionStats.successCount++;
-        else {
-          app.faceDetectionStats.failureCount++;
-          coords = {
-          leftEye: {x: 60, y: 50, confidence: 0.3},
-          rightEye: {x: 90, y: 50, confidence: 0.3},
-          mouth: {x: 75, y: 85, confidence: 0.3}
-          };
+    for (const f of frames) {
+      try {
+        let imgBlob = f.blob;
+
+        // Load blob from file systems if needed
+        if (!imgBlob && app.outDirHandle) {
+          try {
+            imgBlob = await blobFromDir(app.outDirHandle, "proc120", f.name);
+          } catch { }
         }
+        if (!imgBlob && app.autoSelectedDir) {
+          const electronAPI =
+            window.electronAPI || window.parent?.electronAPI || window.top?.electronAPI;
+          if (electronAPI?.readFile) {
+            try {
+              const filePath = `${app.personaPath}\\visualizer frames\\proc120\\${f.name}`;
+              const buffer = await electronAPI.readFile(filePath);
+              imgBlob = new Blob([buffer], { type: "image/png" });
+            } catch { }
+          }
+        }
+        if (!imgBlob && app.procFrames.length > 0) {
+          const memFrame = app.procFrames.find((fr) => fr.id === f.id);
+          if (memFrame && memFrame.blob) imgBlob = memFrame.blob;
+        }
+        if (!imgBlob) throw new Error(`No blob available for frame ${f.id}`);
+
+        // Face detection
+        let coords = null;
+        if (window.testModeDisableFaceApi) {
+          coords = {
+            leftEye: { x: 60, y: 50, confidence: 0.3 },
+            rightEye: { x: 90, y: 50, confidence: 0.3 },
+            mouth: { x: 75, y: 85, confidence: 0.3 },
+          };
+          app.faceDetectionStats.failureCount++;
+        } else {
+          coords = await detectFaceCoordinates(imgBlob);
+          if (coords) app.faceDetectionStats.successCount++;
+          else {
+            app.faceDetectionStats.failureCount++;
+            if(done > 0) {
+              const prevDesc = app.descriptors.get(f.id - 1);
+              if(prevDesc) {
+                coords = prevDesc.coords;
+                console.log(`Face coords fallback from previous frame ${f.id - 1}`);
+              } else {
+                coords = {
+                  leftEye: { x: 60, y: 50, confidence: 0.3 },
+                  rightEye: { x: 90, y: 50, confidence: 0.3 },
+                  mouth: { x: 75, y: 85, confidence: 0.3 },
+                };
+                console.log('Face coords fallback to default for first frame');
+              }
+            } else {
+              coords = {
+                leftEye: { x: 60, y: 50, confidence: 0.3 },
+                rightEye: { x: 90, y: 50, confidence: 0.3 },
+                mouth: { x: 75, y: 85, confidence: 0.3 },
+              };
+              console.log('Face coords fallback to default for first frame');
+            }
+            if (done > 0) {
+              const prevDesc = app.descriptors.get(f.id - 1);
+              if (prevDesc) {
+                coords = prevDesc.coords;
+                console.log(`Face coords fallback from previous frame ${f.id - 1}`);
+              } else {
+                coords = {
+                  leftEye: { x: 60, y: 50, confidence: 0.3 },
+                  rightEye: { x: 90, y: 50, confidence: 0.3 },
+                  mouth: { x: 75, y: 85, confidence: 0.3 },
+                };
+                console.log('Face coords fallback to default for first frame');
+              }
+            } else {
+              coords = {
+                leftEye: { x: 60, y: 50, confidence: 0.3 },
+                rightEye: { x: 90, y: 50, confidence: 0.3 },
+                mouth: { x: 75, y: 85, confidence: 0.3 },
+              };
+              console.log('Face coords fallback to default for first frame');
+            }
+          }
+        }
+
+        // LLM actions only
+        let actions = null;
+        let attempts = 0;
+        const maxRetries = Math.max(0, Math.min(5, +$("#maxRetries").value || 1));
+        while (attempts <= maxRetries) {
+          try {
+            const result = await getLLMActionsOnly(imgBlob);
+            actions = result || { eyes: "", mouth: "" };
+            break;
+          } catch (e) {
+            attempts++;
+            if (attempts > maxRetries) {
+              app.retryQueue.push(f.id);
+              app.stats.finalFailures++;
+              addRetryItem(f.id, e.message || String(e));
+
+              if(done > 0) {
+                const prevDesc = app.descriptors.get(f.id - 1);
+                if(prevDesc) {
+                  actions = prevDesc.actions;
+                  console.log(`LLM actions fallback from previous frame ${f.id - 1}`);
+                } else {
+                  actions = { eyes: '', mouth: '' };
+                  console.log('LLM actions fallback to default for first frame');
+                }
+              } else {
+                actions = { eyes: '', mouth: '' };
+                console.log('LLM actions fallback to default for first frame');
+              }
+            } else {
+              await sleep(300);
+            }
+          }
+        }
+
+        const descriptor = assembleCompleteDescriptor(
+          { id: f.id, videoIndex: f.videoIndex || app.videoIndex },
+          coords,
+          actions
+        );
+
+        const errs = validateDescriptor(descriptor);
+        if (errs.length) {
+          app.stats.outOfBounds++;
+          console.warn("Descriptor validation errors:", errs);
+        }
+
+        app.descriptors.set(f.id, descriptor);
+
+        done++;
+        bar.style.width = ((done / frames.length) * 100) + "%";
+
+          if (done % 5 === 0) {
+            log.textContent = `Processed ${done}/${frames.length}`;
+            log.textContent += `\nFace detection: Success ${app.faceDetectionStats.successCount}, Fail ${app.faceDetectionStats.failureCount}`;
+            log.textContent += `\nLLM analysis failures: ${app.stats.finalFailures}`;
+
+            // Update progress display
+            $('#faceDetectionProgress').textContent = `Face Detection: Success ${app.faceDetectionStats.successCount}, Fail ${app.faceDetectionStats.failureCount}`;
+            $('#llmAnalysisProgress').textContent = `LLM Analysis: Success ${done - app.stats.finalFailures}, Fail ${app.stats.finalFailures}`;
+          }
+      } catch (e) {
+        console.error("Error analyzing frame", f.id, e);
+        app.retryQueue.push(f.id);
+        app.stats.finalFailures++;
+        addRetryItem(f.id, e.message || String(e));
       }
-      f.faceApiCoords = coords; // Attach coordinates to frame
     }
+
 
     // LLM analysis runs concurrently with concurrency limit
     let doneLLM = 0;
@@ -2115,15 +2247,30 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
             success = true;
           } catch(e) {
             attempt++;
-            if(attempt > maxRetries) {
-              app.retryQueue.push(f.id);
-              app.stats.finalFailures++;
-              addRetryItem(f.id, e.message||String(e));
+        if (attempt > maxRetries) {
+          app.retryQueue.push(f.id);
+          app.stats.finalFailures++;
+          addRetryItem(f.id, e.message || String(e));
+
+          // Fallback: repeat previous frame's actions
+          if(done > 0) {
+            const prevDesc = app.descriptors.get(f.id - 1);
+            if(prevDesc) {
+              actions = prevDesc.actions;
+              console.log(`LLM actions fallback from previous frame ${f.id - 1}`);
             } else {
-              await sleep(300);
+              actions = {eyes:'', mouth:''};
+              console.log('LLM actions fallback to default for first frame');
             }
+          } else {
+            actions = {eyes:'', mouth:''};
+            console.log('LLM actions fallback to default for first frame');
           }
+        } else {
+          await sleep(300);
         }
+      }
+    }
 
         // Merge face-api coordinates and LLM actions into descriptor
         const frameKey = `Video${f.videoIndex || app.videoIndex}_Frame${f.id}`;
@@ -2139,6 +2286,10 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
             }
           }
         }
+
+        // Use face-api coords exclusively
+        coords = f.faceApiCoords;
+        console.log(`Using face-api coordinates: leftEye(${coords.leftEye.x},${coords.leftEye.y}), rightEye(${coords.rightEye.x},${coords.rightEye.y}), mouth(${coords.mouth.x},${coords.mouth.y})`);
 
         const descriptor = {
           frameId: f.id,
@@ -2189,6 +2340,21 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
         const videoIndex = obj.videoIndex || app.videoIndex;
         const filename = `Video${videoIndex}_Frame${id}.json`;
         await writeJSON(`visualizer frames/descriptors/${filename}`, obj);
+
+        // Verify save by reading and validating
+        try {
+          const file = await blobFromDir(app.outDirHandle || {getFileHandle: () => null}, 'visualizer frames/descriptors', filename);
+          if(!file) console.warn(`Could not find saved file for ${filename}`);
+          else {
+            const text = await file.text();
+            const json = JSON.parse(text);
+            const errs = validateDescriptor(json);
+            if(errs.length) console.warn(`Validation errors on saved file ${filename}:`, errs);
+            else console.log(`Verified descriptor ${filename} saved correctly.`);
+          }
+        } catch(e){
+          console.warn(`Error verifying saved file ${filename}: ${e.message}`);
+        }
       }
       console.log('[Visualizer] Saved all descriptors with dual system');
     } catch(err) {
@@ -2196,7 +2362,7 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
     }
 
     updateCounts();
-  }
+  
 
   async function analyzeOne(frame, maxRetries){
     const id = frame.id;
@@ -3024,18 +3190,23 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
 
     try {
       await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+      console.log('TinyFaceDetector model loaded.');
       await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+      console.log('FaceLandmark68Net model loaded.');
       faceApiModelsLoaded = true;
       app.faceApiReady = true;
+      console.log('Face-API models loaded successfully.');
       loadingMessage.textContent = 'Face detection models loaded successfully';
       setTimeout(() => {
         loadingMessage.remove();
       }, 3000);
+
     } catch (e) {
       loadingMessage.textContent = 'Error loading face detection models';
-      console.error(e);
+      console.error('Error loading face-api models:', e);
     }
   }
+
 
   window.addEventListener('DOMContentLoaded', async () => {
     await loadFaceApiModels();
@@ -3106,6 +3277,187 @@ Note: For this version, ANALYSIS IS ACTIONS ONLY - do NOT return any coordinate 
         updateModelName();
       }
     });
-  </script>
+
+// New function for Step 4: getLLMActionsOnly
+async function getLLMActionsOnly(imgBlob) {
+  // Prompt for eye and mouth actions only, no coordinates
+  const prompt = `You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with properties exactly:
+{
+  "eyes": "<= 5 words",
+  "mouth": "<= 5 words"
+}
+Rules:
+- Do NOT include any coordinates or positioning data.
+- Actions must be described briefly with 5 words or less.
+- Output ONLY JSON, no markdown or extra text.`;
+
+  const b64 = await blobToBase64(imgBlob);
+
+  if(app.model.kind === 'openai') {
+    if(!app.model.key) throw new Error('Missing OpenAI key');
+    const url = app.model.base.replace(/\/$/, '') + '/v1/chat/completions';
+    const body = {
+      model: app.model.name,
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: [
+          { type: 'text', text: 'Return only eye and mouth action descriptions.' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } }
+        ] }
+      ],
+      temperature: 0.2,
+      max_tokens: 150
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + app.model.key },
+      body: JSON.stringify(body)
+    });
+
+    if(!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenAI error ${res.status}: ${text}`);
+    }
+
+    const j = await res.json();
+    const txt = j.choices?.[0]?.message?.content || '';
+    return JSON.parse(txt);
+  } else {
+    const host = app.ollama.host.replace(/\/$/, '');
+    const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
+    const res = await fetch(host + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error('Ollama error ' + res.status);
+    const j = await res.json();
+    return JSON.parse(j.response || '{}');
+    }
+  }
+
+
+// New function for Step 4: getLLMActionsOnly
+async function getLLMActionsOnly(imgBlob) {
+  // Prompt for eye and mouth actions only, no coordinates
+  const prompt = `You are a strict JSON generator. Given a 120x120 face crop, return ONLY a JSON object with properties exactly:
+{
+  "eyes": "<= 5 words",
+  "mouth": "<= 5 words"
+}
+Rules:
+- Do NOT include any coordinates or positioning data.
+- Actions must be described briefly with 5 words or less.
+- Output ONLY JSON, no markdown or extra text.`;
+
+  const b64 = await blobToBase64(imgBlob);
+
+  if(app.model.kind === 'openai') {
+    if(!app.model.key) throw new Error('Missing OpenAI key');
+    const url = app.model.base.replace(/\/$/, '') + '/v1/chat/completions';
+    const body = {
+      model: app.model.name,
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: [
+          { type: 'text', text: 'Return only eye and mouth action descriptions.' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } }
+        ] }
+      ],
+      temperature: 0.2,
+      max_tokens: 150
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + app.model.key },
+      body: JSON.stringify(body)
+    });
+
+    if(!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenAI error ${res.status}: ${text}`);
+    }
+
+    const j = await res.json();
+    const txt = j.choices?.[0]?.message?.content || '';
+    return JSON.parse(txt);
+  } else {
+    const host = app.ollama.host.replace(/\/$/, '');
+    const body = { model: app.ollama.model, prompt, images: [b64], stream: false };
+    const res = await fetch(host + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error('Ollama error ' + res.status);
+    const j = await res.json();
+    return JSON.parse(j.response || '{}');
+  }
+}
+
+
+// Close of script
+
+
+// Step 5: Assemble complete descriptor from parts
+function assembleCompleteDescriptor(frameMeta, faceApiCoords, llmActions) {
+  const { id, videoIndex } = frameMeta;
+  const frameKey = `Video${videoIndex || app.videoIndex}_Frame${id}`;
+  let chunkNumber = Math.ceil(id / 6);
+  let frameNumberInChunk = ((id - 1) % 6) + 1;
+
+  if (app.chunks && app.chunks.length > 0) {
+    for (const chunk of app.chunks) {
+      const frameIndex = chunk.frames.indexOf(frameKey);
+      if (frameIndex !== -1) {
+        chunkNumber = chunk.chunkNumber;
+        frameNumberInChunk = frameIndex + 1;
+        break;
+      }
+    }
+  }
+
+  const descriptor = {
+    frameId: id,
+    videoIndex: videoIndex || app.videoIndex,
+    chunkNumber: chunkNumber,
+    frameNumberInChunk: frameNumberInChunk,
+    coords: faceApiCoords || {
+      leftEye: { x: 0, y: 0, confidence: 0 },
+      rightEye: { x: 0, y: 0, confidence: 0 },
+      mouth: { x: 0, y: 0, confidence: 0 },
+    },
+    actions: llmActions || { eyes: '', mouth: '' },
+    meta: {
+      src: frameKey + '.png',
+      w: 120,
+      h: 120,
+      model: app.model.kind === 'openai' ? 'openai' : 'ollama'
+    }
+  };
+
+  return sanitizeDescriptor(descriptor);
+}
+
+// Test function for assembleCompleteDescriptor
+(async ()=>{
+  const testFrameMeta = { id: 5, videoIndex: 1 };
+  const testCoords = {
+    leftEye: { x: 60, y: 50, confidence: 0.9 },
+    rightEye: { x: 70, y: 50, confidence: 0.8 },
+    mouth: { x: 65, y: 80, confidence: 0.7 }
+  };
+  const testActions = { eyes: 'blink', mouth: 'smile' };
+  const desc = assembleCompleteDescriptor(testFrameMeta, testCoords, testActions);
+  const errs = validateDescriptor(desc);
+  console.log('Test descriptor:', desc);
+  console.log('Validation errors:', errs);
+  if(errs.length === 0) console.log('Descriptor passes validation');
+  else console.error('Descriptor validation failed');
+})();
+
+</script>
 </body>
 </html>
